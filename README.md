@@ -9,7 +9,7 @@ It is tempting to think of `int`, for example, as if it were an actual mathemati
 * `Floating Point Exception`s which aren't `Exception`s and have nothing to do with floating point
 * Formally "undefined behaviour" with some inputs for various operations
 
-This `checkedint` module provides alternative operations and types that protect the user from most difficulties of this sort, while maintaining excellent performance (provided that inlining and optimizations are enabled).
+This `checkedint` module provides alternative operations and types that protect the user from most difficulties of this sort, while maintaining good performance (provided that inlining and optimizations are enabled).
 
 The main downsides to using `checkedint` are:
 
@@ -17,3 +17,9 @@ The main downsides to using `checkedint` are:
 * Slower compilation and larger binaries.
 
 I plan to add more detailed information here, as well as extensive inline documentation to the code itself, very soon.
+
+## Installation
+
+**WARNING:** `checkedint` triggers a serious codegen bug in DMD. Until [issue 15573](https://issues.dlang.org/show_bug.cgi?id=15573) is fixed, for doing anything important with `checkedint` you **MUST** use LDC or GDC.
+
+This module is available as a DUB package: http://code.dlang.org/packages/checkedint
