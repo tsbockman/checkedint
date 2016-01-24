@@ -1,0 +1,14 @@
+{
+  "name": "tests",
+  "description": "Exhaustive tests for the checkedint package. Verifies correctness and measures performance.",
+  "copyright": "Copyright © 2015, Thomas Stuart Bockman",
+  "authors": ["Thomas Stuart Bockman"],
+  "license": "BSL-1.0",
+
+  "targetType": "executable",
+  "buildOptions": ["ignoreUnknownPragmas"],
+  "mainSourceFile": "source/package.d",
+  "dependencies": {
+    "checkedint": "*"
+  }
+}

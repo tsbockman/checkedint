@@ -1,0 +1,13 @@
+{
+  "name": "checkedint",
+  "description": "Checked integer math types and operations.",
+  "copyright": "Copyright © 2015, Thomas Stuart Bockman",
+  "authors": ["Thomas Stuart Bockman"],
+  "license": "BSL-1.0",
+
+  "targetType": "library",
+  "buildOptions": ["ignoreUnknownPragmas"],
+  "subPackages": [
+    "./tests/"
+  ]
+}
