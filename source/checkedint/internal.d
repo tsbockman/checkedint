@@ -7,12 +7,14 @@ Authors: Thomas Stuart Bockman
 module checkedint.internal;
 import checkedint.flags;
 
-import core.bitop, core.checkedint, std.algorithm, std.conv, future.traits;
+import future.bitop, core.checkedint, std.algorithm, std.conv, future.traits;
 static import std.math;
 
 @safe:
 
-private template trueMax(N)
+private:
+
+template trueMax(N)
     if(isScalarType!N)
 {
     static if(isSomeChar!N)
@@ -162,60 +164,58 @@ template NumFromScal(N)
     }
 /+}+/
 
-/+pragma(inline, false)+/ // reduce template bloat
-W powImpl(W)(const W base, bool lezE, ulong exp, ref IntFlag flag) pure nothrow @nogc
-    if(is(W == int) || is(W == uint) || is(W == long) || is(W == ulong))
+
+//pragma(inline, false) // Minimize template bloat by using a common pow() implementation
+B powImpl(B, E)(const B base, const E exp, ref IntFlag flag)
+    if((is(B == int) || is(B == uint) || is(B == long) || is(B == ulong)) &&
+        (is(E == long) || is(E == ulong)))
 {
-    alias cmul = Select!(isSigned!W, muls, mulu);
+    static if(isSigned!B) {
+        alias cmul = muls;
+        const smallB = (1 >= base && base >= -1);
+    } else {
+        alias cmul = mulu;
+        const smallB = (base <= 1);
+    }
 
-    const absB = unsigned(std.math.abs(base));
+    if(smallB) {
+        if(base == 0) {
+            static if(isSigned!E) {
+                if(exp < 0)
+                    flag = IntFlag.div0;
+            }
 
-    if(lezE) {
-        if(exp == 0)
-            return 1;
-
-        if(absB <= 1) {
-            if(absB == 0)
-                flag = IntFlag.div0;
-            else
-                goto LAbsB1;
+            return (exp == 0);
         }
 
-        return 0;
+        return (exp & 0x1)? base : 1;
     }
-    if(absB <= 1) {
-        if(absB == 0)
-            return 0;
+    if(exp <= 0)
+        return (exp == 0);
 
-    LAbsB1:
-        return (base < 0 && (exp & 0x1))?
-            -1 :
-             1;
-    }
-
-    /* TODO: Optimize to minimize use of 64-bit ops.
-       TODO: Use a shift if the base is a power of two? */
-
-    W ret = 1,
-        b = base;
-    ulong e = exp;
-    if(e & 0x1)
-        ret = b;
-    e >>>= 1;
-
-    bool over = false;
-    while(e != 0) {
-        b = cmul(b, b, over);
+    B ret = 1;
+    if(exp <= precision!B) {
+        B b = base;
+        int e = cast(int)exp;
         if(e & 0x1)
-            ret = cmul(ret, b, over);
-
+            ret = b;
         e >>>= 1;
+
+        bool over = false;
+        while(e != 0) {
+            b = cmul(b, b, over);
+            if(e & 0x1)
+                ret = cmul(ret, b, over);
+
+            e >>>= 1;
+        }
+
+        if(!over)
+            return ret;
     }
 
-    if(over) {
-        flag = (base < 0 && (exp & 0x1))?
-            IntFlag.negOver :
-            IntFlag.posOver;
-    }
+    flag = (base < 0 && (exp & 0x1))?
+        IntFlag.negOver :
+        IntFlag.posOver;
     return ret;
 }

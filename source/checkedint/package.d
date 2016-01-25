@@ -328,7 +328,7 @@ public import smartOp = checkedint.smartop;
                 return this;
             }
 
-            SafeInt!(CallType!(std.math.pow, N, BasicScalar!M), throws || isThrowingCInt!M) pow(M)(const M exp) const
+            SafeInt!(CallType!(std.math.pow, N, BasicScalar!M), bitOps && hasBitOps!M, throws || isThrowingCInt!M) pow(M)(const M exp) const
                 if(isSafeInt!M || isFixedPoint!M)
             {
                 return typeof(return)(safeOp.pow!(throws || isThrowingCInt!M)(this.bscal, exp.bscal));

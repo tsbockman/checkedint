@@ -143,7 +143,7 @@ struct IntFlags {
 IntFlags outerIntFlags = IntFlags.local;
 scope(exit) {
     assert(IntFlags.local.empty);
-    IntFlags.local = outer;
+    IntFlags.local = outerIntFlags;
 }";
     }
     public {

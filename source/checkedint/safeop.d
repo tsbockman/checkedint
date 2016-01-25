@@ -307,15 +307,13 @@ CallType!(std.math.pow, N, M) pow(bool throws, N, M)(const N base, const M exp)
     );
 
     IntFlag flag;
-    const ret = powImpl!R(base, exp <= 0, exp, flag);
-    if(exp < 0) {
-        /* std.math.pow fails catastrophically for negative exponents, even when the (rounded) result
-           is mathematically expressible as an integer. */
+    const ret = powImpl!(R, Select!(isSigned!M, long, ulong))(base, exp, flag);
+    static assert(is(typeof(ret) == const(R)));
+    if(exp < 0)
         flag = IntFlag.undef;
-    }
-    if(! flag.isNull)
-        flag.raise!throws();
 
+    if(!flag.isNull)
+        flag.raise!throws();
     return ret;
 }
 CallType!(std.math.pow, N, M) pow(N, M)(const N base, const M exp) pure

@@ -30,6 +30,15 @@ static if(__VERSION__ < 2071)
             }
         }
     }
+    private auto split64(ulong x) pure {
+        if(__ctfe) {
+            Split64 ret = void;
+            ret.lo = cast(uint)x;
+            ret.hi = cast(uint)(x >>> 32);
+            return ret;
+        } else
+            return Split64(x);
+    }
 
     int bsf(size_t v) pure
     {
@@ -40,7 +49,7 @@ static if(__VERSION__ < 2071)
     {
         int bsf(ulong v) pure
         {
-            const sv = Split64(v);
+            const sv = split64(v);
             return (sv.lo == 0)?
                 bsf(sv.hi) + 32 :
                 bsf(sv.lo);
@@ -57,7 +66,7 @@ static if(__VERSION__ < 2071)
     {
         int bsr(ulong v) pure
         {
-            const sv = Split64(v);
+            const sv = split64(v);
             return (sv.hi == 0)?
                 bsr(sv.lo) :
                 bsr(sv.hi) + 32;
@@ -79,7 +88,7 @@ static if(__VERSION__ < 2071)
                 static if (is(typeof(_popcnt(uint.max))))
                 {
                     import core.cpuid;
-                    if (hasPopcnt)
+                    if (!__ctfe && hasPopcnt)
                         return _popcnt(x);
                 }
             }
@@ -100,12 +109,12 @@ static if(__VERSION__ < 2071)
 
             static if (size_t.sizeof == uint.sizeof)
             {
-                const sx = Split64(x);
+                const sx = split64(x);
                 version(DigitalMars)
                 {
                     static if (is(typeof(_popcnt(uint.max))))
                     {
-                        if (hasPopcnt)
+                        if (!__ctfe && hasPopcnt)
                             return _popcnt(sx.lo) + _popcnt(sx.hi);
                     }
                 }
@@ -118,7 +127,7 @@ static if(__VERSION__ < 2071)
                 {
                     static if (is(typeof(_popcnt(ulong.max))))
                     {
-                        if (hasPopcnt)
+                        if (!__ctfe && hasPopcnt)
                             return _popcnt(x);
                     }
                 }

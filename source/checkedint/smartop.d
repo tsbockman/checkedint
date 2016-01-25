@@ -471,10 +471,11 @@ auto pow(bool throws, N, M)(const N base, const M exp)
     alias R = Result!(N, "^^", M);
 
     IntFlag flag;
-    const ret = powImpl!R(base, exp <= 0, cast(ulong)exp, flag);
-    if(! flag.isNull)
-        flag.raise!throws();
+    const ret = powImpl!(R, Select!(isSigned!M, long, ulong))(base, exp, flag);
+    static assert(is(typeof(ret) == const(R)));
 
+    if(!flag.isNull)
+        flag.raise!throws();
     return ret;
 }
 auto pow(N, M)(const N base, const M exp) pure

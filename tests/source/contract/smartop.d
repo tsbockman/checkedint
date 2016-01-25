@@ -225,6 +225,8 @@ void pow(N = void, M = void)() {
             pow!(N, M1)();
     } else {
         static assert(isFixedPoint!N && isFixedPoint!M);
+        forbid!("smartOp.binary!\"^^\"(n, m)", N, M)();
+        forbid!("smartOp.binary!\"^^=\"(n, m)", N, M)();
 
         enum sc = "smartOp.pow(n, m)";
 
