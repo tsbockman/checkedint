@@ -16,6 +16,7 @@ void all() {
 
     cmp();
     abs();
+    ilogb();
     unary();
     binary();
     byPow2();
@@ -76,6 +77,23 @@ void abs(N = void)() {
         alias R = Unsigned!(IntFromChar!N);
 
         fuzz!(sc, Unqual, OutIs!R, control, N)();
+    }
+}
+
+void ilogb(N = void)() {
+    static if(is(N == void)) {
+        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
+            ilogb!N1();
+    } else {
+        static assert(isFixedPoint!N);
+
+        enum sc = "smartOp.ilogb(n)";
+
+        static assert(real.mant_dig >= (8 * N.sizeof));
+        auto control(const real n, Unused m = null) {
+            return stdm.ilogb(n); }
+
+        fuzz!(sc, Unqual, OutIs!ubyte, control, N)();
     }
 }
 
