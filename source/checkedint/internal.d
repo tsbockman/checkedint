@@ -128,34 +128,31 @@ template NumFromScal(N)
 
         const rc = cast(R)coef;
         const negE = exp < 0;
-        const shR = (op == "*")? negE : !negE;
         const absE = cast(Unsigned!M)(negE?
             -exp :
              exp);
+        const bigSh = absE >= (8 * N.sizeof);
 
         R ret = void;
         R back = void;
-        enum shLim = 8 * N.sizeof;
-        if(absE >= shLim) {
-            if(shR)
-                return 0;
+        if((op == "*")? negE : !negE) {
+            if(bigSh)
+                ret = 0;
             else {
+                // ">>" rounds as floor(), but we want trunc() like "/"
+                ret = (rc < 0)?
+                    -(-rc >>> absE) :
+                    rc >>> absE;
+            }
+        } else {
+            if(bigSh) {
                 ret = 0;
                 back = 0;
-                goto LcheckL;
+            } else {
+                ret  = rc  << absE;
+                back = ret >> absE;
             }
-        }
 
-        if(shR) {
-            // ">>" rounds as floor(), but we want trunc() like "/"
-            ret = (rc < 0)?
-                -(-rc >>> absE) :
-                rc >>> absE;
-        } else {
-            ret  = rc  << absE;
-            back = ret >> absE;
-
-        LcheckL:
             if(back != rc)
                 IntFlag.over.raise!throws();
         }
@@ -165,7 +162,7 @@ template NumFromScal(N)
 /+}+/
 
 
-//pragma(inline, false) // Minimize template bloat by using a common pow() implementation
+/+pragma(inline, false)+/ // Minimize template bloat by using a common pow() implementation
 B powImpl(B, E)(const B base, const E exp, ref IntFlag flag)
     if((is(B == int) || is(B == uint) || is(B == long) || is(B == ulong)) &&
         (is(E == long) || is(E == ulong)))

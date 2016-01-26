@@ -9,7 +9,7 @@ import checkedint.tests.contract.internal;
 
 import checkedint.flags;
 
-void all() {
+void all()() {
     writeln();
     write("Testing smartOp... ");
     stdout.flush();
@@ -129,67 +129,90 @@ void binary(string op = null, N = void, M = void)() {
             binary!(op1, N, M)();
     } else
     static if(is(N == void)) {
-        foreach(N1; AliasSeq!(IntegralTypes/+TODO:, CharTypes+/))
+        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
             binary!(op, N1, M)();
     } else
     static if(is(M == void)) {
-        foreach(M1; AliasSeq!(IntegralTypes/+TODO:, CharTypes+/))
+        foreach(M1; AliasSeq!(IntegralTypes, CharTypes))
             binary!(op, N, M1)();
     } else {
         static assert(isFixedPoint!N && isFixedPoint!M);
 
-        enum sc = "smartOp.binary!\"" ~ op ~ "\"(n, m)";
+        static if(isIntegral!N)
+            alias UN = Unsigned!N;
+        else
+            alias UN = N;
 
-        static assert(real.mant_dig >= max(precision!N, precision!M));
-        static if(op.among!("<<", ">>", ">>>")) {
-            static N control(const N n, const M m) {
-                const shL = (op == "<<") ^ (m < 0);
-                enum int maxSh = (8 * N.sizeof) - 1;
-                const um = cast(Unsigned!M)std.math.abs(m);
+        static if(isIntegral!M)
+            alias UM = Unsigned!M;
+        else
+            alias UM = M;
 
-                static if(op == ">>>")
-                    auto wret = cast(Unsigned!N)n;
-                else
-                    N wret = n;
-                bool again = um > maxSh;
-                const im = again? maxSh : cast(int)um;
-            Lagain:
-                wret = cast(typeof(wret))(shL?
-                    wret << im :
-                    wret >> im);
-                if(again) {
-                    again = false;
-                    goto Lagain;
+        static void cover(bool assign)() {
+            enum sc = "smartOp.binary!\"" ~ op ~ (assign? "=" : "") ~ "\"(n, m)";
+
+            static assert(real.mant_dig >= max(precision!N, precision!M));
+            static if(op.among!("<<", ">>", ">>>")) {
+                static N control(const N n, const M m) {
+                    const shL = (op == "<<") ^ (m < 0);
+                    enum int maxSh = (8 * N.sizeof) - 1;
+                    const um = cast(UM)std.math.abs(m);
+
+                    static if(op == ">>>")
+                        auto wret = cast(UN)n;
+                    else
+                        N wret = n;
+                    bool again = um > maxSh;
+                    const im = again? maxSh : cast(int)um;
+                Lagain:
+                    wret = cast(typeof(wret))(shL?
+                        wret << im :
+                        wret >> im);
+                    if(again) {
+                        again = false;
+                        goto Lagain;
+                    }
+
+                    return cast(N)wret;
                 }
+                enum isVO(N, M, PR) = isIntegral!PR && (PR.sizeof == N.sizeof) && (isSigned!PR == isSigned!N);
+            } else
+            static if(op.among!("&", "|", "^")) {
+                static auto control(const N n, const M m) {
+                    static if(assign)
+                        alias R = N;
+                    else {
+                        alias P = Select!(N.sizeof >= M.sizeof, N, M);
+                        static if(isIntegral!P)
+                            alias UP = Unsigned!P;
+                        else
+                            alias UP = P;
 
-                return cast(N)wret;
-            }
-            enum isVO(N, M, PR) = is(PR == N);
-        } else
-        static if(op.among!("&", "|", "^")) {
-            static auto control(const N n, const M m) {
-                alias P = Select!(N.sizeof >= M.sizeof, N, M);
-                alias R = Select!(isSigned!N && isSigned!M, P, Unsigned!P);
+                        alias R = Select!(isSigned!N && isSigned!M, P, UP);
+                    }
 
-                return cast(R)mixin("n " ~ op ~ " m");
+                    return cast(R)mixin("n " ~ op ~ " m");
+                }
+                enum isVO(N, M, PR) = isIntegral!PR && (PR.sizeof == max(N.sizeof, M.sizeof)) &&
+                    (isSigned!PR == (isSigned!N && isSigned!M));
+            } else {
+                static auto control(const real n, const real m) {
+                    static if(op == "/")
+                        return stdm.trunc(n / m);
+                    else
+                        return mixin("n " ~ op ~ " m");
+                }
+                enum isVO(N, M, PR) = isIntegral!PR &&
+                    ((isSigned!PR == (isSigned!N || (isSigned!M && op != "%"))) || op == "-");
             }
-            template isVO(N, M, PR) {
-                private alias UR = Unsigned!PR;
-                enum isVO = (isSigned!PR == (isSigned!N && isSigned!M)) &&
-                    (is(UR == Unsigned!N) || is(UR == Unsigned!M));
-            }
-        } else {
-            static auto control(const real n, const real m) {
-                static if(op == "/")
-                    return stdm.trunc(n / m);
-                else
-                    return mixin("n " ~ op ~ " m");
-            }
-            enum isVO(N, M, PR) = isIntegral!PR &&
-                ((isSigned!PR == (isSigned!N || (isSigned!M && op != "%"))) || op == "-");
+
+            static if(isIntegral!N || !assign)
+                fuzz!(sc, Unqual, Select!(assign, OutIs!N, isVO), control, N, M)();
+            else
+                forbid!(sc, N, M)();
         }
-
-        fuzz!(sc, Unqual, isVO, control, N, M)();
+        cover!false();
+        cover!true();
     }
 }
 alias binary(N, M = void) = binary!(null, N, M);

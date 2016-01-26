@@ -9,6 +9,13 @@ import checkedint.flags, checkedint.internal;
 
 import core.checkedint, std.algorithm, std.array, future.traits;
 static import std.math;
+static if(__VERSION__ >= 2068) {
+    version(GNU) { static assert(false); }
+    import std.meta;
+} else {
+    import std.typetuple;
+    private alias AliasSeq = TypeTuple;
+}
 
 // Watch out for DMD issue 15483 - Avoiding multiple return statements may help.
 @safe: /+pragma(inline, true):+/
@@ -201,30 +208,24 @@ ubyte ilogb(N)(const N num) pure
     return ilogb!true(num);
 }
 
-/* TODO: Optimize opOpAssign()
-   TODO: Figure out how to get % and / to inline on DMD
-   TODO: Audit binary() to ensure it properly accounts for the fact that (dchar.max < ~cast(dchar)0). */
 private template Result(N, string op, M)
-    if(isScalarType!N && isScalarType!M)
+    if(isNumeric!N && isNumeric!M)
 {
 private:
-    alias WN = NumFromScal!N;
-    alias WM = NumFromScal!M;
-
-    enum reqFloat = isFloatingPoint!WN || isFloatingPoint!WM;
-    enum precN = precision!WN, precM = precision!WM;
+    enum reqFloat = isFloatingPoint!N || isFloatingPoint!M;
+    enum precN = precision!N, precM = precision!M;
     enum precStd = reqFloat? precision!float : precision!uint;
     enum smallSub = (op == "-") && precN < precision!int && precM < precision!int;
 
     enum reqSign = reqFloat ||
-        (op.among!("+", "-", "*" , "/") && (isSigned!WN || isSigned!WM || smallSub)) ||
-        (op.among!("%", "^^", "<<", ">>", ">>>") && isSigned!WN) ||
-        (op.among!("&", "|", "^") && (isSigned!WN && isSigned!WM));
+        (op.among!("+", "-", "*" , "/") && (isSigned!N || isSigned!M || smallSub)) ||
+        (op.among!("%", "^^", "<<", ">>", ">>>") && isSigned!N) ||
+        (op.among!("&", "|", "^") && (isSigned!N && isSigned!M));
 
     enum reqPrec = reqFloat? max(precStd, precN, precM) :
         op.among!("+", "-", "*")? max(precStd, precN, precM) - 1 :
-        op == "/"? (isSigned!WM? max(precStd, precN) - 1 : precN) :
-        op == "%"? min(precision!WN, precision!WM) :
+        op == "/"? (isSigned!M? max(precStd, precN) - 1 : precN) :
+        op == "%"? min(precision!N, precision!M) :
         op == "^^"? max(precStd - 1, precN) :
         op.among!("<<", ">>", ">>>")? precN :
       /+op.among!("&", "|", "^")?+/ max(precN, precM);
@@ -242,155 +243,198 @@ public:
                 Select!(reqPrec <= 8, ubyte, ushort),
                 Select!(reqPrec <= 32, uint, ulong))));
 }
-auto binary(string op, bool throws, N, M)(const N left, const M right)
+private template Result(N, string op, M)
+    if(isScalarType!N && isScalarType!M &&
+        (!isNumeric!N || !isNumeric!M))
+{
+    alias Result = Result!(NumFromScal!N, op, NumFromScal!M);
+}
+private auto binaryImpl(string op, bool throws, N, M)(const N left, const M right)
     if(isIntegral!N && isIntegral!M)
 {
-    alias UN = Unsigned!N;
-    alias UM = Unsigned!M;
-    alias  R = Result!(N, op, M);
-    alias UR = Unsigned!R;
+    enum wop = (op[$-1] == '=')? op[0 .. $-1] : op;
+    alias
+        UN = Unsigned!N,
+        UM = Unsigned!M,
+         W = Result!(N, wop, M),
+         R = Select!(wop == op, W, N);
 
-    static if(op.among!("+", "-")) {
-        alias UP = Select!(precision!N <= 32 && precision!M <= 32, uint, ulong);
-        alias W = Select!(isSigned!N && isSigned!M, Signed!UP, UP);
+    static if(wop.among!("+", "-", "*")) {
+        enum safePrec = (wop == "*")?
+            precision!N + precision!M :
+            max(precision!N, precision!M) + 1;
+        enum safeR = precision!R >= safePrec;
 
-        static if(!isSigned!W &&  isSigned!R) {
-            alias cop = Select!(op == "+", addu, subu);
+        static if(safeR)
+            return mixin("cast(R)left " ~ wop ~ " cast(R)right");
+        else {
+            enum safeW = precision!W >= safePrec;
+            enum matched = (isSigned!N == isSigned!M);
+            enum oX = staticIndexOf!(wop, "+", "-", "*") << 1;
+            alias cops = AliasSeq!(addu, adds, subu, subs, mulu, muls);
 
-            bool hiBit = false;
-            const wRet = cop(cast(W)left, cast(W)right, hiBit);
-            const bool wSign = (Select!(isSigned!N, left, right) < 0) ^ hiBit;
+            static if(safeW || matched || wop == "*") {
+                bool over;
+                static if(safeW)
+                    const wR = mixin("cast(W)left " ~ wop ~ " cast(W)right");
+                else {
+                    static if(matched) {
+                        alias cop = cops[oX + isSigned!W];
+                        const wR = cop(left, right, over);
+                    } else {
+                        // integer multiplication is commutative
+                        static if(isSigned!N)
+                            W sa = left, ub = right;
+                        else
+                            W ub = left, sa = right;
 
-            static assert(is(R == Signed!W));
-            const ret = cast(R)wRet;
-            const over = (ret < 0) != wSign;
-        } else {
-            static assert(is(R == W));
+                        static if(isSigned!R) {
+                            W wR = muls(sa, ub, over);
+                            if(ub < 0)
+                                over = (sa != 0) && (ub != W.min || sa != -1);
+                        } else {
+                            over = (sa < 0) && (ub != 0);
+                            const wR = mulu(sa, ub, over);
+                        }
+                    }
+                }
 
-            static if(precision!W > max(precision!N, precision!M)) {
-                enum over = false;
-                const ret = mixin("cast(W)left " ~ op ~ " cast(W)right");
+                alias WR = typeof(wR);
+                static if(isSigned!WR && WR.min < R.min) {
+                    if(wR < R.min)
+                        over = true;
+                }
+                static if(WR.max > R.max) {
+                    if(wR > R.max)
+                        over = true;
+                }
             } else {
-                alias cop = Select!(isSigned!W,
-                    Select!(op == "+", adds, subs),
-                    Select!(op == "+", addu, subu));
+                alias UW = Unsigned!W;
+                alias WR = Select!(isSigned!R, W, UW);
+                alias cop = cops[oX];
 
-                bool over = false;
-                const ret = cop(cast(W)left, cast(W)right, over);
+                bool hiBit = false;
+                const wR = cast(WR) cop(cast(UW)left, cast(UW)right, hiBit);
+                const bool wSign = (Select!(isSigned!N, left, right) < 0) ^ hiBit;
+
+                static if(isSigned!WR) {
+                    static if(WR.max > R.max) {
+                        const over = (wR < 0)?
+                            !wSign || (wR < R.min) :
+                             wSign || (wR > R.max);
+                    } else
+                        const over = (wR < 0) != wSign;
+                } else {
+                    static if(WR.max > R.max)
+                        const over = wSign || (wR > R.max);
+                    else
+                        alias over = wSign;
+                }
             }
+
+            if(over)
+                IntFlag.over.raise!throws();
+            return cast(R) wR;
+        }
+    } else
+    static if(wop == "/") {
+        static if(!isSigned!N && !isSigned!M) {
+            R ret = void;
+            if(right == 0) {
+                IntFlag.div0.raise!throws();
+                ret = 0;
+            } else
+                ret = cast(R)(left / right);
+
+            return ret;
+        } else {
+            alias P = Select!(precision!N <= 32 && precision!M <= 32, uint, ulong);
+
+            IntFlag flag;
+            R ret = void;
+            if(right == 0) {
+                flag = IntFlag.div0;
+                ret = 0;
+            } else {
+                static if(isSigned!N && isSigned!M) {
+                    if(left == R.min && right == -1) {
+                        flag = IntFlag.posOver;
+                        ret = 0;
+                    } else
+                        ret = cast(R)(left / right);
+                } else {
+                    alias UR = Unsigned!R;
+
+                    P wL = void;
+                    P wG = void;
+                    static if(isSigned!N) {
+                        const negR = left < 0;
+                        alias side = left;
+                        alias wS = wL;
+                        wG = cast(P)right;
+                    } else {
+                        const negR = right < 0;
+                        wL = cast(P)left;
+                        alias side = right;
+                        alias wS = wG;
+                    }
+
+                    if(negR) {
+                        wS = -cast(P)side;
+                        const P wR = wL / wG;
+
+                        if(wR > cast(UR)R.min)
+                            flag = IntFlag.negOver;
+                        ret = -cast(R)wR;
+                    } else {
+                        wS =  cast(P)side;
+                        const P wR = wL / wG;
+
+                        if(wR > cast(UR)R.max)
+                            flag = IntFlag.posOver;
+                        ret =  cast(R)wR;
+                    }
+                }
+            }
+
+            if(!flag.isNull)
+                flag.raise!throws();
+            return ret;
+        }
+    } else
+    static if(wop == "%") {
+        R ret = void;
+        static if(isSigned!M)
+            const wG = cast(UM)((right < 0)? -right : right);
+        else
+            const wG = right;
+
+        if(wG <= N.max) {
+            if(wG)
+                ret = cast(R)(left % cast(N)wG);
+            else {
+                IntFlag.div0.raise!throws();
+                ret = 0;
+            }
+        } else {
+            static if(isSigned!N)
+                ret = (wG != cast(UN)N.min || left != N.min)?
+                    cast(R)left :
+                    cast(R)0;
+            else
+                ret = cast(R)left;
         }
 
-        if(over)
-            IntFlag.over.raise!throws();
         return ret;
     } else
-    static if(op == "*") {
-        static if(!isSigned!N &&  isSigned!M)
-            // Integer multiplication is commutative
-            return binary!("*", throws)(right, left);
-        else {
-            alias cop = Select!(isSigned!R, muls, mulu);
-
-            bool over = false;
-            static if( isSigned!N && !isSigned!M) {
-                if(right > cast(UR)R.max) {
-                    if(left == 0)
-                        return cast(R)0;
-                    if(left == -1 && right == cast(UR)R.min)
-                        return R.min;
-
-                    over = true;
-                }
-            }
-            const ret = cop(cast(R)left, cast(R)right, over);
-
-            if(over)
-                IntFlag.over.raise!throws();
-            return ret;
-        }
-    } else
-    static if(op == "/") {
-        if(right == 0) {
-            IntFlag.div0.raise!throws();
-            return cast(R)0; // Prevent unrecoverable FPE
-        }
-
-        alias UP = Select!(precision!N <= 32 && precision!M <= 32, uint, ulong);
-        alias  W = Select!(isSigned!N && isSigned!M, Signed!UP, UP);
-
-        static if(!isSigned!W &&  isSigned!R) {
-            W wL = void;
-            W wG = void;
-            static if(isSigned!N) {
-                const negR = left < 0;
-                alias side = left;
-                alias wS = wL;
-                wG = cast(W)right;
-            } else {
-                const negR = right < 0;
-                wL = cast(W)left;
-                alias side = right;
-                alias wS = wG;
-            }
-
-            bool over = void;
-            R ret = void;
-            if(negR) {
-                wS = -cast(W)side;
-                const W wR = wL / wG;
-
-                over = (wR > cast(UR)R.min);
-                ret = -cast(R)wR;
-            } else {
-                wS =  cast(W)side;
-                const W wR = wL / wG;
-
-                over = (wR > cast(UR)R.max);
-                ret =  cast(R)wR;
-            }
-
-            if(over)
-                IntFlag.over.raise!throws();
-            return ret;
-        } else {
-            static if(isSigned!N && isSigned!M) {
-                if(left == R.min && right == -1) {
-                    IntFlag.posOver.raise!throws();
-                    return cast(R)0; // Prevent unrecoverable FPE
-                }
-            }
-
-            return cast(R)(left / right);
-        }
-    } else
-    static if(op == "%") {
-        UM wG = void;
-        if(right >= 0) {
-            if(right == 0) {
-                IntFlag.undef.raise!throws();
-                return cast(R)0; // Prevent unrecoverable FPE
-            }
-
-            wG = cast(UM) right;
-        } else
-            wG = cast(UM)-right;
-
-        if(wG > N.max) {
-            return (wG == cast(UN)N.min && left == N.min)?
-                cast(R)0 :
-                cast(R)left;
-        }
-
-        return cast(R)(left % cast(N)wG);
-    } else
-    static if(op.among!("<<", ">>", ">>>")) {
+    static if(wop.among!("<<", ">>", ">>>")) {
         const negG = right < 0;
-        const shR = (op == "<<")?
+        const shR = (wop == "<<")?
              negG :
             !negG;
 
         R ret = void;
-        static if(op == ">>>")
+        static if(wop == ">>>")
             const wL = cast(UN)left;
         else
             alias wL = left;
@@ -398,31 +442,49 @@ auto binary(string op, bool throws, N, M)(const N left, const M right)
             -cast(UM)right :
              cast(UM)right;
 
-        enum maxSh = (8 * N.sizeof) - 1;
+        enum maxSh = precision!UN - 1;
         if(absG <= maxSh) {
             const wG = cast(int)absG;
             ret = cast(R)(shR?
                 wL >> wG :
                 wL << wG);
         } else {
-            ret = cast(R)((isSigned!N && (op != ">>>") && shR)?
+            ret = cast(R)((isSigned!N && (wop != ">>>") && shR)?
                 (wL >> maxSh) :
                 0);
         }
 
         return ret;
     } else
-    static if(op.among!("&", "|", "^"))
-        return cast(R)mixin("left " ~ op ~ " right");
-    else {
-        static assert(op != "^^",
-            "pow() should be used instead of operator ^^ because of issue 15288.");
+    static if(wop.among!("&", "|", "^"))
+        return cast(R)mixin("left " ~ wop ~ " right");
+    else
+        static assert(false);
+}
+auto binary(string op, bool throws, N, M)(const N left, const M right)
+    if(isFixedPoint!N && isFixedPoint!M && op.among!("+", "-", "*", "/", "%", "^^", "<<", ">>", ">>>", "&", "|", "^"))
+{
+    static assert(op != "^^",
+        "pow() should be used instead of operator ^^ because of issue 15288.");
 
-        static assert(false, op ~ " is not implemented for integers.");
-    }
+    return binaryImpl!(op, throws, NumFromScal!N, NumFromScal!M)(left, right);
 }
 auto binary(string op, N, M)(const N left, const M right) pure
-    if(isIntegral!N && isIntegral!M)
+    if(isFixedPoint!N && isFixedPoint!M && op.among!("+", "-", "*", "/", "%", "^^", "<<", ">>", ">>>", "&", "|", "^"))
+{
+    return binary!(op, true)(left, right);
+}
+/+ref+/ N binary(string op, bool throws, N, M)(/+return+/ ref N left, const M right)
+    if(isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
+{
+    static assert(op != "^^=",
+        "pow() should be used instead of operator ^^= because of issue 15412.");
+
+    left = binaryImpl!(op, throws, NumFromScal!N, NumFromScal!M)(left, right);
+    return left;
+}
+/+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right) pure
+    if(isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
 {
     return binary!(op, true)(left, right);
 }

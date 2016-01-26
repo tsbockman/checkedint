@@ -9,7 +9,7 @@ import checkedint.tests.contract.internal;
 
 import checkedint.flags, checkedint.noex.safeop;
 
-void all() {
+void all()() {
     writeln();
     write("Testing safeOp... ");
     stdout.flush();

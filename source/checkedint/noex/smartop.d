@@ -100,13 +100,25 @@ ubyte ilogb(N)(const N num) nothrow @nogc
 }
 
 auto binary(string op, bool throws, N, M)(const N left, const M right)
-    if(isIntegral!N && isIntegral!M)
+    if(isFixedPoint!N && isFixedPoint!M)
 {
     import checkedint.smartop : impl = binary;
     return impl!(op, throws)(left, right);
 }
 auto binary(string op, N, M)(const N left, const M right) nothrow @nogc
-    if(isIntegral!N && isIntegral!M)
+    if(isFixedPoint!N && isFixedPoint!M)
+{
+    import checkedint.smartop : impl = binary;
+    return impl!(op, false)(left, right);
+}
+/+ref+/ N binary(string op, bool throws, N, M)(/+return+/ ref N left, const M right)
+    if(isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
+{
+    import checkedint.smartop : impl = binary;
+    return impl!(op, throws)(left, right);
+}
+/+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right) nothrow @nogc
+    if(isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
 {
     import checkedint.smartop : impl = binary;
     return impl!(op, false)(left, right);

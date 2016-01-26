@@ -184,23 +184,31 @@ private auto binaryImpl(string op, bool throws, N, M)(const N left, const M righ
 
     static if(wop.among!("+", "-", "*")) {
         enum isPromSafe = !(isSigned!N || isSigned!M) || (isSigned!P && isSigned!R);
-        enum needCheck = (wop == "*")?
+        enum needCOp = (wop == "*")?
             (precision!N + precision!M) > precision!P :
             (max(precision!N, precision!M) + 1) > precision!P;
 
-        static if(needCheck) {
+        bool over = false;
+        static if(needCOp) {
             enum cx = (staticIndexOf!(wop, "+", "-", "*") << 1) + isSigned!P;
             alias cop = AliasSeq!(addu, adds, subu, subs, mulu, muls)[cx];
 
-            bool invalid = false;
-            const pret = cop(cast(P)left, cast(P)right, invalid);
-
-            if(invalid)
-                IntFlag.over.raise!throws();
+            const pR = cop(cast(P)left, cast(P)right, over);
         } else
-            const pret = mixin("left " ~ wop ~ " right");
+            const pR = mixin("left " ~ wop ~ " right");
 
-        return pret.toImpl!(R, throws);
+        static if(isSigned!P && P.min < R.min) {
+            if(pR < R.min)
+                over = true;
+        }
+        static if(P.max > R.max) {
+            if(pR > R.max)
+                over = true;
+        }
+
+        if(over)
+            IntFlag.over.raise!throws();
+        return cast(R)pR;
     } else
     static if(wop.among!("/", "%")) {
         enum isPromSafe = !(isSigned!N || isSigned!M) || (isSigned!P && (wop == "%"? (isSigned!R || !isSigned!N) : isSigned!R));
@@ -211,11 +219,14 @@ private auto binaryImpl(string op, bool throws, N, M)(const N left, const M righ
         else
             enum posOver = false;
 
+        R ret = void;
         if(div0 || posOver) {
             (posOver? IntFlag.posOver : IntFlag.div0).raise!throws();
-            return cast(R)0; // Prevent unrecoverable FPE
+            ret = 0; // Prevent unrecoverable FPE
         } else
-            return cast(R)mixin("left " ~ wop ~ " right");
+            ret = cast(R)mixin("left " ~ wop ~ " right");
+
+        return ret;
     } else
     static if(wop.among!("<<", ">>", ">>>")) {
         enum isPromSafe = !isSigned!N || isSigned!R || (op == ">>>");

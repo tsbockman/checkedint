@@ -120,7 +120,7 @@ public import safeOp = checkedint.safeop;
 public import smartOp = checkedint.smartop;
 
 // checked types
-/+pragma(inline, true) public {+/
+/+pragma(inline, true) {+/
     // TODO: Convert bitops and throws to std.typecons.Flags?
 
     template SafeInt(N, bool bitOps = true, bool throws = true)
@@ -537,14 +537,13 @@ public import smartOp = checkedint.smartop;
                 return SmartInt!(typeof(wret), bitOps && hasBitOps!M, throws || isThrowingCInt!M)(wret);
             }
             ref typeof(this) opOpAssign(string op, M)(const M right)
-                if(isScalarType!M || isCheckedInt!M)
+                if(isFixedPoint!M || isCheckedInt!M)
             {
                 static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                     "Bitwise operations are disabled.");
 
-                return opAssign(smartOp.binary!(op, throws || isThrowingCInt!M)(this.bscal, right.bscal));
-              /+smartOp.binary!(op ~ "=", throws || isThrowingCInt!M)(this.bscal, right.bscal);
-                return this;+/
+                smartOp.binary!(op ~ "=", throws || isThrowingCInt!M)(this.bscal, right.bscal);
+                return this;
             }
 
             auto mulPow2(M)(const M exp) const
