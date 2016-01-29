@@ -41,22 +41,20 @@ private alias BasicScalar(T) = typeof(function() {
 }());
 +/
 
-private {
-    /+pragma(inline, true)+/
-    void cmpTypeCheck(N, M)() {
-        static assert(isBoolean!N == isBoolean!M,
-            "The intent of a direct comparison of " ~
-            N.stringof ~ " with " ~ M.stringof ~
-            " is unclear. Add an explicit cast."
-        );
+private void cmpTypeCheck(N, M)() {
+    static assert(isBoolean!N == isBoolean!M,
+        "The intent of a direct comparison of " ~
+        N.stringof ~ " with " ~ M.stringof ~
+        " is unclear. Add an explicit cast."
+    );
 
-        alias OT = OpType!(N, "+", M);
-        static assert(isFloatingPoint!OT || isSigned!OT || !(isSigned!N || isSigned!M),
-            "The built-in signed:unsigned comparisons of " ~ N.stringof ~ " to " ~ M.stringof ~
-            " are unsafe. Use an explicit cast, or switch to smartOp/SmartInt."
-        );
-    }
+    alias OT = OpType!(N, "+", M);
+    static assert(isFloatingPoint!OT || isSigned!OT || !(isSigned!N || isSigned!M),
+        "The built-in signed:unsigned comparisons of " ~ N.stringof ~ " to " ~ M.stringof ~
+        " are unsafe. Use an explicit cast, or switch to smartOp/SmartInt."
+    );
 }
+
 bool cmp(string op, N, M)(const N left, const M right)
     if(isScalarType!N && isScalarType!M)
 {
@@ -277,35 +275,45 @@ OpType!(N, op, M) binary(string op, N, M)(const N left, const M right) pure
     return binary!(op, true)(left, right);
 }
 
-auto mulPow2(N, M)(const N coef, const M exp) pure nothrow @nogc
+auto mulPow2(N, M)(const N left, const M exp) pure nothrow @nogc
     if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
 {
-    return byPow2Impl!("*", NumFromScal!N, NumFromScal!M)(coef, exp);
+    return byPow2Impl!("*", NumFromScal!N, NumFromScal!M)(left, exp);
 }
-auto mulPow2(bool throws, N, M)(const N coef, const M exp)
+auto mulPow2(bool throws, N, M)(const N left, const M exp)
     if(isFixedPoint!N && isFixedPoint!M)
 {
-    return byPow2Impl!("*", throws, NumFromScal!N, NumFromScal!M)(coef, exp);
+    return byPow2Impl!("*", throws, NumFromScal!N, NumFromScal!M)(left, exp);
 }
-auto mulPow2(N, M)(const N coef, const M exp) pure
+auto mulPow2(N, M)(const N left, const M exp) pure
     if(isFixedPoint!N && isFixedPoint!M)
 {
-    return mulPow2!true(coef, exp);
+    return mulPow2!true(left, exp);
 }
-auto divPow2(N, M)(const N coef, const M exp) pure nothrow @nogc
+auto divPow2(N, M)(const N left, const M exp) pure nothrow @nogc
     if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
 {
-    return byPow2Impl!("/", NumFromScal!N, NumFromScal!M)(coef, exp);
+    return byPow2Impl!("/", NumFromScal!N, NumFromScal!M)(left, exp);
 }
-auto divPow2(bool throws, N, M)(const N coef, const M exp)
+auto divPow2(bool throws, N, M)(const N left, const M exp)
     if(isFixedPoint!N && isFixedPoint!M)
 {
-    return byPow2Impl!("/", throws, NumFromScal!N, NumFromScal!M)(coef, exp);
+    return byPow2Impl!("/", throws, NumFromScal!N, NumFromScal!M)(left, exp);
 }
-auto divPow2(N, M)(const N coef, const M exp) pure
+auto divPow2(N, M)(const N left, const M exp) pure
     if(isFixedPoint!N && isFixedPoint!M)
 {
-    return divPow2!true(coef, exp);
+    return divPow2!true(left, exp);
+}
+auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+    if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+{
+    return byPow2Impl!("%", NumFromScal!N, NumFromScal!M)(left, exp);
+}
+auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+    if(isFixedPoint!N && isFixedPoint!M)
+{
+    return byPow2Impl!("%", false, NumFromScal!N, NumFromScal!M)(left, exp);
 }
 
 CallType!(std.math.pow, N, M) pow(bool throws, N, M)(const N base, const M exp)

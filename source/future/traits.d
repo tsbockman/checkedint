@@ -60,9 +60,9 @@ template precision(N)
 {
     import future.bitop : bsr;
     static if(isFloatingPoint!N)
-        enum precision = N.mant_dig;
+        enum int precision = N.mant_dig;
     else static if(isSomeChar!N)
-        enum precision = N.sizeof * 8; // dchar may hold values greater than dchar.max
+        enum int precision = N.sizeof * 8; // dchar may hold values greater than dchar.max
     else
-        enum precision = bsr(N.max) + 1;
+        enum int precision = bsr(N.max) + 1;
 }

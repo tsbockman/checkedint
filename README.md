@@ -1,6 +1,6 @@
 # Checked integer math module for the [D Programming Language](http://dlang.org) 
 
-As with many other languages (C, C++, Java, etc.), the D's built-in integer data types are quite difficult to use correctly.
+As with many other languages (C, C++, Java, etc.), D's built-in integer data types are quite difficult to use correctly.
 
 It is tempting to think of `int`, for example, as if it were an actual mathematical integer. Doing so, however leads to buggy code due to unintuitive behaviour like:
 

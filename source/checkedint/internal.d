@@ -7,8 +7,7 @@ Authors: Thomas Stuart Bockman
 module checkedint.internal;
 import checkedint.flags;
 
-import future.bitop, core.checkedint, std.algorithm, std.conv, future.traits;
-static import std.math;
+import future.bitop, core.checkedint, std.algorithm, std.conv, std.math, future.traits;
 
 @safe:
 
@@ -90,8 +89,8 @@ template NumFromScal(N)
         return bsf(cast(WN)num);
     }
 
-    auto byPow2Impl(string op, N, M)(const N coef, const M exp) pure nothrow @nogc
-        if(op.among!("*", "/") && ((isFloatingPoint!N && isNumeric!M) || (isNumeric!N && isFloatingPoint!M)))
+    auto byPow2Impl(string op, N, M)(const N left, const M exp) pure nothrow @nogc
+        if(op.among!("*", "/", "%") && ((isFloatingPoint!N && isNumeric!M) || (isNumeric!N && isFloatingPoint!M)))
     {
         enum wantPrec = max(precision!N, precision!M);
         alias R =
@@ -100,67 +99,110 @@ template NumFromScal(N)
 
         static if(isFloatingPoint!M) {
             R ret = void;
-            if(coef == 0 && std.math.isFinite(exp))
-                ret = 0;
-            else {
-                R wexp = cast(R)exp;
-                static if(op == "/")
-                    wexp = -wexp;
 
-                ret = cast(R)coef * std.math.exp2(wexp);
+            static if(op.among!("*", "/")) {
+                if(left == 0 && exp.isFinite)
+                    ret = 0;
+                else {
+                    R wexp = cast(R)exp;
+                    static if(op == "/")
+                        wexp = -wexp;
+
+                    ret = cast(R)left * exp2(wexp);
+                }
+            } else {
+                const p2 = exp2(cast(R)exp);
+                ret =
+                    p2.isFinite? cast(R)left % p2 :
+                    (p2 > 0)? cast(R)left :
+                    (p2 < 0)? cast(R)0 :
+                    R.nan;
             }
 
             return ret;
         } else {
-            int wexp =
-                (exp > int.max)? int.max :
-                (cast(long)exp < -int.max)? -int.max : cast(int)exp;
-            static if(op == "/")
-                wexp = -wexp;
+            static if(op.among!("*", "/")) {
+                int wexp =
+                    (exp > int.max)? int.max :
+                    (cast(long)exp < -int.max)? -int.max : cast(int)exp;
+                static if(op == "/")
+                    wexp = -wexp;
 
-            return std.math.ldexp(cast(R)coef, wexp);
+                return ldexp(cast(R)left, wexp);
+            } else {
+                int expL;
+                real mantL = frexp(left, expL);
+
+                static if(!isSigned!M)
+                    const retL = expL <= exp;
+                else
+                    const retL = (expL < 0) || (expL <= exp);
+
+                R ret = void;
+                if(retL)
+                    ret = left;
+                else {
+                    const expDiff = expL - exp;
+                    ret = (expDiff > N.mant_dig)?
+                        cast(R)0 :
+                        left - ldexp(floor(ldexp(mantissa, expDiff)), expL - expDiff);
+                }
+
+                return ret;
+            }
         }
     }
-    Promoted!N byPow2Impl(string op, bool throws, N, M)(const N coef, const M exp)
-        if(op.among!("*", "/") && isIntegral!N && isIntegral!M)
+    auto byPow2Impl(string op, bool throws, N, M)(const N left, const M exp)
+        if(op.among!("*", "/", "%") && isIntegral!N && isIntegral!M)
     {
-        alias R = typeof(return);
-
-        const rc = cast(R)coef;
-        const negE = exp < 0;
-        const absE = cast(Unsigned!M)(negE?
-            -exp :
-             exp);
-        const bigSh = absE >= (8 * N.sizeof);
+        alias R = Select!(op.among!("*", "/") != 0, Promoted!N, N);
+        enum Unsigned!M maxSh = 8 * N.sizeof - 1;
 
         R ret = void;
-        R back = void;
-        if((op == "*")? negE : !negE) {
-            if(bigSh)
-                ret = 0;
-            else {
-                // ">>" rounds as floor(), but we want trunc() like "/"
-                ret = (rc < 0)?
-                    -(-rc >>> absE) :
-                    rc >>> absE;
+        static if(op.among!("*", "/")) {
+            const rc = cast(R)left;
+            const negE = exp < 0;
+            const absE = cast(Unsigned!M)(negE?
+                -exp :
+                 exp);
+            const bigSh = (absE > maxSh);
+
+            R back = void;
+            if((op == "*")? negE : !negE) {
+                if(bigSh)
+                    ret = 0;
+                else {
+                    // ">>" rounds as floor(), but we want trunc() like "/"
+                    ret = (rc < 0)?
+                        -(-rc >>> absE) :
+                        rc >>> absE;
+                }
+            } else {
+                if(bigSh) {
+                    ret = 0;
+                    back = 0;
+                } else {
+                    ret  = rc  << absE;
+                    back = ret >> absE;
+                }
+
+                if(back != rc)
+                    IntFlag.over.raise!throws();
             }
         } else {
-            if(bigSh) {
-                ret = 0;
-                back = 0;
-            } else {
-                ret  = rc  << absE;
-                back = ret >> absE;
+            if(exp & ~maxSh)
+                ret = (exp < 0)? 0 : left;
+            else {
+                const mask = ~(~cast(N)0 << exp);
+                ret = cast(R)(left < 0?
+                    -(-left & mask) :
+                     left & mask);
             }
-
-            if(back != rc)
-                IntFlag.over.raise!throws();
         }
 
         return ret;
     }
 /+}+/
-
 
 /+pragma(inline, false)+/ // Minimize template bloat by using a common pow() implementation
 B powImpl(B, E)(const B base, const E exp, ref IntFlag flag)

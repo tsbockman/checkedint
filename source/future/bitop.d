@@ -7,30 +7,22 @@ Authors: Thomas Stuart Bockman
 module future.bitop;
 public import core.bitop;
 
-static if(__VERSION__ < 2071)
-{
-    nothrow:
-    @safe:
-    @nogc:
+static if(__VERSION__ < 2071) {
+@safe: pure: nothrow: @nogc:
 
-    private union Split64
-    {
+    private union Split64 {
         ulong u64;
-        struct
-        {
-            version(LittleEndian)
-            {
+        struct {
+            version(LittleEndian) {
                 uint lo;
                 uint hi;
-            }
-            else
-            {
+            } else {
                 uint hi;
                 uint lo;
             }
         }
     }
-    private auto split64(ulong x) pure {
+    private auto split64(ulong x) {
         if(__ctfe) {
             Split64 ret = void;
             ret.lo = cast(uint)x;
@@ -40,13 +32,9 @@ static if(__VERSION__ < 2071)
             return Split64(x);
     }
 
-    int bsf(size_t v) pure
-    {
-        import core.bitop : impl = bsf;
-        return impl(v);
-    }
-    static if(size_t.sizeof == uint.sizeof)
-    {
+    int bsf(size_t v) {
+        return core.bitop.bsf(v); }
+    static if(size_t.sizeof == uint.sizeof) {
         int bsf(ulong v) pure
         {
             const sv = split64(v);
@@ -57,15 +45,10 @@ static if(__VERSION__ < 2071)
     } else
         static assert(size_t.sizeof == ulong.sizeof);
 
-    int bsr(size_t v) pure
-    {
-        import core.bitop : impl = bsr;
-        return impl(v);
-    }
-    static if(size_t.sizeof == uint.sizeof)
-    {
-        int bsr(ulong v) pure
-        {
+    int bsr(size_t v) {
+        return core.bitop.bsr(v); }
+    static if(size_t.sizeof == uint.sizeof) {
+        int bsr(ulong v) {
             const sv = split64(v);
             return (sv.hi == 0)?
                 bsr(sv.lo) :
@@ -74,19 +57,13 @@ static if(__VERSION__ < 2071)
     } else
         static assert(size_t.sizeof == ulong.sizeof);
 
-    int popcnt(uint x)
-    {
+    int popcnt(uint x) {
         // Select the fastest method depending on the compiler and CPU architecture
-        version(LDC)
-        {
+        version(LDC) {
             return _popcnt(x);
-        }
-        else
-        {
-            version(DigitalMars)
-            {
-                static if (is(typeof(_popcnt(uint.max))))
-                {
+        } else {
+            version(DigitalMars) {
+                static if (is(typeof(_popcnt(uint.max)))) {
                     import core.cpuid;
                     if (!__ctfe && hasPopcnt)
                         return _popcnt(x);
@@ -96,45 +73,34 @@ static if(__VERSION__ < 2071)
             return soft_popcnt!uint(x);
         }
     }
-    int popcnt(ulong x)
-    {
+    int popcnt(ulong x) {
         // Select the fastest method depending on the compiler and CPU architecture
         version(LDC)
-        {
             return _popcnt(x);
-        }
-        else
-        {
+        else {
             import core.cpuid;
 
-            static if (size_t.sizeof == uint.sizeof)
-            {
+            static if (size_t.sizeof == uint.sizeof) {
                 const sx = split64(x);
-                version(DigitalMars)
-                {
-                    static if (is(typeof(_popcnt(uint.max))))
-                    {
+                version(DigitalMars) {
+                    static if (is(typeof(_popcnt(uint.max)))) {
                         if (!__ctfe && hasPopcnt)
                             return _popcnt(sx.lo) + _popcnt(sx.hi);
                     }
                 }
 
                 return soft_popcnt!uint(sx.lo) + soft_popcnt!uint(sx.hi);
-            }
-            else static if (size_t.sizeof == ulong.sizeof)
-            {
-                version(DigitalMars)
-                {
-                    static if (is(typeof(_popcnt(ulong.max))))
-                    {
+            } else
+            static if (size_t.sizeof == ulong.sizeof) {
+                version(DigitalMars) {
+                    static if (is(typeof(_popcnt(ulong.max)))) {
                         if (!__ctfe && hasPopcnt)
                             return _popcnt(x);
                     }
                 }
 
                 return soft_popcnt!ulong(x);
-            }
-            else
+            } else
                 static assert(false);
         }
     }

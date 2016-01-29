@@ -6,7 +6,7 @@ Authors: Thomas Stuart Bockman
 
 module checkedint.flags;
 
-import core.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/;
+import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/;
 
 @safe:
 

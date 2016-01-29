@@ -76,12 +76,14 @@ template SafeFold(N) {
     }
 }
 
-/+pragma(inline, true) {+/
-    auto mulPow2(N, M)(const N coef, const M exp) {
-        return coef << exp; }
-    auto divPow2(N, M)(const N coef, const M exp) {
-        return coef >> exp; }
-/+}+/
+private /+pragma(inline, true)+/ {
+    auto mulPow2(N, M)(const N left, const M exp) {
+        return left << exp; }
+    auto divPow2(N, M)(const N left, const M exp) {
+        return left >> exp; }
+    auto modPow2(N, M)(const N left, const M exp) {
+        return left & ~(~cast(N)0 << exp); }
+}
 
 void trialPrimes(N)() {
     alias V = SafeFold!N;
@@ -211,7 +213,7 @@ void collatzSort(N)() {
         N i = V!0;
         N ai = n + V!1;
         while(ai != V!1) {
-            if((ai & V!0x1) ==  V!0)
+            if(ai.modPow2(1u) ==  V!0)
                 ai = ai.divPow2(1u);
             else
                 ai = V!3*ai + V!1;

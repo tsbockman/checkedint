@@ -124,41 +124,53 @@ auto binary(string op, N, M)(const N left, const M right) nothrow @nogc
     return impl!(op, false)(left, right);
 }
 
-auto mulPow2(N, M)(const N coef, const M exp) pure nothrow @nogc
+auto mulPow2(N, M)(const N left, const M exp) pure nothrow @nogc
     if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
 {
     import checkedint.smartop : impl = mulPow2;
-    return impl(coef, exp);
+    return impl(left, exp);
 }
-auto mulPow2(bool throws, N, M)(const N coef, const M exp)
+auto mulPow2(bool throws, N, M)(const N left, const M exp)
     if(isFixedPoint!N && isFixedPoint!M)
 {
     import checkedint.smartop : impl = mulPow2;
-    return impl!throws(coef, exp);
+    return impl!throws(left, exp);
 }
-auto mulPow2(N, M)(const N coef, const M exp) nothrow @nogc
+auto mulPow2(N, M)(const N left, const M exp) nothrow @nogc
     if(isFixedPoint!N && isFixedPoint!M)
 {
     import checkedint.smartop : impl = mulPow2;
-    return impl!false(coef, exp);
+    return impl!false(left, exp);
 }
-auto divPow2(N, M)(const N coef, const M exp) pure nothrow @nogc
+auto divPow2(N, M)(const N left, const M exp) pure nothrow @nogc
     if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
 {
     import checkedint.smartop : impl = divPow2;
-    return impl(coef, exp);
+    return impl(left, exp);
 }
-auto divPow2(bool throws, N, M)(const N coef, const M exp)
+auto divPow2(bool throws, N, M)(const N left, const M exp)
     if(isFixedPoint!N && isFixedPoint!M)
 {
     import checkedint.smartop : impl = divPow2;
-    return impl!throws(coef, exp);
+    return impl!throws(left, exp);
 }
-auto divPow2(N, M)(const N coef, const M exp) nothrow @nogc
+auto divPow2(N, M)(const N left, const M exp) nothrow @nogc
     if(isFixedPoint!N && isFixedPoint!M)
 {
     import checkedint.smartop : impl = divPow2;
-    return impl!false(coef, exp);
+    return impl!false(left, exp);
+}
+auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+    if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+{
+    import checkedint.smartop : impl = modPow2;
+    return impl(left, exp);
+}
+auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+    if(isFixedPoint!N && isFixedPoint!M)
+{
+    import checkedint.smartop : impl = modPow2;
+    return impl(left, exp);
 }
 
 auto pow(N, M)(const N base, const M exp) pure nothrow @nogc

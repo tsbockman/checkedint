@@ -217,44 +217,53 @@ void binary(string op = null, N = void, M = void)() {
 }
 alias binary(N, M = void) = binary!(null, N, M);
 
-void byPow2(N = void, M = void)() {
+void byPow2(string op = null, N = void, M = void)() {
+    static if(op == null) {
+        foreach(op1; AliasSeq!("*", "/", "%"))
+            byPow2!(op1, N, M)();
+    } else
     static if(is(N == void)) {
         foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
-            byPow2!(N1, M)();
+            byPow2!(op, N1, M)();
     } else
     static if(is(M == void)) {
         foreach(M1; AliasSeq!(IntegralTypes, CharTypes))
-            byPow2!(N, M1)();
+            byPow2!(op, N, M1)();
     } else {
         static assert(isScalarType!N && isScalarType!M);
 
-        static void cover(bool mul)() {
-            enum sc = "smartOp." ~ (mul? "mul" : "div") ~ "Pow2(n, m)";
+        enum sc = "smartOp." ~ (op == "*"? "mul" : (op == "/"? "div" : "mod")) ~ "Pow2(n, m)";
 
-            static assert(real.mant_dig >= max(precision!N, precision!M));
-            real control(const real n, const real m) {
-                if(n == 0 && stdm.isFinite(m))
-                    return 0;
-                else {
-                    const p2 = stdm.exp2(m);
-                    const wret = mul? (n * p2) : (n / p2);
+        static assert(real.mant_dig >= max(precision!N, precision!M));
+        real control(const real n, const real m) {
+            if(n == 0 && stdm.isFinite(m))
+                return 0;
+            else {
+                const p2 = stdm.exp2(m);
+
+                static if(op.among!("*", "/")) {
+                    const wret = mixin("n " ~ op ~ " p2");
                     static if(isFloatingPoint!N || isFloatingPoint!M)
                         return wret;
                     else
                         return stdm.trunc(wret);
+                } else {
+                    if(!stdm.isFinite(p2))
+                        return (p2 > 0)? n : (p2 < 0)? 0 : real.nan;
+                    else
+                        return n % (p2 == 0? real.min_normal : p2);
                 }
             }
-            enum isVO(N, M, PR) = (PR.sizeof >= N.sizeof) &&
-                ((isFloatingPoint!N || isFloatingPoint!M)?
-                    isFloatingPoint!PR :
-                    isIntegral!PR && (isSigned!PR || !isSigned!N));
-
-            fuzz!(sc, Unqual, isVO, control, N, M)();
         }
-        cover!true();
-        cover!false();
+        enum isVO(N, M, PR) = (PR.sizeof >= N.sizeof) &&
+            ((isFloatingPoint!N || isFloatingPoint!M)?
+                isFloatingPoint!PR :
+                isIntegral!PR && (isSigned!PR || !isSigned!N));
+
+        fuzz!(sc, Unqual, isVO, control, N, M)();
     }
 }
+alias byPow2(N, M = void) = byPow2!(null, N, M);
 
 void pow(N = void, M = void)() {
     static if(is(N == void)) {
