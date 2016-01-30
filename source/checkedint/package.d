@@ -88,29 +88,98 @@ $(UL
 module checkedint;
 import checkedint.flags;
 
-import std.algorithm, std.format, future.traits;
+import std.algorithm, std.format, future.traits, std.typecons;
 static import std.math;
 
 @safe:
 
 // traits
-enum isSafeInt(T)    = isInstanceOf!(SafeInt, T);
-enum isSmartInt(T)   = isInstanceOf!(SmartInt, T);
-enum isCheckedInt(T) = isSafeInt!T || isSmartInt!T;
 
+/// Evaluates to `true` if `T` is an instance of `SafeInt`.
+enum isSafeInt(T) = isInstanceOf!(SafeInt, T);
+///
+unittest {
+    assert( isSafeInt!(SafeInt!int));
+
+    assert(!isSafeInt!int);
+    assert(!isSafeInt!(SmartInt!int));
+}
+
+/// Evaluates to `true` if `T` is an instance of `SmartInt`.
+enum isSmartInt(T) = isInstanceOf!(SmartInt, T);
+///
+unittest {
+    assert( isSmartInt!(SmartInt!int));
+
+    assert(!isSmartInt!int);
+    assert(!isSmartInt!(SafeInt!int));
+}
+
+/// Evaluates to `true` if `T` is an instance of `SafeInt` or `SmartInt`.
+enum isCheckedInt(T) = isSafeInt!T || isSmartInt!T;
+///
+unittest {
+    assert( isCheckedInt!(SafeInt!int));
+    assert( isCheckedInt!(SmartInt!int));
+
+    assert(!isCheckedInt!int);
+}
+
+/**
+Evaluates to `true` if either:
+$(UL
+    $(LI `isScalarType!T`, or)
+    $(LI `isCheckedInt!T`)
+)
+$(B And) bitwise operators such as `<<` and `~` are available for `T`.
+*/
 template hasBitOps(T) {
     static if(isCheckedInt!T)
         enum hasBitOps = TemplateArgsOf!T[1];
     else
         enum hasBitOps = isFixedPoint!T;
 }
+///
+unittest {
+    assert( hasBitOps!(SafeInt!(int, Yes.bitOps)));
+    assert( hasBitOps!(SmartInt!(int, Yes.bitOps)));
+    assert( hasBitOps!int);
+    assert( hasBitOps!bool);
+    assert( hasBitOps!dchar);
+
+    // FIXME: assert(!hasBitOps!(SafeInt!(int, No.bitOps)));
+    // FIXME: assert(!hasBitOps!(SmartInt!(int, No.bitOps)));
+    assert(!hasBitOps!float);
+}
+
+/**
+Evaluates to `true` if `isCheckedInt!T` and failed operations on `T` will `throw` a
+$(LINK2 ./flags.html#CheckedIntException, `CheckedIntException`).
+*/
 template isThrowingCInt(T) {
     static if(isCheckedInt!T)
         enum isThrowingCInt = TemplateArgsOf!T[2];
     else
         enum isThrowingCInt = false;
 }
+///
+unittest {
+    assert( isThrowingCInt!(SafeInt!(int, Yes.throws)));
+    assert( isThrowingCInt!(SmartInt!(int, Yes.throws)));
 
+    assert(!isThrowingCInt!(SafeInt!(int, No.throws)));
+    assert(!isThrowingCInt!(SmartInt!(int, No.throws)));
+    assert(!isThrowingCInt!int);
+}
+
+/**
+Aliases to the basic scalar type associated with `T`, assuming either:
+$(UL
+    $(LI `isScalarType!T`, or)
+    $(LI `isCheckedInt!T`)
+)
+Otherwise, `BasicScalar` aliases to `void`.
+*/
 template BasicScalar(T) {
     static if(isScalarType!T)
         alias BasicScalar = Unqual!T;
@@ -119,6 +188,14 @@ template BasicScalar(T) {
         alias BasicScalar = TemplateArgsOf!T[0];
     else
         alias BasicScalar = void;
+}
+///
+unittest {
+    assert(is(BasicScalar!(SafeInt!int) == int));
+    assert(is(BasicScalar!(SmartInt!int) == int));
+
+    assert(is(BasicScalar!int == int));
+    assert(is(BasicScalar!(const shared real) == real));
 }
 
 // conv
@@ -202,14 +279,7 @@ public import smartOp = checkedint.smartop;
 
 // checked types
 /+pragma(inline, true) {+/
-    // TODO: Convert bitops and throws to std.typecons.Flags?
-
-    template SafeInt(N, bool bitOps = true, bool throws = true)
-        if(isCheckedInt!N || (isIntegral!N && !isUnqual!N))
-    {
-        alias SafeInt = SafeInt!(BasicScalar!N, bitOps, throws);
-    }
-    struct SafeInt(N, bool bitOps = true, bool throws = true)
+    struct SafeInt(N, Flag!"bitOps" bitOps = Yes.bitOps, Flag!"throws" throws = Yes.throws)
         if(isIntegral!N && isUnqual!N)
     {
         /+pure+/ nothrow @nogc {
@@ -451,13 +521,26 @@ public import smartOp = checkedint.smartop;
             }
         }
     }
-
-    template SmartInt(N, bool bitOps = true, bool throws = true)
-        if(isCheckedInt!N || (isIntegral!N && !isUnqual!N))
+    template SafeInt(N, Flag!"bitOps" bitOps = Yes.bitOps, Flag!"throws" throws = Yes.throws)
+        if((isIntegral!N && !isUnqual!N) || isCheckedInt!N)
     {
-        alias SmartInt = SmartInt!(BasicScalar!N, bitOps, throws);
+        alias SafeInt = SafeInt!(BasicScalar!N, bitOps, throws);
     }
-    struct SmartInt(N, bool bitOps = true, bool throws = true)
+    template SafeInt(N, Flag!"throws" throws)
+        if(isIntegral!N || isCheckedInt!N)
+    {
+        alias SafeInt = SafeInt!(BasicScalar!N, Yes.bitOps, throws);
+    }
+    private template SafeInt(N, bool bitOps, bool throws)
+        if(isIntegral!N)
+    {
+        alias SafeInt = SafeInt!(
+            Unqual!N,
+            cast(Flag!"bitOps")bitOps,
+            cast(Flag!"throws")throws);
+    }
+
+    struct SmartInt(N, Flag!"bitOps" bitOps = Yes.bitOps, Flag!"throws" throws = Yes.throws)
         if(isIntegral!N && isUnqual!N)
     {
         /+pure+/ nothrow @nogc {
@@ -694,13 +777,39 @@ public import smartOp = checkedint.smartop;
             }
         }
     }
+    template SmartInt(N, Flag!"bitOps" bitOps = Yes.bitOps, Flag!"throws" throws = Yes.throws)
+        if((isIntegral!N && !isUnqual!N) || isCheckedInt!N)
+    {
+        alias SmartInt = SmartInt!(BasicScalar!N, bitOps, throws);
+    }
+    template SmartInt(N, Flag!"throws" throws)
+        if(isIntegral!N || isCheckedInt!N)
+    {
+        alias SmartInt = SmartInt!(BasicScalar!N, Yes.bitOps, throws);
+    }
+    private template SmartInt(N, bool bitOps, bool throws)
+        if(isIntegral!N)
+    {
+        alias SmartInt = SmartInt!(
+            Unqual!N,
+            cast(Flag!"bitOps")bitOps,
+            cast(Flag!"throws")throws);
+    }
 /+}+/
 
-template DebugInt(N, bool bitOps = true, bool throws = true)
+template DebugInt(N, Flag!"bitOps" bitOps = Yes.bitOps, Flag!"throws" throws = Yes.throws)
     if(isIntegral!N || isCheckedInt!N)
 {
     version (Debug)
         alias DebugInt = SafeInt!(N, bitOps, throws);
+    else
+        alias DebugInt = Unqual!N;
+}
+template DebugInt(N, Flag!"throws" throws)
+    if(isIntegral!N || isCheckedInt!N)
+{
+    version (Debug)
+        alias DebugInt = SafeInt!(N, Yes.bitOps, throws);
     else
         alias DebugInt = Unqual!N;
 }

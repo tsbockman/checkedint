@@ -8,7 +8,7 @@ module checkedint.noex;
 import checkedint.internal;
 public import checkedint.flags;
 
-import future.traits;
+import future.traits, std.typecons;
 
 public import checkedint :
     isSafeInt,
@@ -44,14 +44,28 @@ public import checkedint :
 public import safeOp = checkedint.noex.safeop;
 public import smartOp = checkedint.noex.smartop;
 
-template SafeInt(N, bool bitOps = true, bool throws = false)
+template SafeInt(N, Flag!"bitOps" bitOps = Yes.bitOps, Flag!"throws" throws = No.throws)
+    if(isIntegral!N || isCheckedInt!N)
 {
     import checkedint : Impl = SafeInt;
-    alias SafeInt = Impl!(N, bitOps, throws);
+    alias SafeInt = Impl!(BasicScalar!N, bitOps, throws);
+}
+template SafeInt(N, Flag!"throws" throws)
+    if(isIntegral!N || isCheckedInt!N)
+{
+    import checkedint : Impl = SafeInt;
+    alias SafeInt = Impl!(BasicScalar!N, Yes.bitOps, throws);
 }
 
-template SmartInt(N, bool bitOps = true, bool throws = false)
+template SmartInt(N, Flag!"bitOps" bitOps = Yes.bitOps, Flag!"throws" throws = No.throws)
+    if(isIntegral!N || isCheckedInt!N)
 {
     import checkedint : Impl = SmartInt;
-    alias SmartInt = Impl!(N, bitOps, throws);
+    alias SmartInt = Impl!(BasicScalar!N, bitOps, throws);
+}
+template SmartInt(N, Flag!"throws" throws)
+    if(isIntegral!N || isCheckedInt!N)
+{
+    import checkedint : Impl = SmartInt;
+    alias SmartInt = Impl!(BasicScalar!N, Yes.bitOps, throws);
 }

@@ -7,7 +7,7 @@ Authors: Thomas Stuart Bockman
 module checkedint.tests.benchmark;
 import checkedint, checkedint.flags, checkedint.traits;
 
-import std.algorithm, std.stdio;
+import std.algorithm, std.stdio, std.typecons;
 static if(__VERSION__ >= 2068) {
     version(GNU) { static assert(false); }
     import std.meta : AliasSeq;
@@ -38,17 +38,19 @@ void benchMacro(string testStr)() {
     enum laps = 3;
     const compSum = checkSum * laps * trials;
 
-    foreach(V; AliasSeq!(int, uint, long, ulong)) {
-        foreach(N; AliasSeq!(
-            V,
-            SafeInt!(V, true, false),
-            SafeInt!(V, true, true),
-            SmartInt!(V, true, false),
-            SmartInt!(V, true, true)))
+    foreach(Vstr; AliasSeq!("int", "uint", "long", "ulong")) {
+        foreach(Nstr; AliasSeq!(
+            Vstr,
+            "SafeInt!(" ~ Vstr ~ ", No.throws)",
+            "SafeInt!(" ~ Vstr ~ ", Yes.throws)",
+            "SmartInt!(" ~ Vstr ~ ", No.throws)",
+            "SmartInt!(" ~ Vstr ~ ", Yes.throws)"))
         {
+            mixin("alias N = " ~ Nstr ~ ";");
+
             checkSum = 0;
             invalid = false;
-            writef("%40s: ", N.stringof);
+            writef("%40s: ", Nstr);
 
             auto best = Duration.max;
             foreach(i; 0 .. trials) {
