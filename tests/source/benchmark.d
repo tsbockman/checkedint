@@ -54,7 +54,7 @@ void benchMacro(string testStr)() {
 
             auto best = Duration.max;
             foreach(i; 0 .. trials) {
-                auto r = to!Duration(benchmark!(test!N)(laps)[0]) / laps;
+                const r = to!Duration(benchmark!(test!N)(laps)[0]) / laps;
                 if(r < best)
                     best = r;
             }
@@ -123,7 +123,7 @@ void trialPrimes(N)() {
         return r0;
     }
 
-    enum PrimeCount = V!40000;
+    enum PrimeCount = V!40_000;
     N[PrimeCount] primes;
     N[PrimeCount] primeRoots;
 

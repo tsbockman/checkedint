@@ -1,7 +1,39 @@
 /**
+Common error signaling facilities for the `checkedint` package.
+
 Copyright: Copyright Thomas Stuart Bockman 2015
-License: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
+
+$(BIG $(B `Yes.throws`)) $(BR)
+When the `Yes.throws` is set, errors are signalled by simply throwing a new `CheckedIntException`. This is the default
+method because:
+$(UL
+    $(LI The API user is not required to explicitly handle errors.)
+    $(LI Printing a precise stack trace is very helpful for debugging.)
+)
+However, this approach is not suitable in all cases. In particular:
+$(UL
+    $(LI Obviously, it will not work in `nothrow` code.)
+    $(LI As of $(B D 2.070), exceptions are still not safe to use in `@nogc` code.)
+    $(LI Exceptions are too slow for code that is expected to signal many integer math errors in $(B normal) operation.)
+)
+$(BIG $(B `No.throws`)) $(BR)
+An alternative error signalling method may be selected using the `No.throws` option:
+$(OL
+    $(LI Whenever an integer math error occurs, a bit flag is raised in `IntFlags.local`, which is a TLS variable.)
+    $(LI The integer math operations in `checkedint` only set bit flags; they never clear them. Thus, any flag that is
+    raised because of an error will remain set until handled by the API user.)
+    $(LI The API user periodically checks whether any flags have been raised like so: `if (IntFlags.local)`)
+    $(LI `IntFlags.local` may be inspected to determine the general cause of the error - for example, "divide by zero".)
+    $(LI Once the API user has handled the error somehow, `IntFlags.clear()` can be used to unset all bit flags before
+    continuing the program.)
+)
+The `IntFlags.pushPop` mixin can be used to prevent a function from handling or clearing flags that were set by the
+caller.
+
+Care must be taken when using `No.throws` to insert sufficient `if (IntFlags.local)` checks; otherwise `checkedint` will
+not provide much protection from integer math related bugs.
 */
 
 module checkedint.flags;
@@ -10,7 +42,6 @@ import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitive
 
 @safe:
 
-// flags
 struct IntFlag {
 pure: nothrow: @nogc: /+pragma(inline, true):+/
 private:
@@ -194,36 +225,26 @@ private:
     }
 }
 
-/+pragma(inline, false) {+/
-    /* The throwing versions of raise() must not be inlined, as doing so tends to
-       prevent the caller from being inlined, at least on DMD. */
+void raise(bool throws = true)(IntFlag flag) {
+    static if(throws) {
+        version (DigitalMars)
+            pragma(inline, false); // DMD usually won't inline the caller without this.
 
-    void raise(bool throws)(IntFlag flag)
-        if(throws)
-    {
         throw new CheckedIntException(flag);
-    }
-    void raise(bool throws)(IntFlags flags)
-        if(throws)
-    {
-        if(flags.anySet)
-            throw new CheckedIntException(flags);
-    }
-/+}
-pragma(inline, true) {+/
-    void raise(bool throws)(IntFlag flag)
-        if(!throws)
-    {
+    } else {
+        /+pragma(inline, true);+/
         IntFlags.local |= flag;
     }
-    void raise(IntFlag flag) {
-        raise!true(flag); }
+}
+void raise(bool throws = true)(IntFlags flags) {
+    static if(throws) {
+        version (DigitalMars)
+            pragma(inline, false); // DMD usually won't inline the caller without this.
 
-    void raise(bool throws = true)(IntFlags flags)
-        if(!throws)
-    {
+        if(flags.anySet)
+            throw new CheckedIntException(flags);
+    } else {
+        /+pragma(inline, true);+/
         IntFlags.local |= flags;
     }
-    void raise(IntFlags flags) {
-        raise!true(flags); }
-/+}+/
+}
