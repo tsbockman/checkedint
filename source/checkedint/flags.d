@@ -38,7 +38,7 @@ not provide much protection from integer math related bugs.
 
 module checkedint.flags;
 
-import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/;
+import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/, std.typecons;
 
 @safe:
 
@@ -225,26 +225,28 @@ private:
     }
 }
 
-void raise(bool throws = true)(IntFlag flag) {
-    static if(throws) {
-        version (DigitalMars)
-            pragma(inline, false); // DMD usually won't inline the caller without this.
+template raise(Flag!"throws" throws) {
+    void raise(IntFlag flag) {
+        static if(throws) {
+            version (DigitalMars)
+                pragma(inline, false); // DMD usually won't inline the caller without this.
 
-        throw new CheckedIntException(flag);
-    } else {
-        /+pragma(inline, true);+/
-        IntFlags.local |= flag;
+            throw new CheckedIntException(flag);
+        } else {
+            /+pragma(inline, true);+/
+            IntFlags.local |= flag;
+        }
     }
-}
-void raise(bool throws = true)(IntFlags flags) {
-    static if(throws) {
-        version (DigitalMars)
-            pragma(inline, false); // DMD usually won't inline the caller without this.
+    void raise(IntFlags flags) {
+        static if(throws) {
+            version (DigitalMars)
+                pragma(inline, false); // DMD usually won't inline the caller without this.
 
-        if(flags.anySet)
-            throw new CheckedIntException(flags);
-    } else {
-        /+pragma(inline, true);+/
-        IntFlags.local |= flags;
+            if(flags.anySet)
+                throw new CheckedIntException(flags);
+        } else {
+            /+pragma(inline, true);+/
+            IntFlags.local |= flags;
+        }
     }
 }

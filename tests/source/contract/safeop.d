@@ -7,7 +7,7 @@ Authors: Thomas Stuart Bockman
 module checkedint.tests.contract.safeop;
 import checkedint.tests.contract.internal;
 
-import checkedint.flags, checkedint.noex.safeop;
+import checkedint.flags;
 
 void all()() {
     writeln();
