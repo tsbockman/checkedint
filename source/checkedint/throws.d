@@ -22,14 +22,7 @@ public import checkedint :
     isThrowingCInt,
     BasicScalar;
 
-T to(T, S)(S value) {
-    static if(isScalarType!(BasicScalar!T) && isScalarType!(BasicScalar!S))
-        return chcekedint.to!(T, Yes.throws, S)(value);
-    else {
-        import std.conv : stdTo = to;
-        return stdTo!T(value);
-    }
-}
+alias to(T) = checkedint.to!(T, Yes.throws);
 
 public import checkedint :
     bscal,

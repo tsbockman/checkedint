@@ -440,31 +440,51 @@ private {
 // conv /////////////////////////////////////////////////
 
     // alternative to std.conv.to() using IntFlag
-    T to(T, Flag!"throws" throws, S)(const S value)
-        if((isCheckedInt!T || isScalarType!T) && (isCheckedInt!S || isScalarType!S))
+    template to(T, Flag!"throws" throws)
     {
-        static if(isCheckedInt!T || isCheckedInt!S)
-            return T(to!(BasicScalar!T, throws)(value.bscal));
-        else {
-            static if(! isFloatingPoint!T) {
-                static if(isFloatingPoint!S) {
-                    if(value >= trueMin!T) {
-                        if(value > trueMax!T)
-                            IntFlag.posOver.raise!throws();
-                    } else
-                        (value.isNaN? IntFlag.undef : IntFlag.negOver).raise!throws();
-                } else {
-                    static if(cast(long)trueMin!S < cast(long)trueMin!T) {
-                        if(value < cast(S)trueMin!T)
-                            IntFlag.negOver.raise!throws();
-                    }
-                    static if(cast(ulong)trueMax!S > cast(ulong)trueMax!T) {
-                        if(value > cast(S)trueMax!T)
-                            IntFlag.posOver.raise!throws();
+        private enum useFlags(S) = (isCheckedInt!T || isScalarType!T) && (isCheckedInt!S || isScalarType!S);
+
+        T to(S)(const S value)
+            if(useFlags!S)
+        {
+            static if(isCheckedInt!T || isCheckedInt!S)
+                return T(checkedint.to!(BasicScalar!T, throws)(value.bscal));
+            else {
+                static if(! isFloatingPoint!T) {
+                    static if(isFloatingPoint!S) {
+                        if(value >= trueMin!T) {
+                            if(value > trueMax!T)
+                                IntFlag.posOver.raise!throws();
+                        } else
+                            (value.isNaN? IntFlag.undef : IntFlag.negOver).raise!throws();
+                    } else {
+                        static if(cast(long)trueMin!S < cast(long)trueMin!T) {
+                            if(value < cast(S)trueMin!T)
+                                IntFlag.negOver.raise!throws();
+                        }
+                        static if(cast(ulong)trueMax!S > cast(ulong)trueMax!T) {
+                            if(value > cast(S)trueMax!T)
+                                IntFlag.posOver.raise!throws();
+                        }
                     }
                 }
+                return cast(T)value;
             }
-            return cast(T)value;
+        }
+
+        import std.conv : impl = to;
+        static if(throws) {
+            T to(S)(S value)
+                if(! useFlags!S)
+            {
+                return impl!T(value);
+            }
+        } else {
+            T to(S)(S value) nothrow
+                if(! useFlags!S)
+            {
+                 return impl!T(value);
+            }
         }
     }
 
@@ -1130,7 +1150,7 @@ private {
                 return std.math.pow(bscal, exp);
             }
         }
-        /+might throw or be impure+/ public {
+        /+might be impure, throw, or allocate+/ public {
             // Construction, assignment, and casting
             M opCast(M)() const
                 if(isCheckedInt!M || isIntegral!M || isSomeChar!M)
@@ -1144,9 +1164,7 @@ private {
             void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted {
                 formatValue(sink, bscal, fmt); }
             string toString() const {
-                import std.conv : impl = to;
-                return impl!string(bscal);
-            }
+                return to!(string, No.throws)(bscal); }
 
             // Unary
             SmartInt!(Signed!N, throws, bitOps) opUnary(string op)() const
@@ -1649,7 +1667,7 @@ private {
                 return std.math.pow(bscal, exp);
             }
         }
-        /+might throw or be impure+/ public {
+        /+might be impure, throw, or allocate+/ public {
             // Construction, assignment, and casting
             M opCast(M)() const
                 if(isCheckedInt!M || isIntegral!M || isSomeChar!M)
@@ -1663,9 +1681,7 @@ private {
             void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted {
                 formatValue(sink, bscal, fmt); }
             string toString() const {
-                import std.conv : impl = to;
-                return impl!string(bscal);
-            }
+                return to!(string, No.throws)(bscal); }
 
             // Unary
             typeof(this) opUnary(string op)() const
