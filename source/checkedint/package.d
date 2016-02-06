@@ -1679,6 +1679,33 @@ Conversions involving any other type are simply forwarded to `std.conv.to`, with
             }
         }
     }
+    ///
+    unittest {
+        // Conversions involving only basic scalars or checkedint types use IntFlags for error signalling.
+        import checkedint.noex; // set No.throws
+
+        assert(to!int(SmartInt!long(-421751)) == -421751);
+        assert(to!(SmartInt!ubyte)(100u) == 100);
+
+        IntFlags.local.clear();
+        assert(is(typeof(to!int(50u)) == int));
+        assert(to!int(50u) == 50);
+        assert(!IntFlags.local);
+
+        // If No.throws is set, failed conversions return garbage, but...
+        assert(smartOp.cmp!"!="(to!int(uint.max), uint.max));
+        // ...IntFlags.local can be checked to see if anything went wrong.
+        assert(IntFlags.local & IntFlag.posOver);
+    }
+    ///
+    unittest {
+        // Everything else forwards to std.conv.to.
+        assert(to!(string, Yes.throws)(55) == "55");
+        assert(to!(real, Yes.throws)("3.141519e0") == 3.141519L);
+
+        // Setting No.throws will block std.conv.to, unless the instantiation is nothrow.
+        assert(!__traits(compiles, to!(real, No.throws)("3.141519e0")));
+    }
 
     @property {
 /**
@@ -1704,10 +1731,20 @@ Useful in generic code that handles both basic types, and `checkedint` types.
             return num;
         }
 /// ditto
-        N bscal(N)(const N num)
+        BasicScalar!N bscal(N)(const N num)
             if(isCheckedInt!N)
         {
             return num.bscal;
+        }
+        ///
+        unittest {
+            import checkedint.throws; // set Yes.throws
+
+            assert(is(typeof(bscal(2u)) == uint));
+            assert(is(typeof(bscal(SmartInt!int(2))) == int));
+
+            assert(bscal(-3153) == -3153);
+            assert(bscal(SmartInt!int(75_000)) == 75_000);
         }
 
 /**
@@ -1733,10 +1770,28 @@ Useful in generic code that handles both basic types and `checkedint` types.
             return num;
         }
 /// ditto
-        N bits(N)(const N num)
-            if(isCheckedInt!N)
+        SmartInt!(BasicScalar!N, isThrowingCInt!N, Yes.bitOps) bits(N)(const N num)
+            if(isSmartInt!N)
         {
             return num.bits;
+        }
+/// ditto
+        SafeInt!(BasicScalar!N, isThrowingCInt!N, Yes.bitOps) bits(N)(const N num)
+            if(isSafeInt!N)
+        {
+            return num.bits;
+        }
+        ///
+        unittest {
+            import checkedint.throws; // set Yes.throws
+
+            assert(is(typeof(bits(5)) == int));
+
+            SmartInt!(int, No.bitOps) noBits = 5;
+            assert(is(typeof(bits(noBits)) == SmartInt!(int, Yes.bitOps)));
+
+            assert(!__traits(compiles, noBits << 2));
+            assert((bits(noBits) << 2) == 20);
         }
 
 /**
@@ -1756,6 +1811,20 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
         {
             return num.idx;
         }
+        ///
+        unittest {
+            import checkedint.throws; // set Yes.throws
+
+            assert(is(typeof(idx(cast(long)1)) == ptrdiff_t));
+            assert(is(typeof(idx(cast(ubyte)1)) == size_t));
+            assert(is(typeof(idx(SmartInt!ulong(1))) == size_t));
+
+            assert(idx(17uL) == 17);
+            assert(idx(-3) == -3);
+            assert(idx(SafeInt!byte(100)) == 100);
+
+            // TODO: Demonstrate how out-of-bounds values are handled.
+        }
     }
 /+}+/
 
@@ -1765,28 +1834,34 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
 enum isSafeInt(T) = isInstanceOf!(SafeInt, T);
 ///
 unittest {
-    assert( isSafeInt!(SafeInt!(int, Yes.throws)));
+    import checkedint.throws; // set Yes.throws
+
+    assert( isSafeInt!(SafeInt!int));
 
     assert(!isSafeInt!int);
-    assert(!isSafeInt!(SmartInt!(int, Yes.throws)));
+    assert(!isSafeInt!(SmartInt!int));
 }
 
 /// Evaluates to `true` if `T` is an instance of `SmartInt`.
 enum isSmartInt(T) = isInstanceOf!(SmartInt, T);
 ///
 unittest {
-    assert( isSmartInt!(SmartInt!(int, Yes.throws)));
+    import checkedint.throws; // set Yes.throws
+
+    assert( isSmartInt!(SmartInt!int));
 
     assert(!isSmartInt!int);
-    assert(!isSmartInt!(SafeInt!(int, Yes.throws)));
+    assert(!isSmartInt!(SafeInt!int));
 }
 
 /// Evaluates to `true` if `T` is an instance of `SafeInt` or `SmartInt`.
 enum isCheckedInt(T) = isSafeInt!T || isSmartInt!T;
 ///
 unittest {
-    assert( isCheckedInt!(SafeInt!(int, Yes.throws)));
-    assert( isCheckedInt!(SmartInt!(int, Yes.throws)));
+    import checkedint.throws; // set Yes.throws
+
+    assert( isCheckedInt!(SafeInt!int));
+    assert( isCheckedInt!(SmartInt!int));
 
     assert(!isCheckedInt!int);
 }
@@ -1807,14 +1882,16 @@ template hasBitOps(T) {
 }
 ///
 unittest {
-    assert( hasBitOps!(SafeInt!(int, Yes.throws, Yes.bitOps)));
-    assert( hasBitOps!(SmartInt!(int, Yes.throws, Yes.bitOps)));
+    import checkedint.throws; // set Yes.throws
+
+    assert( hasBitOps!(SafeInt!(int, Yes.bitOps)));
+    assert( hasBitOps!(SmartInt!(int, Yes.bitOps)));
     assert( hasBitOps!int);
     assert( hasBitOps!bool);
     assert( hasBitOps!dchar);
 
-    assert(!hasBitOps!(SafeInt!(int, Yes.throws, No.bitOps)));
-    assert(!hasBitOps!(SmartInt!(int, Yes.throws, No.bitOps)));
+    assert(!hasBitOps!(SafeInt!(int, No.bitOps)));
+    assert(!hasBitOps!(SmartInt!(int, No.bitOps)));
     assert(!hasBitOps!float);
 }
 
@@ -1857,8 +1934,10 @@ template BasicScalar(T) {
 }
 ///
 unittest {
-    assert(is(BasicScalar!(SafeInt!(int, Yes.throws)) == int));
-    assert(is(BasicScalar!(SmartInt!(int, Yes.throws)) == int));
+    import checkedint.throws; // set Yes.throws
+
+    assert(is(BasicScalar!(SafeInt!int) == int));
+    assert(is(BasicScalar!(SmartInt!ushort) == ushort));
 
     assert(is(BasicScalar!int == int));
     assert(is(BasicScalar!(const shared real) == real));
