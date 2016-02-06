@@ -35,7 +35,6 @@ caller.
 Care must be taken when using `No.throws` to insert sufficient `if (IntFlags.local)` checks; otherwise `checkedint` will
 not provide much protection from integer math related bugs.
 */
-
 module checkedint.flags;
 
 import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/, std.typecons;

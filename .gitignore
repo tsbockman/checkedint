@@ -9,3 +9,4 @@ __dummy.html
 *dub.selections.json
 libcheckedint.a
 tests/checkedint_tests
+out/*

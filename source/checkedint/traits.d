@@ -1,11 +1,24 @@
 /**
-Copyright: Copyright Thomas Stuart Bockman 2015
-License: <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
-Authors: Thomas Stuart Bockman
-*/
+Templates to facilitate treating `checkedint.SmartInt` or `checkedint.SafeInt` like the built-in numeric types.
 
+Copyright: Copyright Thomas Stuart Bockman 2015
+License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+Authors: Thomas Stuart Bockman
+
+This module wraps various templates from `std.traits` to make them `checkedint`-aware. For example,
+`std.traits.isSigned!(SmartInt!int)` is `false`, but `checkedint.traits.isSigned!(SmartInt!int)` is `true`.
+
+It is separate from `checkedint` because it is only useful in generic code, and its symbols conflict with some from
+`std.traits`.
+*/
 module checkedint.traits;
-public import checkedint : isSafeInt, isSmartInt, isCheckedInt, hasBitOps, isThrowingCInt, BasicScalar;
+public import checkedint :
+    isSafeInt,
+    isSmartInt,
+    isCheckedInt,
+    hasBitOps,
+    isThrowingCInt,
+    BasicScalar;
 
 private template isEx(alias Predicate) {
     template isEx(T) {
