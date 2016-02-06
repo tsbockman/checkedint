@@ -363,6 +363,83 @@ $(UL
     {
         alias SmartInt = SmartInt!(BasicScalar!N, throws, bitOps);
     }
+    ///
+    unittest {
+        // Mixing standard signed and unsigned types is dangerous, but...
+        int ba = -1;
+        uint bb = 0;
+        assert(ba > bb);
+
+        auto bc = ba + bb;
+        assert(is(typeof(bc) == uint));
+        assert(bc == 4294967295u);
+
+        // ...with SmartInt, mixed signed:unsigned operations "just work":
+        import checkedint.throws; // set Yes.throws
+
+        SmartInt!int ma = -1;
+        SmartInt!uint mb = 0;
+        assert(  ma < mb );
+
+        auto mc = ma + mb;
+        assert(is(typeof(mc) == SmartInt!int));
+        assert(mc != 4294967295u);
+        assert(mc == -1);
+    }
+    ///
+    unittest {
+        // When Yes.throws is set, failed SmartInt operations will throw a CheckedIntException.
+        import checkedint.throws;
+
+        SmartInt!uint ma = 1;
+        SmartInt!uint mb = 0;
+
+        bool overflow = false;
+        try {
+            SmartInt!uint mc = mb - ma;
+            assert(false);
+        } catch(CheckedIntException e) {
+            assert(e.intFlags == IntFlag.negOver);
+            overflow = true;
+        }
+        assert(overflow);
+
+        bool div0 = false;
+        try {
+            // With standard integers, this would crash the program with an unrecoverable FPE...
+            SmartInt!uint mc = ma / mb;
+            assert(false);
+        } catch(CheckedIntException e) {
+            // ...but with SmartInt, it just throws a normal Exception.
+            assert(e.intFlags == IntFlag.div0);
+            div0 = true;
+        }
+        assert(div0);
+    }
+    ///
+    unittest {
+        // When No.throws is set, failed SmartInt operations set one or more bits in IntFlags.local.
+        import checkedint.noex;
+
+        SmartInt!uint ma = 1;
+        SmartInt!uint mb = 0;
+        SmartInt!uint mc;
+
+        IntFlags.local.clear();
+        mc = mb - ma;
+        assert(IntFlags.local == IntFlag.negOver);
+
+        // With standard integers, this would crash the program with an unrecoverable FPE...
+        mc = ma / mb;
+        // ...but with SmartInt, it just sets a bit in IntFlags.local.
+        assert(IntFlags.local & IntFlag.div0);
+
+        // Each flag will remain set until cleared:
+        assert(IntFlags.local == (IntFlag.negOver | IntFlag.div0));
+        IntFlags.local.clear();
+        assert(!IntFlags.local);
+    }
+
     private template SmartInt(N, bool throws, bool bitOps)
         if(isIntegral!N)
     {
@@ -1251,6 +1328,86 @@ $(UL
     {
         alias SafeInt = SafeInt!(BasicScalar!N, throws, bitOps);
     }
+    ///
+    unittest {
+        // Mixing standard signed and unsigned types is dangerous...
+        int ba = -1;
+        uint bb = 0;
+        assert(ba > bb);
+
+        auto bc = ba + bb;
+        assert(is(typeof(bc) == uint));
+        assert(bc == 4294967295u);
+
+        // ...that's why SafeInt won't let you do it.
+        import checkedint.throws; // set Yes.throws
+
+        SafeInt!int sa = -1;
+        SafeInt!uint sb = 0;
+        assert(!__traits(compiles, sa < sb));
+        assert(!__traits(compiles, sa + sb));
+
+        // Instead, use checkedint.to() to safely convert to a common type...
+        auto sbi = to!(SafeInt!int)(sb);
+        assert(sa < sbi);
+        auto sc = sa + sbi;
+        assert(sc == -1);
+        // (...or just switch to SmartInt.)
+    }
+    ///
+    unittest {
+        // When Yes.throws is set, SafeInt operations that fail at runtime will throw a CheckedIntException.
+        import checkedint.throws;
+
+        SafeInt!uint sa = 1;
+        SafeInt!uint sb = 0;
+
+        bool overflow = false;
+        try {
+            SafeInt!uint sc = sb - sa;
+            assert(false);
+        } catch(CheckedIntException e) {
+            assert(e.intFlags == IntFlag.negOver);
+            overflow = true;
+        }
+        assert(overflow);
+
+        bool div0 = false;
+        try {
+            // With standard integers, this would crash the program with an unrecoverable FPE...
+            SafeInt!uint sc = sa / sb;
+            assert(false);
+        } catch(CheckedIntException e) {
+            // ...but with SafeInt, it just throws a normal Exception.
+            assert(e.intFlags == IntFlag.div0);
+            div0 = true;
+        }
+        assert(div0);
+    }
+    ///
+    unittest {
+        // When No.throws is set, SafeInt operations that fail at runtime set one or more bits in IntFlags.local.
+        import checkedint.noex;
+
+        SafeInt!uint sa = 1;
+        SafeInt!uint sb = 0;
+        SafeInt!uint sc;
+
+        IntFlags.local.clear();
+        sc = sb - sa;
+        assert(IntFlags.local == IntFlag.negOver);
+
+        // With standard integers, this would crash the program with an unrecoverable FPE...
+        sc = sa / sb;
+        // ...but with SmartInt, it just sets a bit in IntFlags.local.
+        assert(IntFlags.local & IntFlag.div0);
+
+        // Each flag will remain set until cleared:
+        assert(IntFlags.local == (IntFlag.negOver | IntFlag.div0));
+        IntFlags.local.clear();
+        assert(!IntFlags.local);
+    }
+
     private template SafeInt(N, bool throws, bool bitOps)
         if(isIntegral!N)
     {
