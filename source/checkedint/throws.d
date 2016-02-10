@@ -4,7 +4,6 @@ License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
 */
 module checkedint.throws;
-public import checkedint.flags;
 
 import future.traits, std.typecons;
 
@@ -19,24 +18,34 @@ public import checkedint.flags :
 alias raise = checkedint.flags.raise!(Yes.throws);
 
 static import checkedint;
-public import checkedint :
-    isSafeInt,
-    isSmartInt,
-    isCheckedInt,
-    hasBitOps,
-    isThrowingCInt,
-    BasicScalar;
+
+alias SmartInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SmartInt!(N, Yes.throws, bitOps);
+SmartInt!(N, bitOps) smartInt(Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
+    if(isIntegral!N || isCheckedInt!N)
+{
+    return typeof(return)(num.bscal);
+}
+alias smartOp = checkedint.smartOp!(Yes.throws);
+
+alias DebugInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.DebugInt!(N, Yes.throws, bitOps);
+
+alias SafeInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SafeInt!(N, Yes.throws, bitOps);
+SafeInt!(N, bitOps) safeInt(Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
+    if(isIntegral!N || isCheckedInt!N)
+{
+    return typeof(return)(num.bscal);
+}
+alias safeOp = checkedint.safeOp!(Yes.throws);
 
 alias to(T) = checkedint.to!(T, Yes.throws);
 
 public import checkedint :
     bscal,
     bits,
-    idx;
-
-alias safeOp = checkedint.safeOp!(Yes.throws);
-alias smartOp = checkedint.smartOp!(Yes.throws);
-
-alias SafeInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SafeInt!(N, Yes.throws, bitOps);
-alias SmartInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SmartInt!(N, Yes.throws, bitOps);
-alias DebugInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.DebugInt!(N, Yes.throws, bitOps);
+    idx,
+    isSafeInt,
+    isSmartInt,
+    isCheckedInt,
+    hasBitOps,
+    isThrowingCInt,
+    BasicScalar;
