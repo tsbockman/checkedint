@@ -41,6 +41,82 @@ import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitive
 
 @safe:
 
+/**
+Function used to signal a failure and its proximate cause from integer math code. Depending on the value of the `throws`
+parameter, `raise()` will either:
+$(UL
+    $(LI Throw a `CheckedIntException`, or)
+    $(LI Set a bit in `IntFlags.local` that can be checked by the caller later.)
+)
+*/
+template raise(Flag!"throws" throws) {
+    void raise(IntFlags flags) {
+        static if(throws) {
+            version (DigitalMars)
+                pragma(inline, false); // DMD usually won't inline the caller without this.
+
+            if(flags.anySet)
+                throw new CheckedIntException(flags);
+        } else {
+            /+pragma(inline, true);+/
+            IntFlags.local |= flags;
+        }
+    }
+    void raise(IntFlag flag) {
+        static if(throws) {
+            version (DigitalMars)
+                pragma(inline, false); // DMD usually won't inline the caller without this.
+
+            throw new CheckedIntException(flag);
+        } else {
+            /+pragma(inline, true);+/
+            IntFlags.local |= flag;
+        }
+    }
+}
+///
+unittest {
+    import checkedint.throws; // set Yes.throws
+
+    bool caught = false;
+    try {
+        raise(IntFlag.div0);
+    } catch(CheckedIntException e) {
+        caught = (e.intFlags == IntFlag.div0);
+    }
+    assert(caught);
+}
+///
+unittest {
+    import checkedint.noex; // set No.throws
+
+    raise(IntFlag.div0);
+    raise(IntFlag.posOver);
+
+    assert(IntFlags.local == (IntFlag.div0 | IntFlag.posOver));
+
+    IntFlags.clear();
+}
+///
+unittest {
+    // Both signaling strategies may be usefully mixed within the same program:
+    static void fails() nothrow {
+        raise!(No.throws)(IntFlag.negOver);
+        raise!(No.throws)(IntFlag.imag);
+    }
+
+    bool caught = false;
+    try {
+        fails();
+        // Flags that were raised by `nothrow` code can easily be turned into an exception by the caller.
+        raise!(Yes.throws)(IntFlags.local.clear());
+    } catch(CheckedIntException e) {
+        caught = (e.intFlags == (IntFlag.negOver | IntFlag.imag));
+    }
+    assert(caught);
+}
+
+/// Represents a single cause of failure for an integer math operation.
 struct IntFlag {
 pure: nothrow: @nogc: /+pragma(inline, true):+/
 private:
@@ -62,14 +138,19 @@ private:
 public:
     static if(__VERSION__ >= 2067) {
         version(GNU) { static assert(false); }
-        enum {
-            undef   = IntFlag(1),
-            div0    = IntFlag(2),
-            imag    = IntFlag(3),
-            over    = IntFlag(4),
-            posOver = IntFlag(5),
-            negOver = IntFlag(6)
-        }
+
+/// The result of the operation is undefined mathematically, by the API, or both.
+        enum IntFlag undef   = 1;
+/// A division by zero was attempted.
+        enum IntFlag div0    = 2;
+/// The result is imaginary, and as such not representable by an integral type.
+        enum IntFlag imag    = 3;
+/// Overflow occured.
+        enum IntFlag over    = 4;
+/// Overflow occured because a value was too large.
+        enum IntFlag posOver = 5;
+/// Overflow occured because a value was too negative.
+        enum IntFlag negOver = 6;
     } else {
         static @property {
             auto undef() {
@@ -97,12 +178,15 @@ public:
         string desc() const {
             return strs[index][1 .. ($ - 1)]; }
     }
+
+/// Get a string representation of this `IntFlag`, suitable for use in human-readable error messages.
     void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted {
         formatValue(sink, strs[index], fmt); }
     string toString() const {
         return strs[index]; }
 }
 
+/// A bitset that can be used to track integer math failures.
 struct IntFlags {
     pure nothrow @nogc /+pragma(inline, true)+/ {
     private:
@@ -118,8 +202,11 @@ struct IntFlags {
             bits = that.bits;
             return this;
         }
-        void clear() {
-            bits = 0; }
+        IntFlags clear() {
+            IntFlags ret = this;
+            bits = 0;
+            return ret;
+        }
 
         IntFlags opBinary(string op)(IntFlags that) const
             if(op.among!("&", "|", "-"))
@@ -205,7 +292,13 @@ scope(exit) {
     }
 }
 
+/**
+An `Exception` representing the cause of an integer math failure.
+
+A new instances may be created and thrown using `raise!(Yes.throws)()`.
+*/
 class CheckedIntException : Exception {
+    /// An `IntFlags` bitset indicating the proximate cause(s) of the exception.
     const IntFlags intFlags;
 
 private:
@@ -221,31 +314,5 @@ private:
         flags.toString(buff);
 
         super(cast(immutable)(buff.data), fn, ln);
-    }
-}
-
-template raise(Flag!"throws" throws) {
-    void raise(IntFlag flag) {
-        static if(throws) {
-            version (DigitalMars)
-                pragma(inline, false); // DMD usually won't inline the caller without this.
-
-            throw new CheckedIntException(flag);
-        } else {
-            /+pragma(inline, true);+/
-            IntFlags.local |= flag;
-        }
-    }
-    void raise(IntFlags flags) {
-        static if(throws) {
-            version (DigitalMars)
-                pragma(inline, false); // DMD usually won't inline the caller without this.
-
-            if(flags.anySet)
-                throw new CheckedIntException(flags);
-        } else {
-            /+pragma(inline, true);+/
-            IntFlags.local |= flags;
-        }
     }
 }

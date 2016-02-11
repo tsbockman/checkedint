@@ -8,7 +8,7 @@ Authors: Thomas Stuart Bockman
 This module wraps various templates from `std.traits` to make them `checkedint`-aware. For example,
 `std.traits.isSigned!(SmartInt!int)` is `false`, but `checkedint.traits.isSigned!(SmartInt!int)` is `true`.
 
-It is separate from `checkedint` because it is only useful in generic code, and its symbols conflict with some from
+This module is separate from `checkedint` because it is only useful in generic code, and its symbols conflict with some from
 `std.traits`.
 */
 module checkedint.traits;
