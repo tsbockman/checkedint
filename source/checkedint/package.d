@@ -1365,7 +1365,7 @@ Assign the value of `that` to this `SmartInt` instance.
             static assert(!__traits(compiles, n = real.max));
 
             // Instead, use checkedint.to, which does runtime bounds checking:
-            n = to!int(cast(long)315);
+            n = to!int(315L);
             assert(n == 315);
 
             n = to!int(long.max);

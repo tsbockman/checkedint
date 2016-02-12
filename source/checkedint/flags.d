@@ -95,7 +95,7 @@ unittest {
 
     assert(IntFlags.local == (IntFlag.div0 | IntFlag.posOver));
 
-    IntFlags.clear();
+    IntFlags.local.clear();
 }
 ///
 unittest {
@@ -118,10 +118,10 @@ unittest {
 
 /// Represents a single cause of failure for an integer math operation.
 struct IntFlag {
-pure: nothrow: @nogc: /+pragma(inline, true):+/
+/+pragma(inline, true):+/
 private:
     uint index;
-    this(uint index) {
+    this(uint index) pure nothrow @nogc {
         assert(index < strs.length);
         this.index = index;
     }
@@ -152,7 +152,7 @@ public:
 /// Overflow occured because a value was too negative.
         enum IntFlag negOver = 6;
     } else {
-        static @property {
+        static @property pure nothrow @nogc {
             auto undef() {
                 return IntFlag(1); }
             auto div0() {
@@ -168,127 +168,267 @@ public:
         }
     }
 
-    @property {
-        bool isNull() const {
-            return index == 0; }
-        IntFlags mask() const {
-            return IntFlags(1u << index); }
-        alias mask this;
-
-        string desc() const {
-            return strs[index][1 .. ($ - 1)]; }
+/// `false` if this `IntFlag` is set to one of the error signals listed above. Otherwise `true`.
+    @property bool isNull() const pure nothrow @nogc {
+        return index == 0; }
+    ///
+    unittest {
+        assert( IntFlag.init.isNull);
+        assert(!IntFlag.div0.isNull);
     }
 
-/// Get a string representation of this `IntFlag`, suitable for use in human-readable error messages.
-    void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted {
+/// An `IntFlag` value is implicitly convertible to an `IntFlags` with only the one flag raised.
+    @property IntFlags mask() const pure nothrow @nogc {
+        return IntFlags(1u << index); }
+/// ditto
+    alias mask this;
+    ///
+    unittest {
+        IntFlags flags = IntFlag.over;
+        assert(flags == IntFlag.over);
+    }
+
+/// Get a description of this error flag.
+    @property string desc() const pure nothrow @nogc {
+        return strs[index][1 .. ($ - 1)]; }
+    ///
+    unittest {
+        assert(IntFlag.over.desc == "overflow");
+        assert(IntFlag.init.desc == "NULL");
+    }
+
+/// Get a string representation of this `IntFlag`. The format is the same as that returned by `IntFlags.toString()`.
+    void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted pure nothrow @nogc {
         formatValue(sink, strs[index], fmt); }
-    string toString() const {
+/// ditto
+    string toString() const pure nothrow @nogc {
         return strs[index]; }
+    ///
+    unittest {
+        assert(IntFlag.over.toString() == "{overflow}");
+        assert(IntFlag.over.toString() == IntFlag.over.mask.toString());
+    }
 }
 
-/// A bitset that can be used to track integer math failures.
+/**
+A bitset that can be used to track integer math failures.
+
+`IntFlags` is also a forward range which can be used to iterate over the set (raised) `IntFlag` values. Fully consuming
+the range is equivalent to calling `clear()`; iterate over a copy made with `save()`, instead, if this is not your
+intention.
+*/
 struct IntFlags {
-    pure nothrow @nogc /+pragma(inline, true)+/ {
-    private:
-        uint bits = 0;
-        this(uint bits) {
-            this.bits = bits;
-        }
+/+pragma(inline, true):+/
+private:
+    uint bits = 0;
+    this(uint bits) pure nothrow @nogc {
+        this.bits = bits;
+    }
 
-    public:
-        this(IntFlags that) {
-            bits = that.bits; }
-        ref IntFlags opAssign(IntFlags that) {
-            bits = that.bits;
-            return this;
-        }
-        IntFlags clear() {
-            IntFlags ret = this;
-            bits = 0;
-            return ret;
-        }
+public:
+/**
+Assign the set of flags represented by `that` to this `IntFlags`. Note that `IntFlag` values are accepted also,
+because `IntFlag` is implicitly convertible to `IntFlags`.
+*/
+    this(IntFlags that) pure nothrow @nogc {
+        bits = that.bits; }
+    ref IntFlags opAssign(IntFlags that) pure nothrow @nogc {
+        bits = that.bits;
+        return this;
+    }
+    ///
+    unittest {
+        IntFlags flags = IntFlag.div0;
+        assert(flags == IntFlag.div0);
+        flags = IntFlag.negOver | IntFlag.imag;
+        assert(flags == (IntFlag.negOver | IntFlag.imag));
 
-        IntFlags opBinary(string op)(IntFlags that) const
-            if(op.among!("&", "|", "-"))
-        {
-            IntFlags ret = this;
-            return ret.opOpAssign!op(that);
-        }
-        ref IntFlags opOpAssign(string op)(IntFlags that)
-            if(op.among!("&", "|", "-"))
-        {
-            static if(op == "&")
-                bits &= that.bits;
-            else
-            static if(op == "|")
-                bits |= that.bits;
-            else
-            static if(op == "-")
-                bits &= ~(that.bits);
+        IntFlags.local = flags;
+        assert(IntFlags.local == (IntFlag.negOver | IntFlag.imag));
 
-            return this;
-        }
+        IntFlags.local.clear();
+    }
 
-        @property bool anySet() const {
-            return bits > 1; }
-        alias anySet this;
+/**
+Clear all flags, and return the set of flags that were previously set.
 
-        @property bool empty() const {
-            return bits <= 1; }
-        @property IntFlag front() const {
-            // bsr() is undefined for 0.
-            return IntFlag(bsr(bits | 1));
-        }
-        ref IntFlags popFront() {
-            // bsr() is undefined for 0.
-            bits &= ~(1u << bsr(bits | 1));
-            return this;
-        }
-        @property IntFlags save() const {
-            return this; }
-        @property uint length() const {
-            return popcnt(bits); }
+`raise!(Yes.throws)(IntFlags.local.clear())` is a convenient way that the caller of a `nothrow` function can
+*/
+    IntFlags clear() pure nothrow @nogc {
+        IntFlags ret = this;
+        bits = 0;
+        return ret;
+    }
+    ///
+    unittest {
+        IntFlags.local = IntFlag.posOver | IntFlag.negOver;
+        assert(IntFlags.local.clear() == (IntFlag.posOver | IntFlag.negOver));
+        assert(!IntFlags.local);
+    }
 
-        unittest {
-            import std.range : isForwardRange, hasLength;
-            static assert(isForwardRange!IntFlags);
-            static assert(hasLength!IntFlags);
-        }
+/// Test (`&`), set (`|`), or unset (`-`) individual flags.
+    IntFlags opBinary(string op)(IntFlags that) const pure nothrow @nogc
+        if(op.among!("&", "|", "-"))
+    {
+        IntFlags ret = this;
+        return ret.opOpAssign!op(that);
+    }
+/// ditto
+    ref IntFlags opOpAssign(string op)(IntFlags that) pure nothrow @nogc
+        if(op.among!("&", "|", "-"))
+    {
+        static if(op == "&")
+            bits &= that.bits;
+        else
+        static if(op == "|")
+            bits |= that.bits;
+        else
+        static if(op == "-")
+            bits &= ~(that.bits);
 
-        static IntFlags local;
-        enum string pushPop = r"
-IntFlags outerIntFlags = IntFlags.local;
+        return this;
+    }
+    ///
+    unittest {
+        IntFlags flags = IntFlag.undef | IntFlag.posOver | IntFlag.negOver;
+
+        flags &= IntFlag.posOver | IntFlag.negOver;
+        assert(!(flags & IntFlag.undef));
+
+        flags -= IntFlag.undef | IntFlag.negOver;
+        assert(  flags & IntFlag.posOver);
+        assert(!(flags & IntFlag.negOver));
+    }
+
+/**
+`true` if any non-null flag is set, otherwise `false`.
+
+An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
+*/
+    @property bool anySet() const pure nothrow @nogc {
+        return bits > 1; }
+/// ditto
+    alias anySet this;
+    ///
+    unittest {
+        IntFlags flags;
+        assert(!flags);
+        flags = IntFlag.imag | IntFlag.undef;
+        assert( flags);
+    }
+
+/// `true` if no non-null flags are set.
+    @property bool empty() const pure nothrow @nogc {
+        return bits <= 1; }
+/// Get the first set `IntFlag`.
+    @property IntFlag front() const pure nothrow @nogc {
+        // bsr() is undefined for 0.
+        return IntFlag(bsr(bits | 1));
+    }
+/// Clear the first set `IntFlag`. This is equivalent to `flags -= flags.front`.
+    ref IntFlags popFront() pure nothrow @nogc {
+        // bsr() is undefined for 0.
+        bits &= ~(1u << bsr(bits | 1));
+        return this;
+    }
+/// Get a mutable copy of this `IntFlags` value, so as not to `clear()` the original by iterating through it.
+    @property IntFlags save() const pure nothrow @nogc {
+        return this; }
+/// Get the number of raised flags.
+    @property uint length() const pure nothrow @nogc {
+        return popcnt(bits & ~1); }
+
+    unittest {
+        import std.range : isForwardRange, hasLength;
+        static assert(isForwardRange!IntFlags);
+        static assert(hasLength!IntFlags);
+    }
+
+/// The standard `IntFlags` set for the current thread. `raise!(No.throws)()` mutates this variable.
+    static IntFlags local;
+
+/**
+A `mixin` string that may be used to (effectively) push a new `IntFlags.local` variable onto the stack at the
+beginning of a scope, and restore the previous one at the end.
+
+Any flags raised during the scope must be manually checked, handled, and cleared before the end, otherwise a debugging
+`assert` will be triggered to warn you that restoring the old `IntFlags.local` value would cause a loss of information.
+*/
+    enum string pushPop = r"
+IntFlags outerIntFlags = IntFlags.local.clear();
 scope(exit) {
     assert(IntFlags.local.empty);
     IntFlags.local = outerIntFlags;
 }";
+    ///
+    unittest {
+        import checkedint.noex; // set No.throws
+
+        string[] log;
+
+        void onlyZero(int x) {
+            mixin(IntFlags.pushPop);
+
+            if(x < 0)
+                raise(IntFlag.negOver);
+            if(x > 0)
+                raise(IntFlag.posOver);
+
+            if(IntFlags.local)
+                log ~= IntFlags.local.clear().toString();
+        }
+
+        IntFlags.local = IntFlag.imag;
+        onlyZero(-50);
+        onlyZero(22);
+        onlyZero(0);
+        assert(IntFlags.local == IntFlag.imag);
+        import std.conv;
+        assert(log == ["{negative overflow}", "{positive overflow}"]);
     }
-    public {
-        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt) const @trusted {
-            put(sink, '{');
 
-            bool first = true;
-            foreach(fd; this.save()) {
-                if(first)
-                    first = false;
-                else
-                    put(sink, ", ");
-                put(sink, fd.desc);
-            }
+/+pragma(inline):+/
+/// Get a string representation of the list of set flags.
+    void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt) const @trusted {
+        put(sink, '{');
 
-            put(sink, '}');
+        bool first = true;
+        foreach(fd; this.save()) {
+            if(first)
+                first = false;
+            else
+                put(sink, ", ");
+            put(sink, fd.desc);
         }
-        void toString(Writer)(Writer sink) const {
-            toString(sink, (FormatSpec!char).init); }
-        string toString() const {
-            if(length == 1)
-                return front.toString();
-            else {
-                auto buff = appender!string();
-                toString(buff);
-                return cast(immutable)(buff.data);
-            }
+
+        put(sink, '}');
+    }
+/// ditto
+    void toString(Writer)(Writer sink) const {
+        toString(sink, (FormatSpec!char).init); }
+/// ditto
+    string toString() const pure {
+        switch(length) {
+        case 0:
+            return "{}";
+        case 1:
+            return front.toString();
+        default:
+            auto buff = appender!string();
+            toString(buff);
+            return cast(immutable)(buff.data);
         }
+    }
+    ///
+    unittest {
+        IntFlags flags;
+        assert(flags.toString() == "{}");
+
+        flags = IntFlag.undef;
+        assert((flags.toString() == "{undefined result}") && (flags.toString() == IntFlag.undef.toString()));
+
+        flags |= IntFlag.imag;
+        assert(flags.toString() == "{imaginary component, undefined result}", flags.toString());
     }
 }
 
