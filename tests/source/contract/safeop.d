@@ -97,7 +97,7 @@ void ilogb(N = void)() {
 
         static assert(real.mant_dig >= (8 * N.sizeof));
         auto control(const real n, Unused m = null) {
-            return stdm.ilogb(n); }
+            return n != 0? stdm.ilogb(n) : real.nan; }
         alias R = CallType!(stdm.ilogb, IntFromChar!N);
 
         fuzz!(sc, Unqual, OutIs!R, control, N)();

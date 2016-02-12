@@ -2374,24 +2374,32 @@ private {
         int bsrImpl(Flag!"throws" throws, N)(const N num)
             if(isFixedPoint!N)
         {
-            if(num == 0)
-                IntFlag.undef.raise!throws();
-
             static assert(N.sizeof <= ulong.sizeof);
             alias WN = Select!(N.sizeof > size_t.sizeof, ulong, size_t);
 
-            return bsr(cast(WN)num);
+            int ret = void;
+            if(num == 0) {
+                IntFlag.undef.raise!throws();
+                ret = int.min;
+            } else
+                ret = bsr(cast(WN)num);
+
+            return ret;
         }
         int bsfImpl(Flag!"throws" throws, N)(const N num)
             if(isFixedPoint!N)
         {
-            if(num == 0)
-                IntFlag.undef.raise!throws();
-
             static assert(N.sizeof <= ulong.sizeof);
             alias WN = Select!(N.sizeof > size_t.sizeof, ulong, size_t);
 
-            return bsf(cast(WN)num);
+            int ret = void;
+            if(num == 0) {
+                IntFlag.undef.raise!throws();
+                ret = int.min;
+            } else
+                ret = bsf(cast(WN)num);
+
+            return ret;
         }
 
         auto byPow2Impl(string op, N, M)(const N left, const M exp) pure nothrow @nogc

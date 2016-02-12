@@ -389,7 +389,7 @@ scope(exit) {
         onlyZero(22);
         onlyZero(0);
         assert(IntFlags.local == IntFlag.imag);
-        import std.conv;
+
         assert(log == ["{negative overflow}", "{positive overflow}"]);
     }
 
