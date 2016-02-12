@@ -220,10 +220,16 @@ intention.
 struct IntFlags {
 /+pragma(inline, true):+/
 private:
-    uint bits = 0;
-    this(uint bits) pure nothrow @nogc {
-        this.bits = bits;
+    uint _bits = 0;
+    @property uint bits() const pure nothrow @nogc {
+        return _bits; }
+    @property void bits(uint bits) pure nothrow @nogc {
+        // filter out {NULL}
+        _bits = bits & ~1;
     }
+
+    this(uint bits) pure nothrow @nogc {
+        this.bits = bits; }
 
 public:
 /**
@@ -256,7 +262,7 @@ Clear all flags, and return the set of flags that were previously set.
 */
     IntFlags clear() pure nothrow @nogc {
         IntFlags ret = this;
-        bits = 0;
+        _bits = 0;
         return ret;
     }
     ///
@@ -278,13 +284,13 @@ Clear all flags, and return the set of flags that were previously set.
         if(op.among!("&", "|", "-"))
     {
         static if(op == "&")
-            bits &= that.bits;
+            bits = this.bits & that.bits;
         else
         static if(op == "|")
-            bits |= that.bits;
+            bits = this.bits | that.bits;
         else
         static if(op == "-")
-            bits &= ~(that.bits);
+            bits = this.bits & ~(that.bits);
 
         return this;
     }
@@ -306,7 +312,7 @@ Clear all flags, and return the set of flags that were previously set.
 An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
 */
     @property bool anySet() const pure nothrow @nogc {
-        return bits > 1; }
+        return bits != 0; }
 /// ditto
     alias anySet this;
     ///
@@ -319,7 +325,7 @@ An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
 
 /// `true` if no non-null flags are set.
     @property bool empty() const pure nothrow @nogc {
-        return bits <= 1; }
+        return bits == 0; }
 /// Get the first set `IntFlag`.
     @property IntFlag front() const pure nothrow @nogc {
         // bsr() is undefined for 0.
@@ -328,7 +334,7 @@ An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
 /// Clear the first set `IntFlag`. This is equivalent to `flags -= flags.front`.
     ref IntFlags popFront() pure nothrow @nogc {
         // bsr() is undefined for 0.
-        bits &= ~(1u << bsr(bits | 1));
+        bits = bits & ~(1u << bsr(bits | 1));
         return this;
     }
 /// Get a mutable copy of this `IntFlags` value, so as not to `clear()` the original by iterating through it.
@@ -336,7 +342,7 @@ An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
         return this; }
 /// Get the number of raised flags.
     @property uint length() const pure nothrow @nogc {
-        return popcnt(bits & ~1); }
+        return popcnt(bits); }
 
     unittest {
         import std.range : isForwardRange, hasLength;
