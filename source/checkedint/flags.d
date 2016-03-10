@@ -76,7 +76,7 @@ template raise(Flag!"throws" throws) {
 }
 ///
 unittest {
-    import checkedint.throws; // set Yes.throws
+    import checkedint.throws : raise; // set Yes.throws
 
     bool caught = false;
     try {
@@ -88,7 +88,7 @@ unittest {
 }
 ///
 unittest {
-    import checkedint.noex; // set No.throws
+    import checkedint.noex : raise; // set No.throws
 
     raise(IntFlag.div0);
     raise(IntFlag.posOver);
@@ -368,7 +368,7 @@ scope(exit) {
 }";
     ///
     unittest {
-        import checkedint.noex; // set No.throws
+        import checkedint.noex : raise; // set No.throws
 
         string[] log;
 

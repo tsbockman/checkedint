@@ -126,7 +126,7 @@ $(UL
             N bscal;
             ///
             unittest {
-                import checkedint.throws; // set Yes.throws
+                import checkedint.throws : SmartInt; // set Yes.throws
 
                 SmartInt!uint n;
                 static assert(is(typeof(n.bscal) == uint));
@@ -143,7 +143,7 @@ $(UL
                 return this; }
             ///
             unittest {
-                import checkedint.throws; // set Yes.throws
+                import checkedint.throws : SmartInt; // set Yes.throws
 
                 SmartInt!(int, No.bitOps) n = 1;
                 static assert(!__traits(compiles, n << 2));
@@ -162,7 +162,7 @@ $(UL
             enum SmartInt!(N, throws, bitOps) min = typeof(this)(trueMin!N);
             ///
             unittest {
-                import checkedint.throws; // set Yes.throws
+                import checkedint.throws : SmartInt; // set Yes.throws
 
                 assert(SmartInt!(int).min == int.min);
                 assert(SmartInt!(uint).min == uint.min);
@@ -172,7 +172,7 @@ $(UL
             enum SmartInt!(N, throws, bitOps) max = typeof(this)(trueMax!N);
             ///
             unittest {
-                import checkedint.throws; // set Yes.throws;
+                import checkedint.throws : SmartInt; // set Yes.throws;
 
                 assert(SmartInt!(int).max == int.max);
                 assert(SmartInt!(uint).max == uint.max);
@@ -204,7 +204,7 @@ Assign the value of `that` to this `SmartInt` instance.
         }
         ///
         unittest {
-            import checkedint.noex; // set No.throws
+            import checkedint.noex : SmartInt; // set No.throws
 
             // Any basic scalar or checkedint *type* is accepted...
             SmartInt!int n = 0;
@@ -234,7 +234,7 @@ occur if M.sizeof <= N.sizeof.
         }
         ///
         unittest {
-            import checkedint.throws;
+            import checkedint.throws : SmartInt; // set Yes.throws
 
             SmartInt!int n = 92;
             auto f = cast(double)n;
@@ -250,7 +250,7 @@ occur if M.sizeof <= N.sizeof.
         }
         ///
         unittest {
-            import checkedint.throws;
+            import checkedint.throws : SmartInt; // set Yes.throws
 
             SmartInt!int n = -315;
             assert( cast(bool)n);
@@ -270,7 +270,7 @@ represent the current value of this `SmartInt`.
         }
         ///
         unittest {
-            import checkedint.noex;
+            import checkedint.noex : SmartInt; // set No.throws
 
             SmartInt!ulong n = 52;
             auto a = cast(int)n;
@@ -298,7 +298,7 @@ $(UL
             return to!(typeof(return), throws)(bscal); }
         ///
         unittest {
-            import checkedint.throws;
+            import checkedint.throws : SmartInt; // set Yes.throws
 
             char[3] arr = ['a', 'b', 'c'];
             SmartInt!long n = 1;
@@ -337,7 +337,7 @@ $(UL
             formatValue(sink, bscal, fmt); }
         ///
         unittest {
-            import checkedint.throws;
+            import checkedint.throws : smartInt; // set Yes.throws
             assert(smartInt(-753).toString() == "-753");
         }
 
@@ -530,7 +530,7 @@ Returns: $(UL
         assert(bc == 4294967295u);
 
         // ...with SmartInt, mixed signed/unsigned operations "just work":
-        import checkedint.throws; // set Yes.throws
+        import checkedint.throws : SmartInt; // set Yes.throws
 
         SmartInt!int ma = -1;
         SmartInt!uint mb = 0;
@@ -544,7 +544,7 @@ Returns: $(UL
     ///
     unittest {
         // When Yes.throws is set, failed SmartInt operations will throw a CheckedIntException.
-        import checkedint.throws;
+        import checkedint.throws : SmartInt;
 
         SmartInt!uint ma = 1;
         SmartInt!uint mb = 0;
@@ -574,7 +574,7 @@ Returns: $(UL
     ///
     unittest {
         // When No.throws is set, failed SmartInt operations set one or more bits in IntFlags.local.
-        import checkedint.noex;
+        import checkedint.noex : SmartInt;
 
         SmartInt!uint ma = 1;
         SmartInt!uint mb = 0;
@@ -613,7 +613,7 @@ Returns: $(UL
     }
     ///
     unittest {
-        import checkedint.throws;
+        import checkedint.throws : smartInt, SmartInt; // set Yes.throws
 
         auto a = smartInt(55uL);
         static assert(is(typeof(a) == SmartInt!ulong));
@@ -1261,7 +1261,7 @@ $(UL
             N bscal;
             ///
             unittest {
-                import checkedint.throws; // set Yes.throws
+                import checkedint.throws : SafeInt; // set Yes.throws
 
                 SafeInt!uint n;
                 static assert(is(typeof(n.bscal) == uint));
@@ -1278,7 +1278,7 @@ $(UL
                 return this; }
             ///
             unittest {
-                import checkedint.throws; // set Yes.throws
+                import checkedint.throws : SafeInt; // set Yes.throws
 
                 SafeInt!(int, No.bitOps) n = 1;
                 static assert(!__traits(compiles, n << 2));
@@ -1297,7 +1297,7 @@ $(UL
             enum SafeInt!(N, throws, bitOps) min = typeof(this)(trueMin!N);
             ///
             unittest {
-                import checkedint.throws; // set Yes.throws
+                import checkedint.throws : SafeInt; // set Yes.throws
 
                 assert(SafeInt!(int).min == int.min);
                 assert(SafeInt!(uint).min == uint.min);
@@ -1307,7 +1307,7 @@ $(UL
             enum SafeInt!(N, throws, bitOps) max = typeof(this)(trueMax!N);
             ///
             unittest {
-                import checkedint.throws; // set Yes.throws;
+                import checkedint.throws : SafeInt; // set Yes.throws;
 
                 assert(SafeInt!(int).max == int.max);
                 assert(SafeInt!(uint).max == uint.max);
@@ -1352,7 +1352,7 @@ Assign the value of `that` to this `SmartInt` instance.
         }
         ///
         unittest {
-            import checkedint.noex; // set Yes.throws
+            import checkedint.noex : SafeInt, to; // set No.throws
 
             // Only types that for which N can represent all values are accepted directly:
             SafeInt!int n = int.max;
@@ -1570,7 +1570,7 @@ Assign the value of `that` to this `SmartInt` instance.
         assert(bc == 4294967295u);
 
         // ...that's why SafeInt won't let you do it.
-        import checkedint.throws; // set Yes.throws
+        import checkedint.throws : SafeInt, to; // set Yes.throws
 
         SafeInt!int sa = -1;
         SafeInt!uint sb = 0u;
@@ -1587,7 +1587,7 @@ Assign the value of `that` to this `SmartInt` instance.
     ///
     unittest {
         // When Yes.throws is set, SafeInt operations that fail at runtime will throw a CheckedIntException.
-        import checkedint.throws;
+        import checkedint.throws : SafeInt;
 
         SafeInt!uint sa = 1u;
         SafeInt!uint sb = 0u;
@@ -1617,7 +1617,7 @@ Assign the value of `that` to this `SmartInt` instance.
     ///
     unittest {
         // When No.throws is set, SafeInt operations that fail at runtime set one or more bits in IntFlags.local.
-        import checkedint.noex;
+        import checkedint.noex : SafeInt;
 
         SafeInt!uint sa = 1u;
         SafeInt!uint sb = 0u;
@@ -1656,7 +1656,7 @@ Assign the value of `that` to this `SmartInt` instance.
     }
     ///
     unittest {
-        import checkedint.throws;
+        import checkedint.throws : safeInt, SafeInt; // set Yes.throws
 
         auto a = safeInt(55uL);
         static assert(is(typeof(a) == SafeInt!ulong));
@@ -2084,7 +2084,7 @@ Conversions involving any other type are simply forwarded to `std.conv.to`, with
     ///
     unittest {
         // Conversions involving only basic scalars or checkedint types use IntFlags for error signalling.
-        import checkedint.noex; // set No.throws
+        import checkedint.noex : smartInt, SmartInt, smartOp, to; // set No.throws
 
         assert(to!int(smartInt(-421751L)) == -421751);
         assert(to!(SmartInt!ubyte)(100) == 100u);
@@ -2141,7 +2141,7 @@ Useful in generic code that handles both basic types, and `checkedint` types.
         }
         ///
         unittest {
-            import checkedint.throws; // set Yes.throws
+            import checkedint.throws : smartInt, SmartInt; // set Yes.throws
 
             assert(is(typeof(bscal(2u)) == uint));
             assert(is(typeof(bscal(SmartInt!int(2))) == int));
@@ -2186,7 +2186,7 @@ Useful in generic code that handles both basic types and `checkedint` types.
         }
         ///
         unittest {
-            import checkedint.throws; // set Yes.throws
+            import checkedint.throws : SmartInt; // set Yes.throws
 
             assert(is(typeof(bits(5)) == int));
 
@@ -2216,7 +2216,7 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
         }
         ///
         unittest {
-            import checkedint.throws; // set Yes.throws
+            import checkedint.throws : SmartInt, safeInt; // set Yes.throws
 
             assert(is(typeof(idx(cast(long)1)) == ptrdiff_t));
             assert(is(typeof(idx(cast(ubyte)1)) == size_t));
@@ -2237,7 +2237,7 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
 enum isSafeInt(T) = isInstanceOf!(SafeInt, T);
 ///
 unittest {
-    import checkedint.throws; // set Yes.throws
+    import checkedint.throws : SmartInt, SafeInt; // set Yes.throws
 
     assert( isSafeInt!(SafeInt!int));
 
@@ -2249,7 +2249,7 @@ unittest {
 enum isSmartInt(T) = isInstanceOf!(SmartInt, T);
 ///
 unittest {
-    import checkedint.throws; // set Yes.throws
+    import checkedint.throws : SmartInt, SafeInt; // set Yes.throws
 
     assert( isSmartInt!(SmartInt!int));
 
@@ -2261,7 +2261,7 @@ unittest {
 enum isCheckedInt(T) = isSafeInt!T || isSmartInt!T;
 ///
 unittest {
-    import checkedint.throws; // set Yes.throws
+    import checkedint.throws : SafeInt, SmartInt; // set Yes.throws
 
     assert( isCheckedInt!(SafeInt!int));
     assert( isCheckedInt!(SmartInt!int));
@@ -2285,7 +2285,7 @@ template hasBitOps(T) {
 }
 ///
 unittest {
-    import checkedint.throws; // set Yes.throws
+    import checkedint.throws : SafeInt, SmartInt; // set Yes.throws
 
     assert( hasBitOps!(SafeInt!(int, Yes.bitOps)));
     assert( hasBitOps!(SmartInt!(int, Yes.bitOps)));
@@ -2337,7 +2337,7 @@ template BasicScalar(T) {
 }
 ///
 unittest {
-    import checkedint.throws; // set Yes.throws
+    import checkedint.throws : SafeInt, SmartInt; // set Yes.throws
 
     assert(is(BasicScalar!(SafeInt!int) == int));
     assert(is(BasicScalar!(SmartInt!ushort) == ushort));

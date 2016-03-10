@@ -156,7 +156,7 @@ void binary(string op = null, N = void, M = void)() {
                 static N control(const N n, const M m) {
                     const shL = (op == "<<") ^ (m < 0);
                     enum int maxSh = (8 * N.sizeof) - 1;
-                    const um = cast(UM)std.math.abs(m);
+                    const um = cast(UM)stdm.abs(m);
 
                     static if(op == ">>>")
                         auto wret = cast(UN)n;
