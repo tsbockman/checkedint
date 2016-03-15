@@ -1,5 +1,6 @@
 /**
-Templates to facilitate treating `checkedint.SmartInt` or `checkedint.SafeInt` like the built-in numeric types.
+Templates to facilitate treating `checkedint.SmartInt` and `checkedint.SafeInt` like the built-in numeric types in
+generic code.
 
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
@@ -8,8 +9,8 @@ Authors: Thomas Stuart Bockman
 This module wraps various templates from `std.traits` to make them `checkedint`-aware. For example,
 `std.traits.isSigned!(SmartInt!int)` is `false`, but `checkedint.traits.isSigned!(SmartInt!int)` is `true`.
 
-This module is separate from `checkedint` because it is only useful in generic code, and its symbols conflict with some from
-`std.traits`.
+This module is separate from `checkedint` because it is only useful in generic code, and its symbols (deliberately)
+conflict with some from `std.traits`.
 */
 module checkedint.traits;
 public import checkedint :

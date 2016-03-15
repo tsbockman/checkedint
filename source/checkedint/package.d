@@ -54,8 +54,8 @@ $(BIG $(B Error Signaling)) $(BR)
 Some types of problem are signaled by a compile-time error, others at runtime. Runtime signaling is done through
 $(LINK2 ./flags.html, `checkedint.flags`).
 $(UL
-    $(LI By default, a `CheckedIntException` is thrown. These are real exceptions; not FPEs. As such, they can be caught
-        and include a stack trace.)
+    $(LI By default, a `CheckedIntException` is thrown. These are normal exceptions; not FPEs. As such, they can be
+        caught and include a stack trace.)
     $(LI If necessary, $(LINK2 ./flags.html, `checkedint.flags`) can instead be configured to set a thread-local flag
         when an operation fails. This allows `checkedint` to be used from `nothrow`, or even `@nogc` code.)
 )
@@ -67,9 +67,9 @@ Replacing all basic integer types with `SmartInt` or `SafeInt` will slow down ex
 many factors, but for most code following a few simple rules should keep the penalty low:
 $(OL
     $(LI Build with $(B $(RED `--inline`)) and $(B `-O`) (DMD) or $(B `-O3`) (GDC and LDC). This by itself can improve
-        the performance of `checkedint` by about around $(B 1,000%).)
-    $(LI With GDC or LDC, the performance hit will probably be between 30% and 100%. With DMD it is likely to be 100% to
-        200%.)
+        the performance of `checkedint` by around $(B 1,000%).)
+    $(LI With GDC or LDC, the performance hit will probably be between 30% and 100%. With DMD, performance varies wildly
+        from one frontend version to the next, depending on the whims of the inscrutable and fickle inliner.)
     $(LI `checkedint` can't slow down code where it's not used! If you really need more speed, try switching to
         `DebugInt` for the hottest code in your program (like inner loops) before giving up on `checkedint` entirely.)
 )
@@ -342,7 +342,7 @@ $(UL
         }
 
         // Comparison /////////////////////////////////////////////////
-/// Returns true if this value is mathematically precisely equal to `right`.
+/// Returns `true` if this value is mathematically precisely equal to `right`.
         bool opEquals(M)(const M right) const pure nothrow @nogc
             if(isCheckedInt!M || isScalarType!M)
         {
@@ -411,7 +411,7 @@ Returns: $(UL
             return typeof(return)(smartOp!(throws).bsf(bscal));
         }
         SmartInt!(ubyte, throws, bitOps) bsr()() const {
-            static assert(bitOps, "Bitwise operations are disabled.");
+            static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
             return typeof(return)(smartOp!(throws).bsr(bscal));
         }
@@ -436,7 +436,7 @@ Returns: $(UL
             enum mixThrows = throws || isThrowingCInt!M;
             enum mixBitOps = bitOps && hasBitOps!M;
             static assert(mixBitOps || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
-                "Bitwise operations are disabled.");
+                "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
             const wret = smartOp!(mixThrows).binary!op(left.bscal, this.bscal);
             return SmartInt!(typeof(wret), mixThrows, mixBitOps)(wret);
@@ -447,7 +447,7 @@ Returns: $(UL
             enum mixThrows = throws || isThrowingCInt!M;
             enum mixBitOps = bitOps && hasBitOps!M;
             static assert(mixBitOps || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
-                "Bitwise operations are disabled.");
+                "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
             const wret = smartOp!(mixThrows).binary!op(this.bscal, right.bscal);
             return SmartInt!(typeof(wret), mixThrows, mixBitOps)(wret);
@@ -456,7 +456,7 @@ Returns: $(UL
             if(isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
-                "Bitwise operations are disabled.");
+                "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
             smartOp!(throws || isThrowingCInt!M).binary!(op ~ "=")(this.bscal, right.bscal);
             return this;
@@ -534,7 +534,7 @@ Returns: $(UL
 
         SmartInt!int ma = -1;
         SmartInt!uint mb = 0;
-        assert(  ma < mb );
+        assert(ma < mb);
 
         auto mc = ma + mb;
         assert(is(typeof(mc) == SmartInt!int));
@@ -1293,7 +1293,7 @@ $(UL
         static if(__VERSION__ >= 2067) {
             version(GNU) { static assert(false); }
 
-/// The most negative possible value of this `SmartInt` type.
+/// The most negative possible value of this `SafeInt` type.
             enum SafeInt!(N, throws, bitOps) min = typeof(this)(trueMin!N);
             ///
             unittest {
@@ -1303,7 +1303,7 @@ $(UL
                 assert(SafeInt!(uint).min == uint.min);
             }
 
-/// The most positive possible value of this `SmartInt` type.
+/// The most positive possible value of this `SafeInt` type.
             enum SafeInt!(N, throws, bitOps) max = typeof(this)(trueMax!N);
             ///
             unittest {
@@ -1332,9 +1332,10 @@ $(UL
         }
 
 /**
-Assign the value of `that` to this `SmartInt` instance.
+Assign the value of `that` to this `SafeInt` instance.
 
-`checkedint.to()` is used to verify `that >= N.min && that <= N.max`. If not, an `IntFlag` will be raised.
+Trying to assign a value that cannot be proven at compile time to be representable by `N` is an error. Use
+`checkedint.to` to safely convert `that` with runtime bounds checking, instead.
 */
         this(M)(const M that) pure nothrow @nogc
             if(isCheckedInt!M || isScalarType!M)
@@ -1374,25 +1375,105 @@ Assign the value of `that` to this `SmartInt` instance.
             IntFlags.local.clear();
         }
 
+/**
+Convert this value to floating-point. This always succeeds, although some loss of precision may
+occur if M.sizeof <= N.sizeof.
+*/
         M opCast(M)() const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return cast(M)bscal;
         }
+        ///
+        unittest {
+            import checkedint.throws : SafeInt; // set Yes.throws
+
+            SafeInt!int n = 92;
+            auto f = cast(double)n;
+            static assert(is(typeof(f) == double));
+            assert(f == 92.0);
+        }
+
+/// `this != 0`
         M opCast(M)() const pure nothrow @nogc
             if(is(M == bool))
         {
             return bscal != 0;
         }
+        ///
+        unittest {
+            import checkedint.throws : SafeInt; // set Yes.throws
+
+            SafeInt!int n = -315;
+            assert( cast(bool)n);
+
+            n = 0;
+            assert(!cast(bool)n);
+        }
+
+/**
+Convert this value to type `M` using `checkedint.to` for bounds checking. An `IntFlag` will be raised if `M` cannot
+represent the current value of this `SafeInt`.
+*/
         M opCast(M)() const
             if(isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
             return to!(M, throws)(bscal);
         }
+        ///
+        unittest {
+            import checkedint.noex : SafeInt; // set No.throws
+
+            SafeInt!ulong n = 52uL;
+            auto a = cast(int)n;
+            static assert(is(typeof(a) == int));
+            assert(!IntFlags.local);
+            assert(a == 52);
+
+            auto m = SafeInt!long(-1).mulPow2(n);
+            auto b = cast(wchar)m;
+            static assert(is(typeof(b) == wchar));
+            assert(IntFlags.local == IntFlag.negOver);
+
+            IntFlags.local.clear();
+        }
+
+/**
+Convert this value to a type suitable for indexing an array:
+$(UL
+    $(LI If `N` is signed, a `ptrdiff_t` is returned.)
+    $(LI If `N` is unsigned, a `size_t` is returned.)
+)
+`checkedint.to` is used for bounds checking.
+*/
         @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const {
             return to!(typeof(return), throws)(bscal);
         }
+        ///
+        unittest {
+            import checkedint.throws : SafeInt; // set Yes.throws
 
+            char[3] arr = ['a', 'b', 'c'];
+            SafeInt!long n = 1;
+
+            // On 32-bit, `long` cannot be used directly for array indexing,
+            static if(size_t.sizeof < long.sizeof)
+                static assert(!__traits(compiles, arr[n]));
+            // but idx can be used to concisely and safely cast to ptrdiff_t:
+            assert(arr[n.idx] == 'b');
+
+            // The conversion is bounds checked:
+            static if(size_t.sizeof < long.sizeof) {
+                n = long.min;
+                try {
+                    arr[n.idx] = '?';
+                } catch(CheckedIntException e) {
+                    assert(e.intFlags == IntFlag.negOver);
+                }
+            }
+        }
+
+/// Get a simple hashcode for this value.
         size_t toHash() const pure nothrow @nogc {
             static if(N.sizeof > size_t.sizeof) {
                 static assert(N.sizeof == (2 * size_t.sizeof));
@@ -1401,10 +1482,17 @@ Assign the value of `that` to this `SmartInt` instance.
                 return cast(size_t)bscal;
         }
 
+/// Get a `string` representation of this value.
         void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted {
             formatValue(sink, bscal, fmt); }
+/// ditto
         string toString() const {
             return to!(string, No.throws)(bscal); }
+        ///
+        unittest {
+            import checkedint.throws : safeInt; // set Yes.throws
+            assert(safeInt(-753).toString() == "-753");
+        }
 
         // Comparison /////////////////////////////////////////////////
         bool opEquals(M)(const M right) const pure nothrow @nogc
@@ -1458,7 +1546,7 @@ Assign the value of `that` to this `SmartInt` instance.
             return typeof(return)(safeOp!(throws).bsf(bscal));
         }
         SafeInt!(int, throws, bitOps) bsr()() const {
-            static assert(bitOps, "Bitwise operations are disabled.");
+            static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
             return typeof(return)(safeOp!(throws).bsr(bscal));
         }
@@ -1481,7 +1569,7 @@ Assign the value of `that` to this `SmartInt` instance.
             if(isFixedPoint!M)
         {
             static assert(bitOps || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
-                "Bitwise operations are disabled.");
+                "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
             return typeof(return)(safeOp!(throws).binary!op(left, bscal));
         }
@@ -1489,7 +1577,7 @@ Assign the value of `that` to this `SmartInt` instance.
             if(isSafeInt!M || isFixedPoint!M)
         {
             static assert(bitOps && hasBitOps!M || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
-                "Bitwise operations are disabled.");
+                "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
             return typeof(return)(safeOp!(throws || isThrowingCInt!M).binary!op(this.bscal, right.bscal));
         }
@@ -1497,7 +1585,7 @@ Assign the value of `that` to this `SmartInt` instance.
             if(isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
-                "Bitwise operations are disabled.");
+                "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
             checkImplicit!(OpType!(N, op, BasicScalar!M))();
 
             safeOp!(throws || isThrowingCInt!M).binary!(op ~ "=")(this.bscal, right.bscal);
