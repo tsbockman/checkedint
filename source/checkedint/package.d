@@ -104,7 +104,7 @@ static if(__VERSION__ >= 2068) {
 // smart /////////////////////////////////////////////////
 /**
 Wrapper for any basic integral type `N` that uses the checked operations from `smartOp` and bounds checks assignments
-with `checkedint.to`.
+with `checkedint.to()`.
 
 $(UL
     $(LI `throws` controls the error signalling policy (see `checkedint.flags`).)
@@ -260,7 +260,7 @@ occur if M.sizeof <= N.sizeof.
         }
 
 /**
-Convert this value to type `M` using `checkedint.to` for bounds checking. An `IntFlag` will be raised if `M` cannot
+Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if `M` cannot
 represent the current value of this `SmartInt`.
 */
         M opCast(M)() const
@@ -292,7 +292,7 @@ $(UL
     $(LI If `N` is signed, a `ptrdiff_t` is returned.)
     $(LI If `N` is unsigned, a `size_t` is returned.)
 )
-`checkedint.to` is used for bounds checking.
+`checkedint.to()` is used for bounds checking.
 */
         @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const {
             return to!(typeof(return), throws)(bscal); }
@@ -374,6 +374,7 @@ Returns: $(UL
         }
 
         // Unary /////////////////////////////////////////////////
+/// See `smartOp`.
         typeof(this) opUnary(string op)() const pure nothrow @nogc
             if(op == "~")
         {
@@ -382,11 +383,13 @@ Returns: $(UL
 
             return typeof(return)(smartOp!(throws).unary!op(bscal));
         }
+/// ditto
         SmartInt!(Signed!N, throws, bitOps) opUnary(string op)() const
             if(op == "+" || op == "-")
         {
             return typeof(return)(smartOp!(throws).unary!op(bscal));
         }
+/// ditto
         ref typeof(this) opUnary(string op)()
             if(op.among!("++", "--"))
         {
@@ -394,10 +397,12 @@ Returns: $(UL
             return this;
         }
 
+/// ditto
         SmartInt!(Unsigned!N, throws, bitOps) abs() const pure nothrow @nogc {
             return typeof(return)(smartOp!(throws).abs(bscal));
         }
 
+/// Count the number of set bits using `core.bitop.popcnt()`.
         SmartInt!(int, throws, bitOps) popcnt()() const pure nothrow @nogc {
             static assert(bitOps, "Bitwise operations are disabled.");
 
@@ -405,31 +410,37 @@ Returns: $(UL
             return typeof(return)(stdPC(bscal));
         }
 
+/// See `smartOp`.
         SmartInt!(ubyte, throws, bitOps) bsf()() const {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             return typeof(return)(smartOp!(throws).bsf(bscal));
         }
+/// ditto
         SmartInt!(ubyte, throws, bitOps) bsr()() const {
             static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
             return typeof(return)(smartOp!(throws).bsr(bscal));
         }
 
+/// ditto
         SmartInt!(ubyte, throws, bitOps) ilogb() const {
             return typeof(return)(smartOp!(throws).ilogb(bscal)); }
 
         // Binary /////////////////////////////////////////////////
+/// ditto
         auto opBinaryRight(string op, M)(const M left) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return smartOp!(throws).binary!op(left, bscal);
         }
+/// ditto
         auto opBinary(string op, M)(const M right) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return smartOp!(throws).binary!op(bscal, right);
         }
+/// ditto
         auto opBinaryRight(string op, M)(const M left) const
             if(isSafeInt!M || isFixedPoint!M)
         {
@@ -441,6 +452,7 @@ Returns: $(UL
             const wret = smartOp!(mixThrows).binary!op(left.bscal, this.bscal);
             return SmartInt!(typeof(wret), mixThrows, mixBitOps)(wret);
         }
+/// ditto
         auto opBinary(string op, M)(const M right) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -452,6 +464,7 @@ Returns: $(UL
             const wret = smartOp!(mixThrows).binary!op(this.bscal, right.bscal);
             return SmartInt!(typeof(wret), mixThrows, mixBitOps)(wret);
         }
+/// ditto
         ref typeof(this) opOpAssign(string op, M)(const M right)
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -462,11 +475,13 @@ Returns: $(UL
             return this;
         }
 
+/// ditto
         auto mulPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return smartOp!(throws).mulPow2(bscal, exp);
         }
+/// ditto
         auto mulPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -474,11 +489,13 @@ Returns: $(UL
             const wret = smartOp!(mixThrows).mulPow2(this.bscal, exp.bscal);
             return SmartInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
         }
+/// ditto
         auto divPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return smartOp!(throws).divPow2(bscal, exp);
         }
+/// ditto
         auto divPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -486,11 +503,13 @@ Returns: $(UL
             const wret = smartOp!(mixThrows).divPow2(this.bscal, exp.bscal);
             return SmartInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
         }
+/// ditto
         auto modPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return smartOp!(throws).modPow2(bscal, exp);
         }
+/// ditto
         auto modPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -499,11 +518,13 @@ Returns: $(UL
             return SmartInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
         }
 
+/// Raise `this` to the `exp` power using `std.math.pow()`.
         auto pow(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return std.math.pow(bscal, exp);
         }
+/// See `smartOp`.
         auto pow(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -671,6 +692,18 @@ $(UL
 
                 return mixin("left " ~ op ~ " right");
             }
+            ///
+            unittest {
+                import checkedint.noex : smartOp; // smartOp.cmp() never throws
+
+                assert(-1 == uint.max);
+                assert( smartOp.cmp!"!="(uint.max, -1));
+                assert(-3156 > 300u);
+                assert( smartOp.cmp!"<"(-3156, 300u));
+
+                assert(!smartOp.cmp!"<"(1, real.nan));
+                assert(!smartOp.cmp!"<"(real.nan, 1));
+            }
 
 /**
 Defines a total order on all basic scalar values, using the same rules as `std.math.cmp`.
@@ -691,9 +724,10 @@ $(UL
             {
                 cmpTypeCheck!(N, M)();
 
-                static if(isFloatingPoint!N || isFloatingPoint!M)
-                    return std.math.cmp(left, right);
-                else {
+                static if(isFloatingPoint!N || isFloatingPoint!M) {
+                    import future.math : stdCmp = cmp;
+                    return stdCmp(left, right);
+                } else {
                     static if(isSigned!N != isSigned!M) {
                         static if(isSigned!N) {
                             if(left < 0)
@@ -706,6 +740,14 @@ $(UL
 
                     return (left < right)? -1 : (right < left);
                 }
+            }
+            ///
+            unittest {
+                import checkedint.noex : smartOp; // smartOp.cmp() never throws
+
+                assert(smartOp.cmp(325.0, 325u) == 0);
+                assert(smartOp.cmp(uint.max, -1) == 1);
+                assert(smartOp.cmp(-3156, 300u) == -1);
             }
 
 /// Get the absolute value of `num`. Because the return type is always unsigned, overflow is not possible.
@@ -724,6 +766,14 @@ $(UL
                 if(isSomeChar!N)
             {
                 return num;
+            }
+            ///
+            unittest {
+                import checkedint.noex : smartOp; // smartOp.abs() never throws
+
+                assert(smartOp.abs(int.min) == std.math.pow(2.0, 31));
+                assert(smartOp.abs(-25) == 25u);
+                assert(smartOp.abs(745u) == 745u);
             }
 
             private template Result(N, string op, M)
@@ -838,29 +888,90 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
             } else
                 static assert(false);
         }
+        ///
+        unittest {
+            import checkedint.noex : smartOp; // set No.throws
 
-/// `core.bitop.bsf` without the undefined behaviour. `smartOp.bsf(0)` will raise `IntFlag.undefined`.
+            assert(smartOp.unary!"~"(0u) == uint.max);
+
+            auto a = smartOp.unary!"-"(20uL);
+            assert(a == -20);
+            static assert(is(typeof(a) == long));
+
+            smartOp.unary!"+"(uint.max);
+            assert(IntFlags.local == IntFlag.posOver);
+            IntFlags.local.clear();
+
+            uint b = 1u;
+            assert(smartOp.unary!"--"(b) == 0u);
+            assert(b == 0u);
+            smartOp.unary!"--"(b);
+            assert(IntFlags.local == IntFlag.negOver);
+            IntFlags.local.clear();
+
+            int c = 7;
+            assert(smartOp.unary!"++"(c) == 8);
+            assert(c == 8);
+        }
+
+/// `core.bitop.bsf` without the undefined behaviour. `smartOp.bsf(0)` will raise `IntFlag.undef`.
         ubyte bsf(N)(const N num)
             if(isFixedPoint!N)
         {
             return cast(ubyte) bsfImpl!throws(num);
         }
-/// `core.bitop.bsr` without the undefined behaviour. `smartOp.bsr(0)` will raise `IntFlag.undefined`.
+        ///
+        unittest {
+            import checkedint.noex : smartOp;
+
+            assert(smartOp.bsf(20) == 2);
+
+            smartOp.bsf(0);
+            assert(IntFlags.local == IntFlag.undef);
+
+            IntFlags.local.clear();
+        }
+
+/// `core.bitop.bsr` without the undefined behaviour. `smartOp.bsr(0)` will raise `IntFlag.undef`.
         ubyte bsr(N)(const N num)
             if(isFixedPoint!N)
         {
             return cast(ubyte) bsrImpl!throws(num);
         }
+        ///
+        unittest {
+            import checkedint.noex : smartOp;
+
+            assert(smartOp.bsr(20) == 4);
+            assert(smartOp.bsr(-20) == 31);
+
+            smartOp.bsr(0);
+            assert(IntFlags.local == IntFlag.undef);
+
+            IntFlags.local.clear();
+        }
 
 /**
 Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
 
-`smartOp.ilogb(0)` will raise `IntFlag.undefined`.
+`smartOp.ilogb(0)` will raise `IntFlag.undef`.
 */
         ubyte ilogb(N)(const N num)
             if(isFixedPoint!N)
         {
             return cast(ubyte) bsrImpl!throws(abs(num));
+        }
+        ///
+        unittest {
+            import checkedint.noex : smartOp;
+
+            assert(smartOp.ilogb(20) == 4);
+            assert(smartOp.ilogb(-20) == 4);
+
+            smartOp.ilogb(0);
+            assert(IntFlags.local == IntFlag.undef);
+
+            IntFlags.local.clear();
         }
 
         private auto binaryImpl(string op, N, M)(const N left, const M right)
@@ -1231,7 +1342,7 @@ performance boost as using it everywhere, with far less loss of safety.
 // safe /////////////////////////////////////////////////
 /**
 Wrapper for any basic integral type `N` that uses the checked operations from `safeOp` and rejects attempts to directly
-assign values that cannot be proven to be within the range representable by `N`. (`checkedint.to` can be used to safely
+assign values that cannot be proven to be within the range representable by `N`. (`checkedint.to()` can be used to safely
 assign values of incompatible types, with runtime bounds checking.)
 
 `SafeInt` is designed to be as interchangeable with `N` as possible, without compromising safety. The `DebugInt`
@@ -1335,7 +1446,7 @@ $(UL
 Assign the value of `that` to this `SafeInt` instance.
 
 Trying to assign a value that cannot be proven at compile time to be representable by `N` is an error. Use
-`checkedint.to` to safely convert `that` with runtime bounds checking, instead.
+`checkedint.to()` to safely convert `that` with runtime bounds checking, instead.
 */
         this(M)(const M that) pure nothrow @nogc
             if(isCheckedInt!M || isScalarType!M)
@@ -1365,7 +1476,7 @@ Trying to assign a value that cannot be proven at compile time to be representab
             static assert(!__traits(compiles, n = uint.max));
             static assert(!__traits(compiles, n = real.max));
 
-            // Instead, use checkedint.to, which does runtime bounds checking:
+            // Instead, use checkedint.to(), which does runtime bounds checking:
             n = to!int(315L);
             assert(n == 315);
 
@@ -1412,7 +1523,7 @@ occur if M.sizeof <= N.sizeof.
         }
 
 /**
-Convert this value to type `M` using `checkedint.to` for bounds checking. An `IntFlag` will be raised if `M` cannot
+Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if `M` cannot
 represent the current value of this `SafeInt`.
 */
         M opCast(M)() const
@@ -1444,7 +1555,7 @@ $(UL
     $(LI If `N` is signed, a `ptrdiff_t` is returned.)
     $(LI If `N` is unsigned, a `size_t` is returned.)
 )
-`checkedint.to` is used for bounds checking.
+`checkedint.to()` is used for bounds checking.
 */
         @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const {
             return to!(typeof(return), throws)(bscal);
@@ -1495,11 +1606,21 @@ $(UL
         }
 
         // Comparison /////////////////////////////////////////////////
+/// See `safeOp`.
         bool opEquals(M)(const M right) const pure nothrow @nogc
             if(isSafeInt!M || isScalarType!M)
         {
             return safeOp!(throws).cmp!"=="(this.bscal, right.bscal);
         }
+/**
+Perform a floating-point comparison to `right`.
+
+Returns: $(UL
+    $(LI `-1` if this value is less than `right`.)
+    $(LI ` 0` if this value is equal to `right`.)
+    $(LI ` 1` if this value is greater than `right`.)
+    $(LI `float.nan` if `right` is a floating-point `nan` value.))
+*/
         auto opCmp(M)(const M right) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
@@ -1508,6 +1629,7 @@ $(UL
                 (left >  right)?  1 :
                 (left == right)?  0 : float.nan;
         }
+/// See `safeOp`.
         int opCmp(M)(const M right) const pure nothrow @nogc
             if(isSafeInt!M || isFixedPoint!M)
         {
@@ -1515,13 +1637,7 @@ $(UL
         }
 
         // Unary /////////////////////////////////////////////////
-        SafeInt!(int, throws, bitOps) popcnt()() const pure nothrow @nogc {
-            static assert(bitOps, "Bitwise operations are disabled.");
-
-            import future.bitop : stdPC = popcnt;
-            return typeof(return)(stdPC(bscal));
-        }
-
+/// ditto
         typeof(this) opUnary(string op)() const
             if(op.among!("-", "+", "~"))
         {
@@ -1530,6 +1646,7 @@ $(UL
 
             return typeof(return)(safeOp!(throws).unary!op(bscal));
         }
+/// ditto
         ref typeof(this) opUnary(string op)()
             if(op.among!("++", "--"))
         {
@@ -1537,34 +1654,49 @@ $(UL
             return this;
         }
 
+/// ditto
         typeof(this) abs() const {
             return typeof(return)(safeOp!(throws).abs(bscal)); }
 
+/// Count the number of set bits using `core.bitop.popcnt()`.
+        SafeInt!(int, throws, bitOps) popcnt()() const pure nothrow @nogc {
+            static assert(bitOps, "Bitwise operations are disabled.");
+
+            import future.bitop : stdPC = popcnt;
+            return typeof(return)(stdPC(bscal));
+        }
+
+/// See `safeOp`.
         SafeInt!(int, throws, bitOps) bsf()() const {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             return typeof(return)(safeOp!(throws).bsf(bscal));
         }
+/// ditto
         SafeInt!(int, throws, bitOps) bsr()() const {
             static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
             return typeof(return)(safeOp!(throws).bsr(bscal));
         }
 
+/// ditto
         SafeInt!(int, throws, bitOps) ilogb() const {
             return typeof(return)(safeOp!(throws).ilogb(bscal)); }
 
         // Binary /////////////////////////////////////////////////
+/// Perform a floating-point math operation.
         M opBinaryRight(string op, M)(const M left) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return mixin("left " ~ op ~ " bscal");
         }
+/// ditto
         M opBinary(string op, M)(const M right) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return mixin("bscal " ~ op ~ " right");
         }
+/// See `safeOp`.
         SafeInt!(OpType!(M, op, N), throws, bitOps) opBinaryRight(string op, M)(const M left) const
             if(isFixedPoint!M)
         {
@@ -1573,6 +1705,7 @@ $(UL
 
             return typeof(return)(safeOp!(throws).binary!op(left, bscal));
         }
+/// ditto
         SafeInt!(OpType!(N, op, BasicScalar!M), throws || isThrowingCInt!M, bitOps && hasBitOps!M) opBinary(string op, M)(const M right) const
             if(isSafeInt!M || isFixedPoint!M)
         {
@@ -1581,6 +1714,7 @@ $(UL
 
             return typeof(return)(safeOp!(throws || isThrowingCInt!M).binary!op(this.bscal, right.bscal));
         }
+/// ditto
         ref typeof(this) opOpAssign(string op, M)(const M right)
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -1592,11 +1726,13 @@ $(UL
             return this;
         }
 
+/// ditto
         auto mulPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return safeOp!(throws).mulPow2(bscal, exp);
         }
+/// ditto
         auto mulPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -1604,11 +1740,13 @@ $(UL
             const wret = safeOp!(mixThrows).mulPow2(this.bscal, exp.bscal);
             return SafeInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
         }
+/// ditto
         auto divPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return safeOp!(throws).divPow2(bscal, exp);
         }
+/// ditto
         auto divPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -1616,11 +1754,13 @@ $(UL
             const wret = safeOp!(mixThrows).divPow2(this.bscal, exp.bscal);
             return SafeInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
         }
+/// ditto
         auto modPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return safeOp!(throws).modPow2(bscal, exp);
         }
+/// ditto
         auto modPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -1629,11 +1769,13 @@ $(UL
             return SafeInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
         }
 
+/// Raise `this` to the `exp` power using `std.math.pow()`.
         M pow(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
             return std.math.pow(bscal, exp);
         }
+/// See `safeOp`.
         SafeInt!(CallType!(std.math.pow, N, BasicScalar!M), throws || isThrowingCInt!M, bitOps && hasBitOps!M) pow(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
@@ -1789,7 +1931,7 @@ $(UL
     $(LI Should the inputs really have different signedness? Changing the type of one to match the other is the simplest
         solution.)
     $(LI Consider using `smartOp.cmp`, instead, as it can safely do signed/unsigned comparisons.)
-    $(LI Alternately, `checkedint.to` can be used to safely convert the type of one input, with runtime bounds
+    $(LI Alternately, `checkedint.to()` can be used to safely convert the type of one input, with runtime bounds
         checking.)
 ) $(BR)
 Direct comparisons between boolean values and numeric ones are also forbidden. Make your intention explicit:
@@ -1811,9 +1953,10 @@ $(UL
             {
                 cmpTypeCheck!(N, M)();
 
-                static if(isFloatingPoint!N || isFloatingPoint!M)
-                    return std.math.cmp(left, right);
-                else
+                static if(isFloatingPoint!N || isFloatingPoint!M) {
+                    import future.math : stdCmp = cmp;
+                    return stdCmp(left, right);
+                } else
                     return (left < right)? -1 : (right < left);
             }
         } else
@@ -1882,13 +2025,13 @@ Get the absolute value of `num`.
             return num;
         }
 
-/// `core.bitop.bsf` without the undefined behaviour. `safeOp.bsf(0)` will raise `IntFlag.undefined`.
+/// `core.bitop.bsf` without the undefined behaviour. `safeOp.bsf(0)` will raise `IntFlag.undef`.
         int bsf(N)(const N num)
             if(isFixedPoint!N)
         {
             return bsfImpl!throws(num);
         }
-/// `core.bitop.bsr` without the undefined behaviour. `safeOp.bsr(0)` will raise `IntFlag.undefined`.
+/// `core.bitop.bsr` without the undefined behaviour. `safeOp.bsr(0)` will raise `IntFlag.undef`.
         int bsr(N)(const N num)
             if(isFixedPoint!N)
         {
@@ -1898,7 +2041,7 @@ Get the absolute value of `num`.
 /**
 Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
 
-`safeOp.ilogb(0)` will raise `IntFlag.undefined`.
+`safeOp.ilogb(0)` will raise `IntFlag.undef`.
 */
         int ilogb(N)(const N num)
             if(isFixedPoint!N)
@@ -2117,7 +2260,7 @@ $(UL
 
 /**
 A wrapper for `std.conv.to` which uses `checkedint.flags` for error signaling when converting between any combination
-of basic scalar types and `checkedint` types. This allows `checkedint.to` to be used for numeric conversions in
+of basic scalar types and `checkedint` types. This allows `checkedint.to()` to be used for numeric conversions in
 `nothrow` code, unlike `std.conv.to`.
 
 Conversions involving any other type are simply forwarded to `std.conv.to`, with no runtime overhead.
@@ -2459,35 +2602,41 @@ private {
     }
 
     /+pragma(inline, true) {+/
-        int bsrImpl(Flag!"throws" throws, N)(const N num)
-            if(isFixedPoint!N)
-        {
-            static assert(N.sizeof <= ulong.sizeof);
-            alias WN = Select!(N.sizeof > size_t.sizeof, ulong, size_t);
-
-            int ret = void;
-            if(num == 0) {
-                IntFlag.undef.raise!throws();
-                ret = int.min;
-            } else
-                ret = bsr(cast(WN)num);
-
-            return ret;
-        }
         int bsfImpl(Flag!"throws" throws, N)(const N num)
             if(isFixedPoint!N)
         {
-            static assert(N.sizeof <= ulong.sizeof);
-            alias WN = Select!(N.sizeof > size_t.sizeof, ulong, size_t);
+            static if(isSigned!N)
+                return bsfImpl!(throws, Unsigned!N)(num);
+            else {
+                static assert(N.sizeof <= ulong.sizeof);
 
-            int ret = void;
-            if(num == 0) {
-                IntFlag.undef.raise!throws();
-                ret = int.min;
-            } else
-                ret = bsf(cast(WN)num);
+                int ret = void;
+                if(num == 0) {
+                    IntFlag.undef.raise!throws();
+                    ret = int.min;
+                } else
+                    ret = bsf(num);
 
-            return ret;
+                return ret;
+            }
+        }
+        int bsrImpl(Flag!"throws" throws, N)(const N num)
+            if(isFixedPoint!N)
+        {
+            static if(isSigned!N)
+                return bsrImpl!(throws, Unsigned!N)(num);
+            else {
+                static assert(N.sizeof <= ulong.sizeof);
+
+                int ret = void;
+                if(num == 0) {
+                    IntFlag.undef.raise!throws();
+                    ret = int.min;
+                } else
+                    ret = bsr(num);
+
+                return ret;
+            }
         }
 
         auto byPow2Impl(string op, N, M)(const N left, const M exp) pure nothrow @nogc

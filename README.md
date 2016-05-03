@@ -20,6 +20,4 @@ Use `dub build -b docs` to generate more extensive documentation for this packag
 
 ## Installation
 
-**WARNING:** `checkedint` triggers a serious codegen bug in DMD. Until [issue 15573](https://issues.dlang.org/show_bug.cgi?id=15573) is fixed, for doing anything important with `checkedint` you **MUST** use LDC or GDC.
-
 This module is available as a DUB package: http://code.dlang.org/packages/checkedint
