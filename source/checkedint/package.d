@@ -895,8 +895,8 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
             assert(smartOp.unary!"~"(0u) == uint.max);
 
             auto a = smartOp.unary!"-"(20uL);
-            assert(a == -20);
             static assert(is(typeof(a) == long));
+            assert(a == -20);
 
             smartOp.unary!"+"(uint.max);
             assert(IntFlags.local == IntFlag.posOver);
@@ -1202,9 +1202,9 @@ $(UL
 Note also:
 $(UL
     $(LI The shift operators are $(B $(RED not)) checked for overflow and should not be used for multiplication,
-        division, or exponentiation. Instead, use `mulPow2` and `divPow2`, which internally use the bitshifts for speed,
+        division, or exponentiation. Instead, use `mulPow2()` and `divPow2()`, which internally use the bitshifts for speed,
         but check for overflow and correctly handle negative values.)
-    $(LI Likewise, `modPow2` should be used for remainders instead of `&`.)
+    $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)
     $(LI `^^` and `^^=` will remain disabled in favour of `pow` until DMD issues 15288 and 15412 are fixed.)
 ) $(BR)
 Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will overwrite
@@ -1227,6 +1227,121 @@ it with the result of the operation.
 
             left = binaryImpl!(op, NumFromScal!N, NumFromScal!M)(left, right);
             return left;
+        }
+        ///
+        unittest {
+            import checkedint.noex : smartOp; // set No.throws
+
+            ulong a = 18_446_744_073_709_551_615uL;
+            long b =     -6_744_073_709_551_615L;
+            auto c = smartOp.binary!"+"(a, b);
+            static assert(is(typeof(c) == long));
+            assert(IntFlags.local == IntFlag.posOver);
+            IntFlags.local.clear();
+
+            smartOp.binary!"+="(a, b);
+            assert(a == 18_440_000_000_000_000_000uL);
+
+            uint d = 25;
+            int e = 32;
+            auto f = smartOp.binary!"-"(d, e);
+            static assert(is(typeof(f) == int));
+            assert(f == -7);
+
+            smartOp.binary!"-="(d, e);
+            assert(IntFlags.local == IntFlag.negOver);
+            IntFlags.local.clear();
+
+            uint g = 1u << 31;
+            int h = -1;
+            auto i = smartOp.binary!"*"(g, h);
+            static assert(is(typeof(i) == int));
+            assert(i == int.min);
+
+            smartOp.binary!"*="(g, h);
+            assert(IntFlags.local == IntFlag.negOver);
+            IntFlags.local.clear();
+
+            long j = long.min;
+            ulong k = 1uL << 63;
+            auto m = smartOp.binary!"/"(j, k);
+            static assert(is(typeof(m) == long));
+            assert(m == -1);
+
+            smartOp.binary!"/="(j, -1);
+            assert(IntFlags.local == IntFlag.posOver);
+            IntFlags.local.clear();
+
+            ushort n = 20u;
+            ulong p = ulong.max;
+            auto q = smartOp.binary!"%"(n, p);
+            static assert(is(typeof(q) == ushort));
+            assert(q == 20u);
+
+            smartOp.binary!"%="(n, 0);
+            assert(IntFlags.local == IntFlag.div0);
+            IntFlags.local.clear();
+        }
+        ///
+        unittest {
+            import checkedint.noex : smartOp; // set No.throws
+
+            assert(smartOp.binary!"<<"(-0x80, -2) == -0x20);
+            ubyte a = 0x3u;
+            long b = long.max;
+            auto c = smartOp.binary!"<<"(a, b);
+            static assert(is(typeof(c) == ubyte));
+            assert(c == 0u);
+
+            smartOp.binary!"<<="(a, 7);
+            assert(a == 0x80u);
+
+            short d = -0xC;
+            ubyte e = 5u;
+            auto f = smartOp.binary!">>"(d, e);
+            static assert(is(typeof(f) == short));
+            assert(f == -0x1);
+
+            smartOp.binary!">>="(d, -8);
+            assert(d == -0xC00);
+
+            int g = -0x80;
+            ulong h = 2u;
+            auto i = smartOp.binary!">>>"(g, h);
+            static assert(is(typeof(i) == int));
+            assert(i == 0x3FFFFFE0);
+
+            smartOp.binary!">>>="(g, 32);
+            assert(g == 0);
+
+            ubyte j = 0x6Fu;
+            short k = 0x4076;
+            auto m = smartOp.binary!"&"(j, k);
+            static assert(is(typeof(m) == ushort));
+            assert(m == 0x66u);
+
+            smartOp.binary!"&="(j, k);
+            assert(j == 0x66u);
+
+            byte n = 0x6F;
+            ushort p = 0x4076u;
+            auto q = smartOp.binary!"|"(n, p);
+            static assert(is(typeof(q) == ushort));
+            assert(q == 0x407Fu);
+
+            smartOp.binary!"|="(n, p);
+            assert(n == 0x7F);
+
+            int r = 0x6F;
+            int s = 0x4076;
+            auto t = smartOp.binary!"^"(r, s);
+            static assert(is(typeof(t) == int));
+            assert(t == 0x4019);
+
+            smartOp.binary!"^="(r, s);
+            assert(r == 0x4019);
+
+            assert(!IntFlags.local);
         }
 
 /**
@@ -2143,9 +2258,9 @@ $(UL
 Note also:
 $(UL
     $(LI The shift operators are $(B $(RED not)) checked for overflow and should not be used for multiplication,
-        division, or exponentiation. Instead, use `mulPow2` and `divPow2`, which internally use the bitshifts for speed,
+        division, or exponentiation. Instead, use `mulPow2()` and `divPow2()`, which internally use the bitshifts for speed,
         but check for overflow and correctly handle negative values.)
-    $(LI Likewise, `modPow2` should be used for remainders instead of `&`.)
+    $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)
     $(LI `^^` and `^^=` will remain disabled in favour of `pow` until DMD issues 15288 and 15412 are fixed.)
 ) $(BR)
 Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will overwrite
