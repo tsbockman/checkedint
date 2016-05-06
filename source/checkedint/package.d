@@ -613,8 +613,6 @@ Returns: $(UL
         assert(IntFlags.local == (IntFlag.negOver | IntFlag.div0));
         IntFlags.local.clear();
         assert(!IntFlags.local);
-
-        IntFlags.local.clear();
     }
 
     private template SmartInt(N, bool throws, bool bitOps)
@@ -1233,7 +1231,7 @@ it with the result of the operation.
             import checkedint.noex : smartOp; // set No.throws
 
             ulong a = 18_446_744_073_709_551_615uL;
-            long b =     -6_744_073_709_551_615L;
+            long b =      -6_744_073_709_551_615L;
             auto c = smartOp.binary!"+"(a, b);
             static assert(is(typeof(c) == long));
             assert(IntFlags.local == IntFlag.posOver);
@@ -1362,6 +1360,19 @@ Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPo
         {
             return byPow2Impl!("*", throws, NumFromScal!N, NumFromScal!M)(left, exp);
         }
+        ///
+        unittest {
+            import checkedint.noex : smartOp; // set No.throws
+
+            assert(smartOp.mulPow2(-23, 5) == -736);
+            smartOp.mulPow2(10_000_000, 10);
+            assert(IntFlags.local == IntFlag.posOver);
+
+            assert(smartOp.mulPow2(65536, -8) == 256);
+            assert(smartOp.mulPow2(-100, -100) == 0);
+
+            IntFlags.local.clear();
+        }
 
 /**
 Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
@@ -1381,6 +1392,19 @@ Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPo
         {
             return byPow2Impl!("/", throws, NumFromScal!N, NumFromScal!M)(left, exp);
         }
+        ///
+        unittest {
+            import checkedint.noex : smartOp; // set No.throws
+
+            assert(smartOp.divPow2(65536, 8) == 256);
+            assert(smartOp.divPow2(-100, 100) == 0);
+            assert(smartOp.divPow2(-23, -5) == -736);
+
+            smartOp.divPow2(10_000_000, -10);
+            assert(IntFlags.local == IntFlag.posOver);
+
+            IntFlags.local.clear();
+        }
 
 /**
 Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
@@ -1396,6 +1420,17 @@ Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of i
             if(isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("%", No.throws, NumFromScal!N, NumFromScal!M)(left, exp);
+        }
+        ///
+        unittest {
+            import checkedint.noex : smartOp; // set No.throws
+
+            assert(smartOp.modPow2( 101,  1) ==  1);
+            assert(smartOp.modPow2( 101,  3) ==  5);
+            assert(smartOp.modPow2(-101,  3) == -5);
+
+            assert(smartOp.modPow2(101, -2) ==  0);
+            assert(smartOp.modPow2(101, 1_000) == 101);
         }
 
 /**
@@ -1427,6 +1462,20 @@ $(UL
             if(!po.flag.isNull)
                 po.flag.raise!throws();
             return po.num;
+        }
+        ///
+        unittest {
+            import checkedint.noex : smartOp; // set No.throws
+
+            assert(smartOp.pow(-10, 3) == -1_000);
+            assert(smartOp.pow(16L, 4u) == 65536L);
+            assert(smartOp.pow(2, -1) == 0);
+
+            smartOp.pow(-3, 27);
+            smartOp.pow(0, -5);
+            assert(IntFlags.local == (IntFlag.negOver | IntFlag.div0));
+
+            IntFlags.local.clear();
         }
     }
     private alias smartOp(bool throws) = smartOp!(cast(Flag!"throws")throws);
