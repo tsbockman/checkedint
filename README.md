@@ -20,4 +20,4 @@ Use `dub build -b docs` to generate more extensive documentation for this packag
 
 ## Installation
 
-This module is available as a DUB package: http://code.dlang.org/packages/checkedint
+This library is available as a DUB package: http://code.dlang.org/packages/checkedint

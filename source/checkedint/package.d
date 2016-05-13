@@ -62,6 +62,11 @@ $(UL
 In normal code, there is no performance penalty for allowing `checkedint` to `throw`. Doing so is highly recommended
 because this makes it easier to use correctly, and yields more precise error messages when something goes wrong.
 
+$(BIG $(B Generic Code)) $(BR)
+The $(LINK2 ./traits.html, `checkedint.traits`) module provides `checkedint`-aware versions of various numerical type traits from `std.traits`, such as `Signed`, `isSigned` and `isIntegral`. This allows writing generic algorithms that work with any of `SmartInt`, `SafeInt`, and the built-in numeric types such as `uint` and `long`.
+
+Also of note is the `idx()` function, which concisely and safely casts from any integral type (built-in, `SmartInt`, or `SafeInt`) to either `size_t` or `ptrdiff_t` for easy array indexing.
+
 $(BIG $(B Performance)) $(BR)
 Replacing all basic integer types with `SmartInt` or `SafeInt` will slow down exectuion somewhat. How much depends on
 many factors, but for most code following a few simple rules should keep the penalty low:
@@ -2831,11 +2836,10 @@ Cast `num` to a basic type suitable for indexing an array.
 
 For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is returned.
 */
-        Select!(isSigned!N, ptrdiff_t, size_t) idx(N)(const N num)
-            if(isScalarType!N)
+        Select!(isSigned!N, ptrdiff_t, size_t) idx(Flag!"throws" throws, N)(const N num)
+            if(isScalarType!N || isCheckedInt!N)
         {
-            // TODO: use to()
-            return cast(typeof(return))(num);
+            return to!(typeof(return), throws)(num.bscal);
         }
 /// ditto
         Select!(isSigned!(BasicScalar!N), ptrdiff_t, size_t) idx(N)(const N num)
@@ -2845,7 +2849,7 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
         }
         ///
         unittest {
-            import checkedint.throws : SmartInt, safeInt; // set Yes.throws
+            import checkedint.noex : idx, SmartInt, safeInt; // set No.throws
 
             assert(is(typeof(idx(cast(long)1)) == ptrdiff_t));
             assert(is(typeof(idx(cast(ubyte)1)) == size_t));
@@ -2855,7 +2859,15 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
             assert(idx(-3) == -3);
             assert(idx(safeInt(cast(byte)100)) == 100);
 
-            // TODO: Demonstrate how out-of-bounds values are handled.
+            static if(size_t.sizeof == 4) {
+                idx(ulong.max);
+                assert(IntFlags.local == IntFlag.posOver);
+                IntFlags.local.clear();
+
+                idx(long.min);
+                assert(IntFlags.local == IntFlag.negOver);
+                IntFlags.local.clear();
+            }
         }
     }
 /+}+/
