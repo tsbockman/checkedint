@@ -42,25 +42,18 @@ void cmp(string op = null, N = void, M = void)() {
     } else {
         static assert(isScalarType!N && isScalarType!M);
 
-        static void cover(bool direct)() {
-            static if(direct)
-                enum sc = "safeOp.cmp!\"" ~ op ~ "\"(n, m)";
-            else
-                enum sc = "safeOp.cmp(n, m) " ~ op ~ " 0";
+        enum sc = "safeOp.cmp!\"" ~ op ~ "\"(n, m)";
 
-            static assert(real.mant_dig >= max(precision!N, precision!M));
-            auto control(const real n, const real m) {
-                auto wret = stdm.cmp(n, m);
-                return mixin("wret " ~ op ~ " 0");
-            }
-
-            static if(mostNegative!N <= cast(M)0 && mostNegative!M <= cast(N)0)
-                fuzz!(sc, Unqual, OutIs!bool, control, N, M)();
-            else
-                forbid!(sc, N, M)();
+        static assert(real.mant_dig >= max(precision!N, precision!M));
+        auto control(const real n, const real m) {
+            auto wret = stdm.cmp(n, m);
+            return mixin("wret " ~ op ~ " 0");
         }
-        cover!true();
-        cover!false();
+
+        static if(mostNegative!N <= cast(M)0 && mostNegative!M <= cast(N)0)
+            fuzz!(sc, Unqual, OutIs!bool, control, N, M)();
+        else
+            forbid!(sc, N, M)();
     }
 }
 alias cmp(N, M = void) = cmp!(null, N, M);

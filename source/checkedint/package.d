@@ -694,7 +694,7 @@ $(UL
             unittest {
                 import checkedint.noex : smartOp; // smartOp.cmp() never throws
 
-                assert(-1 == uint.max);
+                assert(uint.max == -1);
                 assert( smartOp.cmp!"!="(uint.max, -1));
                 assert(-3156 > 300u);
                 assert( smartOp.cmp!"<"(-3156, 300u));
@@ -704,12 +704,12 @@ $(UL
             }
 
 /**
-Defines a total order on all basic scalar values, using the same rules as `std.math.cmp`.
+Defines a total order on all basic scalar values, using the same rules as `std.math.cmp()`.
 
 $(UL
     $(LI Mixed signed/unsigned comparisons return the mathematically correct result.)
-    $(LI If neither `left` nor `right` is floating-point, this function is faster than `std.math.cmp`.)
-    $(LI If either `left` or `right` $(I is) floating-point, this function forwards to `std.math.cmp`.)
+    $(LI If neither `left` nor `right` is floating-point, this function is faster than `std.math.cmp()`.)
+    $(LI If either `left` or `right` $(I is) floating-point, this function forwards to `std.math.cmp()`.)
 ) $(BR)
 Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
 $(UL
@@ -896,20 +896,21 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
             static assert(is(typeof(a) == long));
             assert(a == -20);
 
-            smartOp.unary!"+"(uint.max);
+            auto b = smartOp.unary!"+"(uint.max);
+            static assert(is(typeof(b) == int));
             assert(IntFlags.local == IntFlag.posOver);
             IntFlags.local.clear();
 
-            uint b = 1u;
-            assert(smartOp.unary!"--"(b) == 0u);
-            assert(b == 0u);
-            smartOp.unary!"--"(b);
+            uint c = 1u;
+            assert(smartOp.unary!"--"(c) == 0u);
+            assert(c == 0u);
+            smartOp.unary!"--"(c);
             assert(IntFlags.local == IntFlag.negOver);
             IntFlags.local.clear();
 
-            int c = 7;
-            assert(smartOp.unary!"++"(c) == 8);
-            assert(c == 8);
+            int d = 7;
+            assert(smartOp.unary!"++"(d) == 8);
+            assert(d == 8);
         }
 
 /// `core.bitop.bsf` without the undefined behaviour. `smartOp.bsf(0)` will raise `IntFlag.undef`.
@@ -940,7 +941,7 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
         unittest {
             import checkedint.noex : smartOp;
 
-            assert(smartOp.bsr(20) == 4);
+            assert(smartOp.bsr( 20) ==  4);
             assert(smartOp.bsr(-20) == 31);
 
             smartOp.bsr(0);
@@ -1233,17 +1234,17 @@ it with the result of the operation.
             ulong a = 18_446_744_073_709_551_615uL;
             long b =      -6_744_073_709_551_615L;
             auto c = smartOp.binary!"+"(a, b);
-            static assert(is(typeof(c) == long));
+            static assert(isSigned!(typeof(c)));
             assert(IntFlags.local == IntFlag.posOver);
             IntFlags.local.clear();
 
-            smartOp.binary!"+="(a, b);
+            assert(smartOp.binary!"+="(a, b) == 18_440_000_000_000_000_000uL);
             assert(a == 18_440_000_000_000_000_000uL);
 
-            uint d = 25;
+            uint d = 25u;
             int e = 32;
             auto f = smartOp.binary!"-"(d, e);
-            static assert(is(typeof(f) == int));
+            static assert(isSigned!(typeof(f)));
             assert(f == -7);
 
             smartOp.binary!"-="(d, e);
@@ -1253,7 +1254,7 @@ it with the result of the operation.
             uint g = 1u << 31;
             int h = -1;
             auto i = smartOp.binary!"*"(g, h);
-            static assert(is(typeof(i) == int));
+            static assert(isSigned!(typeof(i)));
             assert(i == int.min);
 
             smartOp.binary!"*="(g, h);
@@ -1263,7 +1264,7 @@ it with the result of the operation.
             long j = long.min;
             ulong k = 1uL << 63;
             auto m = smartOp.binary!"/"(j, k);
-            static assert(is(typeof(m) == long));
+            static assert(isSigned!(typeof(m)));
             assert(m == -1);
 
             smartOp.binary!"/="(j, -1);
@@ -1291,7 +1292,7 @@ it with the result of the operation.
             static assert(is(typeof(c) == ubyte));
             assert(c == 0u);
 
-            smartOp.binary!"<<="(a, 7);
+            assert(smartOp.binary!"<<="(a, 7) == 0x80u);
             assert(a == 0x80u);
 
             short d = -0xC;
@@ -1300,16 +1301,16 @@ it with the result of the operation.
             static assert(is(typeof(f) == short));
             assert(f == -0x1);
 
-            smartOp.binary!">>="(d, -8);
+            assert(smartOp.binary!">>="(d, -8) == -0xC00);
             assert(d == -0xC00);
 
             int g = -0x80;
             ulong h = 2u;
             auto i = smartOp.binary!">>>"(g, h);
             static assert(is(typeof(i) == int));
-            assert(i == 0x3FFFFFE0);
+            assert(i == 0x3FFF_FFE0);
 
-            smartOp.binary!">>>="(g, 32);
+            assert(smartOp.binary!">>>="(g, 32) == 0);
             assert(g == 0);
 
             ubyte j = 0x6Fu;
@@ -1318,7 +1319,7 @@ it with the result of the operation.
             static assert(is(typeof(m) == ushort));
             assert(m == 0x66u);
 
-            smartOp.binary!"&="(j, k);
+            assert(smartOp.binary!"&="(j, k) == 0x66u);
             assert(j == 0x66u);
 
             byte n = 0x6F;
@@ -1327,7 +1328,7 @@ it with the result of the operation.
             static assert(is(typeof(q) == ushort));
             assert(q == 0x407Fu);
 
-            smartOp.binary!"|="(n, p);
+            assert(smartOp.binary!"|="(n, p) == 0x7F);
             assert(n == 0x7F);
 
             int r = 0x6F;
@@ -1336,7 +1337,7 @@ it with the result of the operation.
             static assert(is(typeof(t) == int));
             assert(t == 0x4019);
 
-            smartOp.binary!"^="(r, s);
+            assert(smartOp.binary!"^="(r, s) == 0x4019);
             assert(r == 0x4019);
 
             assert(!IntFlags.local);
@@ -1468,13 +1469,14 @@ $(UL
             import checkedint.noex : smartOp; // set No.throws
 
             assert(smartOp.pow(-10, 3) == -1_000);
-            assert(smartOp.pow(16L, 4u) == 65536L);
+            assert(smartOp.pow(16, 4uL) == 65536);
             assert(smartOp.pow(2, -1) == 0);
 
             smartOp.pow(-3, 27);
+            assert(IntFlags.local == IntFlag.negOver);
+            IntFlags.local.clear();
             smartOp.pow(0, -5);
-            assert(IntFlags.local == (IntFlag.negOver | IntFlag.div0));
-
+            assert(IntFlags.local == IntFlag.div0);
             IntFlags.local.clear();
         }
     }
@@ -1797,7 +1799,9 @@ Returns: $(UL
         int opCmp(M)(const M right) const pure nothrow @nogc
             if(isSafeInt!M || isFixedPoint!M)
         {
-            return safeOp!(throws).cmp(this.bscal, right.bscal);
+            return
+                safeOp!(throws).cmp!"<"(this.bscal, right.bscal)? -1 :
+                safeOp!(throws).cmp!">"(this.bscal, right.bscal);
         }
 
         // Unary /////////////////////////////////////////////////
@@ -1968,8 +1972,8 @@ Returns: $(UL
 
         SafeInt!int sa = -1;
         SafeInt!uint sb = 0u;
-        assert(!__traits(compiles, sa < sb));
-        assert(!__traits(compiles, sa + sb));
+        static assert(!__traits(compiles, sa < sb));
+        static assert(!__traits(compiles, sa + sb));
 
         // Instead, use checkedint.to() to safely convert to a common type...
         auto sbi = to!(SafeInt!int)(sb);
@@ -2094,7 +2098,7 @@ Unsafe signed/unsigned comparisons will trigger a compile-time error. Possible s
 $(UL
     $(LI Should the inputs really have different signedness? Changing the type of one to match the other is the simplest
         solution.)
-    $(LI Consider using `smartOp.cmp`, instead, as it can safely do signed/unsigned comparisons.)
+    $(LI Consider using `smartOp.cmp()`, instead, as it can safely do signed/unsigned comparisons.)
     $(LI Alternately, `checkedint.to()` can be used to safely convert the type of one input, with runtime bounds
         checking.)
 ) $(BR)
@@ -2110,18 +2114,16 @@ $(UL
                 cmpTypeCheck!(N, M)();
                 return mixin("left " ~ op ~ " right");
             }
+            ///
+            unittest {
+                import checkedint.noex : safeOp; // safeOp.cmp() never throws
 
-// TODO: Should this even be here? Should it support signed/unsigned comparisons?
-            int cmp(N, M)(const N left, const M right) pure nothrow @nogc
-                if(isScalarType!N && isScalarType!M)
-            {
-                cmpTypeCheck!(N, M)();
+                assert(safeOp.cmp!"=="(int.max, 0x7FFF_FFFF));
+                assert(safeOp.cmp!"!="(uint.min, 5u));
+                assert(safeOp.cmp!"<="(int.min, 0));
 
-                static if(isFloatingPoint!N || isFloatingPoint!M) {
-                    import future.math : stdCmp = cmp;
-                    return stdCmp(left, right);
-                } else
-                    return (left < right)? -1 : (right < left);
+                static assert(!__traits(compiles, safeOp.cmp!"=="(uint.max, -1)));
+                static assert(!__traits(compiles, safeOp.cmp!">"(-1, 1u)));
             }
         } else
             alias cmp = safeOp!(No.throws).cmp;
@@ -2173,6 +2175,33 @@ always be negative (except for -0), but the unsigned return type cannot represen
 
             return mixin(op ~ "num");
         }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.unary!"~"(0u) == uint.max);
+
+            assert(safeOp.unary!"-"(20L) == -20L);
+            static assert(!__traits(compiles, safeOp.unary!"-"(20uL)));
+            safeOp.unary!"-"(long.min);
+            assert(IntFlags.local == IntFlag.posOver);
+            IntFlags.local.clear();
+
+            auto a = safeOp.unary!"+"(uint.max);
+            static assert(is(typeof(a) == uint));
+            assert(a == uint.max);
+
+            uint b = 1u;
+            assert(safeOp.unary!"--"(b) == 0u);
+            assert(b == 0u);
+            safeOp.unary!"--"(b);
+            assert(IntFlags.local == IntFlag.negOver);
+            IntFlags.local.clear();
+
+            int c = 7;
+            assert(safeOp.unary!"++"(c) == 8);
+            assert(c == 8);
+        }
 
 /**
 Get the absolute value of `num`.
@@ -2188,6 +2217,18 @@ Get the absolute value of `num`.
             }
             return num;
         }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.abs(-25) == 25);
+            assert(safeOp.abs(745u) == 745u);
+
+            safeOp.abs(int.min);
+            assert(IntFlags.local == IntFlag.posOver);
+
+            IntFlags.local.clear();
+        }
 
 /// `core.bitop.bsf` without the undefined behaviour. `safeOp.bsf(0)` will raise `IntFlag.undef`.
         int bsf(N)(const N num)
@@ -2195,11 +2236,35 @@ Get the absolute value of `num`.
         {
             return bsfImpl!throws(num);
         }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.bsf(20) == 2);
+
+            safeOp.bsf(0);
+            assert(IntFlags.local == IntFlag.undef);
+
+            IntFlags.local.clear();
+        }
+
 /// `core.bitop.bsr` without the undefined behaviour. `safeOp.bsr(0)` will raise `IntFlag.undef`.
         int bsr(N)(const N num)
             if(isFixedPoint!N)
         {
             return bsrImpl!throws(num);
+        }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.bsr( 20) ==  4);
+            assert(safeOp.bsr(-20) == 31);
+
+            safeOp.bsr(0);
+            assert(IntFlags.local == IntFlag.undef);
+
+            IntFlags.local.clear();
         }
 
 /**
@@ -2216,6 +2281,18 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                 alias absN = num;
 
             return bsrImpl!throws(absN);
+        }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.ilogb( 20) == 4);
+            assert(safeOp.ilogb(-20) == 4);
+
+            safeOp.ilogb(0);
+            assert(IntFlags.local == IntFlag.undef);
+
+            IntFlags.local.clear();
         }
 
         private auto binaryImpl(string op, N, M)(const N left, const M right)
@@ -2334,6 +2411,109 @@ it with the result of the operation.
             left = binaryImpl!op(left, right);
             return left;
         }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.binary!"+"(17, -5) == 12);
+            static assert(!__traits(compiles, safeOp.binary!"+"(-1, 1u)));
+
+            ulong a = 18_446_744_073_709_551_615uL;
+            safeOp.binary!"+="(a, 1u);
+            assert(IntFlags.local == IntFlag.posOver);
+            IntFlags.local.clear();
+
+            assert(safeOp.binary!"-"(17u, 5u) == 12u);
+            safeOp.binary!"-"(5u, 17u);
+            assert(IntFlags.local == IntFlag.negOver);
+            IntFlags.local.clear();
+
+            ulong b = 123_456_789_987_654_321uL;
+            static assert(!__traits(compiles, safeOp.binary!"-="(b, 987_654_321)));
+            assert(safeOp.binary!"-="(b, 987_654_321u) == 123_456_789_000_000_000uL);
+            assert(b == 123_456_789_000_000_000uL);
+
+            assert(safeOp.binary!"*"(-1 << 30, 2) == int.min);
+            safeOp.binary!"*"(1 << 30, 2);
+            assert(IntFlags.local == IntFlag.negOver);
+            IntFlags.local.clear();
+
+            uint c = 1u << 18;
+            assert(safeOp.binary!"*="(c, 1u << 4) == 1u << 22);
+            assert(c == 1u << 22);
+
+            assert(safeOp.binary!"/"(22, 11) == 2);
+            assert(!__traits(compiles, safeOp.binary!"/"(-22, 11u)));
+            safeOp.binary!"/"(0, 0);
+            assert(IntFlags.local == IntFlag.div0);
+            IntFlags.local.clear();
+
+            long j = long.min;
+            safeOp.binary!"/="(j, -1);
+            assert(IntFlags.local == IntFlag.posOver);
+            IntFlags.local.clear();
+
+            assert(safeOp.binary!"%"(20u, 7u) == 6u);
+            static assert(!__traits(compiles, safeOp.binary!"%"(20u, -7)));
+            safeOp.binary!"%"(20u, 0u);
+            assert(IntFlags.local == IntFlag.div0);
+            IntFlags.local.clear();
+
+            short n = 75;
+            assert(safeOp.binary!"%="(n, -10) == 5);
+            assert(n == 5);
+        }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.binary!"<<"(-0x80,  2) == -0x200);
+            safeOp.binary!"<<"(-0x80, -2);
+            assert(IntFlags.local == IntFlag.undef);
+            IntFlags.local.clear();
+
+            ubyte a = 0x3u;
+            safeOp.binary!"<<="(a, 7);
+            assert(a == 0x80u);
+
+            assert(safeOp.binary!">>"(-0xC, 5u) == -0x1);
+            safeOp.binary!">>"(-0xC, long.max);
+            assert(IntFlags.local == IntFlag.undef);
+            IntFlags.local.clear();
+
+            short b = 0x700;
+            assert(safeOp.binary!">>="(b, 8) == 0x7);
+            assert(b == 0x7);
+
+            assert(safeOp.binary!">>>"(-0x80, 2u) == 0x3FFF_FFE0);
+            safeOp.binary!">>>"(-0x80, 32);
+            assert(IntFlags.local == IntFlag.undef);
+            IntFlags.local.clear();
+
+            int c = 0xFE_DCBA;
+            assert(safeOp.binary!">>>="(c, 12) == 0xFED);
+            assert(c == 0xFED);
+
+            assert(safeOp.binary!"&"(0x6Fu, 0x4076)  == 0x66u);
+
+            ubyte d = 0x6Fu;
+            assert(safeOp.binary!"&="(d, 0x4076) == 0x66u);
+            assert(d == 0x66u);
+
+            assert(safeOp.binary!"|"(0x6F, 0x4076u) == 0x407Fu);
+
+            byte e = 0x6F;
+            assert(safeOp.binary!"|="(e, 0x4076u) == 0x7F);
+            assert(e == 0x7F);
+
+            assert(safeOp.binary!"^"(0x6F, 0x4076) == 0x4019);
+
+            int f = 0x6F;
+            assert(safeOp.binary!"^="(f, 0x4076) == 0x4019);
+            assert(f == 0x4019);
+
+            assert(!IntFlags.local);
+        }
 
 /**
 Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
@@ -2352,6 +2532,19 @@ Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPo
             if(isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("*", throws, NumFromScal!N, NumFromScal!M)(left, exp);
+        }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.mulPow2(-23, 5) == -736);
+            safeOp.mulPow2(10_000_000, 10);
+            assert(IntFlags.local == IntFlag.posOver);
+
+            assert(safeOp.mulPow2(65536, -8) == 256);
+            assert(safeOp.mulPow2(-100, -100) == 0);
+
+            IntFlags.local.clear();
         }
 
 /**
@@ -2372,6 +2565,19 @@ Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPo
         {
             return byPow2Impl!("/", throws, NumFromScal!N, NumFromScal!M)(left, exp);
         }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.divPow2(65536, 8) == 256);
+            assert(safeOp.divPow2(-100, 100) == 0);
+            assert(safeOp.divPow2(-23, -5) == -736);
+
+            safeOp.divPow2(10_000_000, -10);
+            assert(IntFlags.local == IntFlag.posOver);
+
+            IntFlags.local.clear();
+        }
 
 /**
 Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
@@ -2387,6 +2593,17 @@ Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of i
             if(isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("%", No.throws, NumFromScal!N, NumFromScal!M)(left, exp);
+        }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.modPow2( 101,  1) ==  1);
+            assert(safeOp.modPow2( 101,  3) ==  5);
+            assert(safeOp.modPow2(-101,  3) == -5);
+
+            assert(safeOp.modPow2(101, -2) ==  0);
+            assert(safeOp.modPow2(101, 1_000) == 101);
         }
 
 /**
@@ -2417,17 +2634,34 @@ $(UL
                 po.flag.raise!throws();
             return po.num;
         }
+        ///
+        unittest {
+            import checkedint.noex : safeOp; // set No.throws
+
+            assert(safeOp.pow(-10, 3) == -1_000);
+            static assert(!__traits(compiles, safeOp.pow(16, 4uL)));
+            safeOp.pow(2, -1);
+            assert(IntFlags.local == IntFlag.undef);
+            IntFlags.local.clear();
+
+            safeOp.pow(-3, 27);
+            assert(IntFlags.local == IntFlag.negOver);
+            IntFlags.local.clear();
+            safeOp.pow(0, -5);
+            assert(IntFlags.local == IntFlag.undef);
+            IntFlags.local.clear();
+        }
     }
     private alias safeOp(bool throws) = safeOp!(cast(Flag!"throws")throws);
 
 // conv /////////////////////////////////////////////////
 
 /**
-A wrapper for `std.conv.to` which uses `checkedint.flags` for error signaling when converting between any combination
+A wrapper for `std.conv.to()` which uses `checkedint.flags` for error signaling when converting between any combination
 of basic scalar types and `checkedint` types. This allows `checkedint.to()` to be used for numeric conversions in
-`nothrow` code, unlike `std.conv.to`.
+`nothrow` code, unlike `std.conv.to()`.
 
-Conversions involving any other type are simply forwarded to `std.conv.to`, with no runtime overhead.
+Conversions involving any other type are simply forwarded to `std.conv.to()`, with no runtime overhead.
 */
     template to(T, Flag!"throws" throws)
     {
@@ -2497,12 +2731,12 @@ Conversions involving any other type are simply forwarded to `std.conv.to`, with
     }
     ///
     unittest {
-        // Everything else forwards to std.conv.to.
+        // Everything else forwards to std.conv.to().
         assert(to!(string, Yes.throws)(55) == "55");
         assert(to!(real, Yes.throws)("3.141519e0") == 3.141519L);
 
-        // Setting No.throws will block std.conv.to, unless the instantiation is nothrow.
-        assert(!__traits(compiles, to!(real, No.throws)("3.141519e0")));
+        // Setting No.throws will block std.conv.to(), unless the instantiation is nothrow.
+        static assert(!__traits(compiles, to!(real, No.throws)("3.141519e0")));
     }
 
     @property {
@@ -2588,7 +2822,7 @@ Useful in generic code that handles both basic types and `checkedint` types.
             SmartInt!(int, No.bitOps) noBits = 5;
             assert(is(typeof(bits(noBits)) == SmartInt!(int, Yes.bitOps)));
 
-            assert(!__traits(compiles, noBits << 2));
+            static assert(!__traits(compiles, noBits << 2));
             assert((bits(noBits) << 2) == 20);
         }
 
