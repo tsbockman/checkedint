@@ -2,6 +2,10 @@
 Checked integer arithmetic operations, functions, and types with improved handling of errors and corner cases compared
 to the basic integral types.
 
+$(B Note:) Normally this module should not be imported directly. Instead, import one of
+$(LINK2 ./throws.html, `checkedint.throws`), $(LINK2 ./asserts.html, `checkedint.asserts`), or
+$(LINK2 ./noex.html, `checkedint.noex`), depending on which error signalling policy you want to use. (See below.)
+
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
@@ -52,20 +56,26 @@ $(TABLE
 
 $(BIG $(B Error Signaling)) $(BR)
 Some types of problem are signaled by a compile-time error, others at runtime. Runtime signaling is done through
-$(LINK2 ./flags.html, `checkedint.flags`).
+$(LINK2 ./flags.html, `checkedint.flags`). Three different runtime signalling policies are available:
 $(UL
-    $(LI By default, a `CheckedIntException` is thrown. These are normal exceptions; not FPEs. As such, they can be
-        caught and include a stack trace.)
-    $(LI If necessary, $(LINK2 ./flags.html, `checkedint.flags`) can instead be configured to set a thread-local flag
-        when an operation fails. This allows `checkedint` to be used from `nothrow`, or even `@nogc` code.)
+    $(LI With `IntFlagPolicy.throws`, a `CheckedIntException` is thrown. These are normal exceptions; not FPEs. As
+        such, they can be caught and include a stack trace.)
+    $(LI With `IntFlagPolicy.asserts`, an assertion failure will be triggered. This policy is compatible with
+        `pure nothrow @nogc` code, but will crash the program in the event of a runtime integer math error.)
+    $(LI Alternatively, `IntFlagPolicy.noex` can be selected so that a thread-local flag is set when an operation fails.
+        This allows `checkedint` to be used from `nothrow` and `@nogc` (but not `pure`) code without crashing the
+        program, but requires the API user to manually insert checks of `IntFlags.local`.)
 )
 In normal code, there is no performance penalty for allowing `checkedint` to `throw`. Doing so is highly recommended
 because this makes it easier to use correctly, and yields more precise error messages when something goes wrong.
 
 $(BIG $(B Generic Code)) $(BR)
-The $(LINK2 ./traits.html, `checkedint.traits`) module provides `checkedint`-aware versions of various numerical type traits from `std.traits`, such as `Signed`, `isSigned` and `isIntegral`. This allows writing generic algorithms that work with any of `SmartInt`, `SafeInt`, and the built-in numeric types such as `uint` and `long`.
+The $(LINK2 ./traits.html, `checkedint.traits`) module provides `checkedint`-aware versions of various numerical type
+traits from `std.traits`, such as `Signed`, `isSigned` and `isIntegral`. This allows writing generic algorithms that
+work with any of `SmartInt`, `SafeInt`, and the built-in numeric types such as `uint` and `long`.
 
-Also of note is the `idx()` function, which concisely and safely casts from any integral type (built-in, `SmartInt`, or `SafeInt`) to either `size_t` or `ptrdiff_t` for easy array indexing.
+Also of note is the `idx()` function, which concisely and safely casts from any integral type (built-in, `SmartInt`, or
+`SafeInt`) to either `size_t` or `ptrdiff_t` for easy array indexing.
 
 $(BIG $(B Performance)) $(BR)
 Replacing all basic integer types with `SmartInt` or `SafeInt` will slow down exectuion somewhat. How much depends on
@@ -73,8 +83,9 @@ many factors, but for most code following a few simple rules should keep the pen
 $(OL
     $(LI Build with $(B $(RED `--inline`)) and $(B `-O`) (DMD) or $(B `-O3`) (GDC and LDC). This by itself can improve
         the performance of `checkedint` by around $(B 1,000%).)
-    $(LI With GDC or LDC, the performance hit will probably be between 30% and 100%. With DMD, performance varies wildly
-        from one frontend version to the next, depending on the whims of the inscrutable and fickle inliner.)
+    $(LI With GDC or LDC, the performance hit in code that is bottlenecked by integer math will probably be between 30%
+        and 100%. With DMD, performance varies wildly from one frontend version to the next, depending on the whims of
+        the inscrutable and fickle inliner.)
     $(LI `checkedint` can't slow down code where it's not used! If you really need more speed, try switching to
         `DebugInt` for the hottest code in your program (like inner loops) before giving up on `checkedint` entirely.)
 )
@@ -112,14 +123,17 @@ Wrapper for any basic integral type `N` that uses the checked operations from `s
 with `checkedint.to()`.
 
 $(UL
-    $(LI `throws` controls the error signalling policy (see `checkedint.flags`).)
+    $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
     $(LI `bitOps` may be set to `No.bitOps` if desired, to turn bitwise operations on this type into a compile-time
         error.)
 )
 */
-    struct SmartInt(N, Flag!"throws" throws, Flag!"bitOps" bitOps = Yes.bitOps)
+    struct SmartInt(N, IntFlagPolicy _policy, Flag!"bitOps" bitOps = Yes.bitOps)
         if(isIntegral!N && isUnqual!N)
     {
+/// The error signalling policy used by this `SmartInt` type.
+        enum IntFlagPolicy policy = _policy;
+
         static if(bitOps) {
 /**
 The basic integral value of this `SmartInt`. Accessing this directly may be useful for:
@@ -131,7 +145,7 @@ $(UL
             N bscal;
             ///
             unittest {
-                import checkedint.throws : SmartInt; // set Yes.throws
+                import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
                 SmartInt!uint n;
                 static assert(is(typeof(n.bscal) == uint));
@@ -144,11 +158,11 @@ $(UL
             }
 
 /// Get a view of this `SmartInt` that allows bitwise operations.
-            @property ref inout(SmartInt!(N, throws, Yes.bitOps)) bits() inout pure nothrow @nogc {
+            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() inout pure nothrow @nogc {
                 return this; }
             ///
             unittest {
-                import checkedint.throws : SmartInt; // set Yes.throws
+                import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
                 SmartInt!(int, No.bitOps) n = 1;
                 static assert(!__traits(compiles, n << 2));
@@ -157,27 +171,27 @@ $(UL
         } else {
             @property ref inout(N) bscal() inout pure nothrow @nogc {
                 return bits.bscal; }
-            SmartInt!(N, throws, Yes.bitOps) bits;
+            SmartInt!(N, policy, Yes.bitOps) bits;
         }
 
         static if(__VERSION__ >= 2067) {
             version(GNU) { static assert(false); }
 
 /// The most negative possible value of this `SmartInt` type.
-            enum SmartInt!(N, throws, bitOps) min = typeof(this)(trueMin!N);
+            enum SmartInt!(N, policy, bitOps) min = typeof(this)(trueMin!N);
             ///
             unittest {
-                import checkedint.throws : SmartInt; // set Yes.throws
+                import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
                 assert(SmartInt!(int).min == int.min);
                 assert(SmartInt!(uint).min == uint.min);
             }
 
 /// The most positive possible value of this `SmartInt` type.
-            enum SmartInt!(N, throws, bitOps) max = typeof(this)(trueMax!N);
+            enum SmartInt!(N, policy, bitOps) max = typeof(this)(trueMax!N);
             ///
             unittest {
-                import checkedint.throws : SmartInt; // set Yes.throws;
+                import checkedint.throws : SmartInt; // use IntFlagPolicy.throws;
 
                 assert(SmartInt!(int).max == int.max);
                 assert(SmartInt!(uint).max == uint.max);
@@ -198,18 +212,18 @@ Assign the value of `that` to this `SmartInt` instance.
         this(M)(const M that)
             if(isCheckedInt!M || isScalarType!M)
         {
-            this.bscal = to!(N, throws)(that);
+            this.bscal = to!(N, policy)(that);
         }
 /// ditto
         ref typeof(this) opAssign(M)(const M that)
             if(isCheckedInt!M || isScalarType!M)
         {
-            this.bscal = to!(N, throws)(that);
+            this.bscal = to!(N, policy)(that);
             return this;
         }
         ///
         unittest {
-            import checkedint.noex : SmartInt; // set No.throws
+            import checkedint.noex : SmartInt; // use IntFlagPolicy.noex
 
             // Any basic scalar or checkedint *type* is accepted...
             SmartInt!int n = 0;
@@ -239,7 +253,7 @@ occur if M.sizeof <= N.sizeof.
         }
         ///
         unittest {
-            import checkedint.throws : SmartInt; // set Yes.throws
+            import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
             SmartInt!int n = 92;
             auto f = cast(double)n;
@@ -255,7 +269,7 @@ occur if M.sizeof <= N.sizeof.
         }
         ///
         unittest {
-            import checkedint.throws : SmartInt; // set Yes.throws
+            import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
             SmartInt!int n = -315;
             assert( cast(bool)n);
@@ -271,11 +285,11 @@ represent the current value of this `SmartInt`.
         M opCast(M)() const
             if(isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
-            return to!(M, throws)(bscal);
+            return to!(M, policy)(bscal);
         }
         ///
         unittest {
-            import checkedint.noex : SmartInt; // set No.throws
+            import checkedint.noex : SmartInt; // use IntFlagPolicy.noex
 
             SmartInt!ulong n = 52;
             auto a = cast(int)n;
@@ -300,10 +314,10 @@ $(UL
 `checkedint.to()` is used for bounds checking.
 */
         @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const {
-            return to!(typeof(return), throws)(bscal); }
+            return to!(typeof(return), policy)(bscal); }
         ///
         unittest {
-            import checkedint.throws : SmartInt; // set Yes.throws
+            import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
             char[3] arr = ['a', 'b', 'c'];
             SmartInt!long n = 1;
@@ -336,13 +350,13 @@ $(UL
 
 /// Get a `string` representation of this value.
         string toString() const {
-            return to!(string, No.throws)(bscal); }
+            return to!(string, IntFlagPolicy.noex)(bscal); }
 /// ditto
         void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted {
             formatValue(sink, bscal, fmt); }
         ///
         unittest {
-            import checkedint.throws : smartInt; // set Yes.throws
+            import checkedint.throws : smartInt; // use IntFlagPolicy.throws
             assert(smartInt(-753).toString() == "-753");
         }
 
@@ -351,7 +365,7 @@ $(UL
         bool opEquals(M)(const M right) const pure nothrow @nogc
             if(isCheckedInt!M || isScalarType!M)
         {
-            return smartOp!(throws).cmp!"=="(this.bscal, right.bscal);
+            return smartOp!(policy).cmp!"=="(this.bscal, right.bscal);
         }
 /**
 Perform a mathematically correct comparison to `right`.
@@ -375,7 +389,7 @@ Returns: $(UL
         int opCmp(M)(const M right) const pure nothrow @nogc
             if(isCheckedInt!M || isScalarType!M)
         {
-            return smartOp!(throws).cmp(this.bscal, right.bscal);
+            return smartOp!(policy).cmp(this.bscal, right.bscal);
         }
 
         // Unary /////////////////////////////////////////////////
@@ -386,29 +400,29 @@ Returns: $(UL
             static assert(bitOps,
                 "Bitwise operations are disabled.");
 
-            return typeof(return)(smartOp!(throws).unary!op(bscal));
+            return typeof(return)(smartOp!(policy).unary!op(bscal));
         }
 /// ditto
-        SmartInt!(Signed!N, throws, bitOps) opUnary(string op)() const
+        SmartInt!(Signed!N, policy, bitOps) opUnary(string op)() const
             if(op == "+" || op == "-")
         {
-            return typeof(return)(smartOp!(throws).unary!op(bscal));
+            return typeof(return)(smartOp!(policy).unary!op(bscal));
         }
 /// ditto
         ref typeof(this) opUnary(string op)()
             if(op.among!("++", "--"))
         {
-            smartOp!(throws).unary!op(bscal);
+            smartOp!(policy).unary!op(bscal);
             return this;
         }
 
 /// ditto
-        SmartInt!(Unsigned!N, throws, bitOps) abs() const pure nothrow @nogc {
-            return typeof(return)(smartOp!(throws).abs(bscal));
+        SmartInt!(Unsigned!N, policy, bitOps) abs() const pure nothrow @nogc {
+            return typeof(return)(smartOp!(policy).abs(bscal));
         }
 
 /// Count the number of set bits using `core.bitop.popcnt()`.
-        SmartInt!(int, throws, bitOps) popcnt()() const pure nothrow @nogc {
+        SmartInt!(int, policy, bitOps) popcnt()() const pure nothrow @nogc {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             import future.bitop : stdPC = popcnt;
@@ -416,58 +430,58 @@ Returns: $(UL
         }
 
 /// See `smartOp`.
-        SmartInt!(ubyte, throws, bitOps) bsf()() const {
+        SmartInt!(ubyte, policy, bitOps) bsf()() const {
             static assert(bitOps, "Bitwise operations are disabled.");
 
-            return typeof(return)(smartOp!(throws).bsf(bscal));
+            return typeof(return)(smartOp!(policy).bsf(bscal));
         }
 /// ditto
-        SmartInt!(ubyte, throws, bitOps) bsr()() const {
+        SmartInt!(ubyte, policy, bitOps) bsr()() const {
             static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
-            return typeof(return)(smartOp!(throws).bsr(bscal));
+            return typeof(return)(smartOp!(policy).bsr(bscal));
         }
 
 /// ditto
-        SmartInt!(ubyte, throws, bitOps) ilogb() const {
-            return typeof(return)(smartOp!(throws).ilogb(bscal)); }
+        SmartInt!(ubyte, policy, bitOps) ilogb() const {
+            return typeof(return)(smartOp!(policy).ilogb(bscal)); }
 
         // Binary /////////////////////////////////////////////////
 /// ditto
         auto opBinaryRight(string op, M)(const M left) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
-            return smartOp!(throws).binary!op(left, bscal);
+            return smartOp!(policy).binary!op(left, bscal);
         }
 /// ditto
         auto opBinary(string op, M)(const M right) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
-            return smartOp!(throws).binary!op(bscal, right);
+            return smartOp!(policy).binary!op(bscal, right);
         }
 /// ditto
         auto opBinaryRight(string op, M)(const M left) const
             if(isSafeInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             enum mixBitOps = bitOps && hasBitOps!M;
             static assert(mixBitOps || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
-            const wret = smartOp!(mixThrows).binary!op(left.bscal, this.bscal);
-            return SmartInt!(typeof(wret), mixThrows, mixBitOps)(wret);
+            const wret = smartOp!(mixPolicy).binary!op(left.bscal, this.bscal);
+            return SmartInt!(typeof(wret), mixPolicy, mixBitOps)(wret);
         }
 /// ditto
         auto opBinary(string op, M)(const M right) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             enum mixBitOps = bitOps && hasBitOps!M;
             static assert(mixBitOps || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
-            const wret = smartOp!(mixThrows).binary!op(this.bscal, right.bscal);
-            return SmartInt!(typeof(wret), mixThrows, mixBitOps)(wret);
+            const wret = smartOp!(mixPolicy).binary!op(this.bscal, right.bscal);
+            return SmartInt!(typeof(wret), mixPolicy, mixBitOps)(wret);
         }
 /// ditto
         ref typeof(this) opOpAssign(string op, M)(const M right)
@@ -476,7 +490,7 @@ Returns: $(UL
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
-            smartOp!(throws || isThrowingCInt!M).binary!(op ~ "=")(this.bscal, right.bscal);
+            smartOp!(.max(policy, intFlagPolicyOf!M)).binary!(op ~ "=")(this.bscal, right.bscal);
             return this;
         }
 
@@ -484,43 +498,43 @@ Returns: $(UL
         auto mulPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
-            return smartOp!(throws).mulPow2(bscal, exp);
+            return smartOp!(policy).mulPow2(bscal, exp);
         }
 /// ditto
         auto mulPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
-            const wret = smartOp!(mixThrows).mulPow2(this.bscal, exp.bscal);
-            return SmartInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
+            const wret = smartOp!(mixPolicy).mulPow2(this.bscal, exp.bscal);
+            return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
 /// ditto
         auto divPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
-            return smartOp!(throws).divPow2(bscal, exp);
+            return smartOp!(policy).divPow2(bscal, exp);
         }
 /// ditto
         auto divPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
-            const wret = smartOp!(mixThrows).divPow2(this.bscal, exp.bscal);
-            return SmartInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
+            const wret = smartOp!(mixPolicy).divPow2(this.bscal, exp.bscal);
+            return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
 /// ditto
         auto modPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
-            return smartOp!(throws).modPow2(bscal, exp);
+            return smartOp!(policy).modPow2(bscal, exp);
         }
 /// ditto
         auto modPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
-            const wret = smartOp!(mixThrows).modPow2(this.bscal, exp.bscal);
-            return SmartInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
+            const wret = smartOp!(mixPolicy).modPow2(this.bscal, exp.bscal);
+            return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
 
 /// Raise `this` to the `exp` power using `std.math.pow()`.
@@ -533,16 +547,16 @@ Returns: $(UL
         auto pow(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
-            const wret = smartOp!(mixThrows).pow(this.bscal, exp.bscal);
-            return SmartInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
+            const wret = smartOp!(mixPolicy).pow(this.bscal, exp.bscal);
+            return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
     }
 /// ditto
-    template SmartInt(N, Flag!"throws" throws, Flag!"bitOps" bitOps = Yes.bitOps)
+    template SmartInt(N, IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps)
         if((isIntegral!N && !isUnqual!N) || isCheckedInt!N)
     {
-        alias SmartInt = SmartInt!(BasicScalar!N, throws, bitOps);
+        alias SmartInt = SmartInt!(BasicScalar!N, policy, bitOps);
     }
     ///
     unittest {
@@ -556,7 +570,7 @@ Returns: $(UL
         assert(bc == 4294967295u);
 
         // ...with SmartInt, mixed signed/unsigned operations "just work":
-        import checkedint.throws : SmartInt; // set Yes.throws
+        import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
         SmartInt!int ma = -1;
         SmartInt!uint mb = 0;
@@ -569,7 +583,7 @@ Returns: $(UL
     }
     ///
     unittest {
-        // When Yes.throws is set, failed SmartInt operations will throw a CheckedIntException.
+        // When IntFlagPolicy.throws is used, failed SmartInt operations will throw a CheckedIntException.
         import checkedint.throws : SmartInt;
 
         SmartInt!uint ma = 1;
@@ -599,7 +613,7 @@ Returns: $(UL
     }
     ///
     unittest {
-        // When No.throws is set, failed SmartInt operations set one or more bits in IntFlags.local.
+        // When IntFlagPolicy.noex is used, failed SmartInt operations set one or more bits in IntFlags.local.
         import checkedint.noex : SmartInt;
 
         SmartInt!uint ma = 1;
@@ -620,24 +634,24 @@ Returns: $(UL
         assert(!IntFlags.local);
     }
 
-    private template SmartInt(N, bool throws, bool bitOps)
+    private template SmartInt(N, IntFlagPolicy policy, bool bitOps)
         if(isIntegral!N)
     {
         alias SmartInt = SmartInt!(
             Unqual!N,
-            cast(Flag!"throws")throws,
+            policy,
             cast(Flag!"bitOps")bitOps);
     }
 
 /// Get the value of `num` as a `SmartInt!N`. The integral type `N` can be infered from the argument.
-    SmartInt!(N, throws, bitOps) smartInt(Flag!"throws" throws, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
+    SmartInt!(N, policy, bitOps) smartInt(IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
         if(isIntegral!N || isCheckedInt!N)
     {
         return typeof(return)(num.bscal);
     }
     ///
     unittest {
-        import checkedint.throws : smartInt, SmartInt; // set Yes.throws
+        import checkedint.throws : smartInt, SmartInt; // use IntFlagPolicy.throws
 
         auto a = smartInt(55uL);
         static assert(is(typeof(a) == SmartInt!ulong));
@@ -650,12 +664,12 @@ Implements various integer math operations with error checking.
 `smartOp` strives to give the mathematically correct result, with integer-style rounding, for all inputs. Only if the
 correct result is undefined or not representable by the return type is an error signalled, using `checkedint.flags`.
 
-The error-signalling policy may be selected using the `throws` template parameter.
+The error-signalling policy may be selected using the `policy` template parameter.
 */
-    template smartOp(Flag!"throws" throws) {
-        // NOTE: Condition is inverted because ddoc only scans the first branch of a static if
-        static if(!throws) {
-            // No need to redundantly instantiate members which don't depend on `throws`.
+    template smartOp(IntFlagPolicy policy) {
+        // NOTE: ddoc only scans the first branch of a static if
+        static if(policy == IntFlagPolicy.none) {
+            // No need to redundantly instantiate members which don't depend on `policy`.
 
             private void cmpTypeCheck(N, M)() pure nothrow @nogc {
                 static assert(isBoolean!N == isBoolean!M,
@@ -821,9 +835,9 @@ $(UL
                 alias Result = Result!(NumFromScal!N, op, NumFromScal!M);
             }
         } else {
-            alias cmp = smartOp!(No.throws).cmp;
-            alias abs = smartOp!(No.throws).abs;
-            private alias Result = smartOp!(No.throws).Result;
+            alias cmp = smartOp!(IntFlagPolicy.none).cmp;
+            alias abs = smartOp!(IntFlagPolicy.none).abs;
+            private alias Result = smartOp!(IntFlagPolicy.none).Result;
         }
 
 /**
@@ -858,17 +872,17 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
             static if(op == "-") {
                 static if(isSigned!N) {
                     if(num < -trueMax!R)
-                        IntFlag.posOver.raise!throws();
+                        IntFlag.posOver.raise!policy();
                 } else {
                     if(num > cast(UR)trueMin!R)
-                        IntFlag.negOver.raise!throws();
+                        IntFlag.negOver.raise!policy();
                 }
 
                 return -cast(R)num;
             } else {
                 static if(!isSigned!N) {
                     if(num > trueMax!R)
-                        IntFlag.posOver.raise!throws();
+                        IntFlag.posOver.raise!policy();
                 }
 
                 return num;
@@ -880,12 +894,12 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
         {
             static if(op == "++") {
                 if(num >= trueMax!N)
-                    IntFlag.posOver.raise!throws();
+                    IntFlag.posOver.raise!policy();
 
                 return ++num;
             } else static if(op == "--") {
                 if(num <= trueMin!N)
-                    IntFlag.negOver.raise!throws();
+                    IntFlag.negOver.raise!policy();
 
                 return --num;
             } else
@@ -893,7 +907,7 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
         }
         ///
         unittest {
-            import checkedint.noex : smartOp; // set No.throws
+            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.unary!"~"(0u) == uint.max);
 
@@ -922,7 +936,7 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
         ubyte bsf(N)(const N num)
             if(isFixedPoint!N)
         {
-            return cast(ubyte) bsfImpl!throws(num);
+            return cast(ubyte) bsfImpl!policy(num);
         }
         ///
         unittest {
@@ -940,7 +954,7 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
         ubyte bsr(N)(const N num)
             if(isFixedPoint!N)
         {
-            return cast(ubyte) bsrImpl!throws(num);
+            return cast(ubyte) bsrImpl!policy(num);
         }
         ///
         unittest {
@@ -963,7 +977,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
         ubyte ilogb(N)(const N num)
             if(isFixedPoint!N)
         {
-            return cast(ubyte) bsrImpl!throws(abs(num));
+            return cast(ubyte) bsrImpl!policy(abs(num));
         }
         ///
         unittest {
@@ -1062,7 +1076,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                     }
 
                     if(over)
-                        IntFlag.over.raise!throws();
+                        IntFlag.over.raise!policy();
                     return cast(R) wR;
                 }
             } else
@@ -1070,7 +1084,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                 static if(!isSigned!N && !isSigned!M) {
                     R ret = void;
                     if(right == 0) {
-                        IntFlag.div0.raise!throws();
+                        IntFlag.div0.raise!policy();
                         ret = 0;
                     } else
                         ret = cast(R)(left / right);
@@ -1127,7 +1141,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                     }
 
                     if(!flag.isNull)
-                        flag.raise!throws();
+                        flag.raise!policy();
                     return ret;
                 }
             } else
@@ -1142,7 +1156,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                     if(wG)
                         ret = cast(R)(left % cast(N)wG);
                     else {
-                        IntFlag.div0.raise!throws();
+                        IntFlag.div0.raise!policy();
                         ret = 0;
                     }
                 } else {
@@ -1234,7 +1248,7 @@ it with the result of the operation.
         }
         ///
         unittest {
-            import checkedint.noex : smartOp; // set No.throws
+            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             ulong a = 18_446_744_073_709_551_615uL;
             long b =      -6_744_073_709_551_615L;
@@ -1288,7 +1302,7 @@ it with the result of the operation.
         }
         ///
         unittest {
-            import checkedint.noex : smartOp; // set No.throws
+            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.binary!"<<"(-0x80, -2) == -0x20);
             ubyte a = 0x3u;
@@ -1364,11 +1378,11 @@ Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPo
         auto mulPow2(N, M)(const N left, const M exp)
             if(isFixedPoint!N && isFixedPoint!M)
         {
-            return byPow2Impl!("*", throws, NumFromScal!N, NumFromScal!M)(left, exp);
+            return byPow2Impl!("*", policy, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
         unittest {
-            import checkedint.noex : smartOp; // set No.throws
+            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.mulPow2(-23, 5) == -736);
             smartOp.mulPow2(10_000_000, 10);
@@ -1396,11 +1410,11 @@ Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPo
         auto divPow2(N, M)(const N left, const M exp)
             if(isFixedPoint!N && isFixedPoint!M)
         {
-            return byPow2Impl!("/", throws, NumFromScal!N, NumFromScal!M)(left, exp);
+            return byPow2Impl!("/", policy, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
         unittest {
-            import checkedint.noex : smartOp; // set No.throws
+            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.divPow2(65536, 8) == 256);
             assert(smartOp.divPow2(-100, 100) == 0);
@@ -1425,11 +1439,11 @@ Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of i
         auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
             if(isFixedPoint!N && isFixedPoint!M)
         {
-            return byPow2Impl!("%", No.throws, NumFromScal!N, NumFromScal!M)(left, exp);
+            return byPow2Impl!("%", IntFlagPolicy.noex, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
         unittest {
-            import checkedint.noex : smartOp; // set No.throws
+            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.modPow2( 101,  1) ==  1);
             assert(smartOp.modPow2( 101,  3) ==  5);
@@ -1466,12 +1480,12 @@ $(UL
             static assert(is(typeof(po.num) == const(R)));
 
             if(!po.flag.isNull)
-                po.flag.raise!throws();
+                po.flag.raise!policy();
             return po.num;
         }
         ///
         unittest {
-            import checkedint.noex : smartOp; // set No.throws
+            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.pow(-10, 3) == -1_000);
             assert(smartOp.pow(16, 4uL) == 65536);
@@ -1489,7 +1503,7 @@ $(UL
 
 // debug /////////////////////////////////////////////////
 /**
-`template` `alias` that evaluates to `SafeInt!(N, throws, bitOps)` in debug mode, and `N` in release mode. This way, you
+`template` `alias` that evaluates to `SafeInt!(N, policy, bitOps)` in debug mode, and `N` in release mode. This way, you
 can use `SafeInt!N` to debug your integer logic in testing, but switch to basic `N` in release mode for maximum speed
 and the smallest binaries.
 
@@ -1501,11 +1515,11 @@ If performance is your only motivation for using `DebugInt` rather than `SmartIn
 only the hotest code paths - inner loops and the like. For most programs, this should provide nearly the same
 performance boost as using it everywhere, with far less loss of safety.
 */
-    template DebugInt(N, Flag!"throws" throws, Flag!"bitOps" bitOps = Yes.bitOps)
+    template DebugInt(N, IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps)
         if(isIntegral!N || isCheckedInt!N)
     {
         version (Debug)
-            alias DebugInt = SafeInt!(N, throws, bitOps);
+            alias DebugInt = SafeInt!(N, policy, bitOps);
         else
             alias DebugInt = Unqual!N;
     }
@@ -1524,14 +1538,17 @@ If you're not trying to write generic code that works with both `SafeInt!N` and 
 `SmartInt` instead. It generates far fewer error messages; mostly it "just works".
 
 $(UL
-    $(LI `throws` controls the error signalling policy (see `checkedint.flags`).)
+    $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
     $(LI `bitOps` may be set to `No.bitOps` if desired, to turn bitwise operations on this type into a compile-time
         error.)
 )
 */
-    struct SafeInt(N, Flag!"throws" throws, Flag!"bitOps" bitOps = Yes.bitOps)
+    struct SafeInt(N, IntFlagPolicy _policy, Flag!"bitOps" bitOps = Yes.bitOps)
         if(isIntegral!N && isUnqual!N)
     {
+/// The error signalling policy used by this `SafeInt` type.
+        enum IntFlagPolicy policy = _policy;
+
         static if(bitOps) {
 /**
 The basic integral value of this `SafeInt`. Accessing this directly may be useful for:
@@ -1543,7 +1560,7 @@ $(UL
             N bscal;
             ///
             unittest {
-                import checkedint.throws : SafeInt; // set Yes.throws
+                import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
                 SafeInt!uint n;
                 static assert(is(typeof(n.bscal) == uint));
@@ -1556,11 +1573,11 @@ $(UL
             }
 
 /// Get a view of this `SafeInt` that allows bitwise operations.
-            @property ref inout(SafeInt!(N, throws, Yes.bitOps)) bits() inout pure nothrow @nogc {
+            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() inout pure nothrow @nogc {
                 return this; }
             ///
             unittest {
-                import checkedint.throws : SafeInt; // set Yes.throws
+                import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
                 SafeInt!(int, No.bitOps) n = 1;
                 static assert(!__traits(compiles, n << 2));
@@ -1569,27 +1586,27 @@ $(UL
         } else {
             @property ref inout(N) bscal() inout pure nothrow @nogc {
                 return bits.bscal; }
-            SafeInt!(N, throws, Yes.bitOps) bits;
+            SafeInt!(N, policy, Yes.bitOps) bits;
         }
 
         static if(__VERSION__ >= 2067) {
             version(GNU) { static assert(false); }
 
 /// The most negative possible value of this `SafeInt` type.
-            enum SafeInt!(N, throws, bitOps) min = typeof(this)(trueMin!N);
+            enum SafeInt!(N, policy, bitOps) min = typeof(this)(trueMin!N);
             ///
             unittest {
-                import checkedint.throws : SafeInt; // set Yes.throws
+                import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
                 assert(SafeInt!(int).min == int.min);
                 assert(SafeInt!(uint).min == uint.min);
             }
 
 /// The most positive possible value of this `SafeInt` type.
-            enum SafeInt!(N, throws, bitOps) max = typeof(this)(trueMax!N);
+            enum SafeInt!(N, policy, bitOps) max = typeof(this)(trueMax!N);
             ///
             unittest {
-                import checkedint.throws : SafeInt; // set Yes.throws;
+                import checkedint.throws : SafeInt; // use IntFlagPolicy.throws;
 
                 assert(SafeInt!(int).max == int.max);
                 assert(SafeInt!(uint).max == uint.max);
@@ -1635,7 +1652,7 @@ Trying to assign a value that cannot be proven at compile time to be representab
         }
         ///
         unittest {
-            import checkedint.noex : SafeInt, to; // set No.throws
+            import checkedint.noex : SafeInt, to; // use IntFlagPolicy.noex
 
             // Only types that for which N can represent all values are accepted directly:
             SafeInt!int n = int.max;
@@ -1668,7 +1685,7 @@ occur if M.sizeof <= N.sizeof.
         }
         ///
         unittest {
-            import checkedint.throws : SafeInt; // set Yes.throws
+            import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
             SafeInt!int n = 92;
             auto f = cast(double)n;
@@ -1684,7 +1701,7 @@ occur if M.sizeof <= N.sizeof.
         }
         ///
         unittest {
-            import checkedint.throws : SafeInt; // set Yes.throws
+            import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
             SafeInt!int n = -315;
             assert( cast(bool)n);
@@ -1700,11 +1717,11 @@ represent the current value of this `SafeInt`.
         M opCast(M)() const
             if(isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
-            return to!(M, throws)(bscal);
+            return to!(M, policy)(bscal);
         }
         ///
         unittest {
-            import checkedint.noex : SafeInt; // set No.throws
+            import checkedint.noex : SafeInt; // use IntFlagPolicy.noex
 
             SafeInt!ulong n = 52uL;
             auto a = cast(int)n;
@@ -1729,11 +1746,11 @@ $(UL
 `checkedint.to()` is used for bounds checking.
 */
         @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const {
-            return to!(typeof(return), throws)(bscal);
+            return to!(typeof(return), policy)(bscal);
         }
         ///
         unittest {
-            import checkedint.throws : SafeInt; // set Yes.throws
+            import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
             char[3] arr = ['a', 'b', 'c'];
             SafeInt!long n = 1;
@@ -1769,10 +1786,10 @@ $(UL
             formatValue(sink, bscal, fmt); }
 /// ditto
         string toString() const {
-            return to!(string, No.throws)(bscal); }
+            return to!(string, IntFlagPolicy.noex)(bscal); }
         ///
         unittest {
-            import checkedint.throws : safeInt; // set Yes.throws
+            import checkedint.throws : safeInt; // use IntFlagPolicy.throws
             assert(safeInt(-753).toString() == "-753");
         }
 
@@ -1781,7 +1798,7 @@ $(UL
         bool opEquals(M)(const M right) const pure nothrow @nogc
             if(isSafeInt!M || isScalarType!M)
         {
-            return safeOp!(throws).cmp!"=="(this.bscal, right.bscal);
+            return safeOp!(policy).cmp!"=="(this.bscal, right.bscal);
         }
 /**
 Perform a floating-point comparison to `right`.
@@ -1805,8 +1822,8 @@ Returns: $(UL
             if(isSafeInt!M || isFixedPoint!M)
         {
             return
-                safeOp!(throws).cmp!"<"(this.bscal, right.bscal)? -1 :
-                safeOp!(throws).cmp!">"(this.bscal, right.bscal);
+                safeOp!(policy).cmp!"<"(this.bscal, right.bscal)? -1 :
+                safeOp!(policy).cmp!">"(this.bscal, right.bscal);
         }
 
         // Unary /////////////////////////////////////////////////
@@ -1817,22 +1834,22 @@ Returns: $(UL
             static assert(bitOps || (op != "~"),
                 "Bitwise operations are disabled.");
 
-            return typeof(return)(safeOp!(throws).unary!op(bscal));
+            return typeof(return)(safeOp!(policy).unary!op(bscal));
         }
 /// ditto
         ref typeof(this) opUnary(string op)()
             if(op.among!("++", "--"))
         {
-            safeOp!(throws).unary!op(bscal);
+            safeOp!(policy).unary!op(bscal);
             return this;
         }
 
 /// ditto
         typeof(this) abs() const {
-            return typeof(return)(safeOp!(throws).abs(bscal)); }
+            return typeof(return)(safeOp!(policy).abs(bscal)); }
 
 /// Count the number of set bits using `core.bitop.popcnt()`.
-        SafeInt!(int, throws, bitOps) popcnt()() const pure nothrow @nogc {
+        SafeInt!(int, policy, bitOps) popcnt()() const pure nothrow @nogc {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             import future.bitop : stdPC = popcnt;
@@ -1840,21 +1857,21 @@ Returns: $(UL
         }
 
 /// See `safeOp`.
-        SafeInt!(int, throws, bitOps) bsf()() const {
+        SafeInt!(int, policy, bitOps) bsf()() const {
             static assert(bitOps, "Bitwise operations are disabled.");
 
-            return typeof(return)(safeOp!(throws).bsf(bscal));
+            return typeof(return)(safeOp!(policy).bsf(bscal));
         }
 /// ditto
-        SafeInt!(int, throws, bitOps) bsr()() const {
+        SafeInt!(int, policy, bitOps) bsr()() const {
             static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
-            return typeof(return)(safeOp!(throws).bsr(bscal));
+            return typeof(return)(safeOp!(policy).bsr(bscal));
         }
 
 /// ditto
-        SafeInt!(int, throws, bitOps) ilogb() const {
-            return typeof(return)(safeOp!(throws).ilogb(bscal)); }
+        SafeInt!(int, policy, bitOps) ilogb() const {
+            return typeof(return)(safeOp!(policy).ilogb(bscal)); }
 
         // Binary /////////////////////////////////////////////////
 /// Perform a floating-point math operation.
@@ -1870,22 +1887,22 @@ Returns: $(UL
             return mixin("bscal " ~ op ~ " right");
         }
 /// See `safeOp`.
-        SafeInt!(OpType!(M, op, N), throws, bitOps) opBinaryRight(string op, M)(const M left) const
+        SafeInt!(OpType!(M, op, N), policy, bitOps) opBinaryRight(string op, M)(const M left) const
             if(isFixedPoint!M)
         {
             static assert(bitOps || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
-            return typeof(return)(safeOp!(throws).binary!op(left, bscal));
+            return typeof(return)(safeOp!(policy).binary!op(left, bscal));
         }
 /// ditto
-        SafeInt!(OpType!(N, op, BasicScalar!M), throws || isThrowingCInt!M, bitOps && hasBitOps!M) opBinary(string op, M)(const M right) const
+        SafeInt!(OpType!(N, op, BasicScalar!M), .max(policy, intFlagPolicyOf!M), bitOps && hasBitOps!M) opBinary(string op, M)(const M right) const
             if(isSafeInt!M || isFixedPoint!M)
         {
             static assert(bitOps && hasBitOps!M || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
-            return typeof(return)(safeOp!(throws || isThrowingCInt!M).binary!op(this.bscal, right.bscal));
+            return typeof(return)(safeOp!(.max(policy, intFlagPolicyOf!M)).binary!op(this.bscal, right.bscal));
         }
 /// ditto
         ref typeof(this) opOpAssign(string op, M)(const M right)
@@ -1895,7 +1912,7 @@ Returns: $(UL
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
             checkImplicit!(OpType!(N, op, BasicScalar!M))();
 
-            safeOp!(throws || isThrowingCInt!M).binary!(op ~ "=")(this.bscal, right.bscal);
+            safeOp!(.max(policy, intFlagPolicyOf!M)).binary!(op ~ "=")(this.bscal, right.bscal);
             return this;
         }
 
@@ -1903,43 +1920,43 @@ Returns: $(UL
         auto mulPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
-            return safeOp!(throws).mulPow2(bscal, exp);
+            return safeOp!(policy).mulPow2(bscal, exp);
         }
 /// ditto
         auto mulPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
-            const wret = safeOp!(mixThrows).mulPow2(this.bscal, exp.bscal);
-            return SafeInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
+            const wret = safeOp!(mixPolicy).mulPow2(this.bscal, exp.bscal);
+            return SafeInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
 /// ditto
         auto divPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
-            return safeOp!(throws).divPow2(bscal, exp);
+            return safeOp!(policy).divPow2(bscal, exp);
         }
 /// ditto
         auto divPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
-            const wret = safeOp!(mixThrows).divPow2(this.bscal, exp.bscal);
-            return SafeInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
+            const wret = safeOp!(mixPolicy).divPow2(this.bscal, exp.bscal);
+            return SafeInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
 /// ditto
         auto modPow2(M)(const M exp) const pure nothrow @nogc
             if(isFloatingPoint!M)
         {
-            return safeOp!(throws).modPow2(bscal, exp);
+            return safeOp!(policy).modPow2(bscal, exp);
         }
 /// ditto
         auto modPow2(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            enum mixThrows = throws || isThrowingCInt!M;
-            const wret = safeOp!(mixThrows).modPow2(this.bscal, exp.bscal);
-            return SafeInt!(typeof(wret), mixThrows, bitOps && hasBitOps!M)(wret);
+            enum mixPolicy = .max(policy, intFlagPolicyOf!M);
+            const wret = safeOp!(mixPolicy).modPow2(this.bscal, exp.bscal);
+            return SafeInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
 
 /// Raise `this` to the `exp` power using `std.math.pow()`.
@@ -1949,17 +1966,17 @@ Returns: $(UL
             return std.math.pow(bscal, exp);
         }
 /// See `safeOp`.
-        SafeInt!(CallType!(std.math.pow, N, BasicScalar!M), throws || isThrowingCInt!M, bitOps && hasBitOps!M) pow(M)(const M exp) const
+        SafeInt!(CallType!(std.math.pow, N, BasicScalar!M), .max(policy, intFlagPolicyOf!M), bitOps && hasBitOps!M) pow(M)(const M exp) const
             if(isCheckedInt!M || isFixedPoint!M)
         {
-            return typeof(return)(safeOp!(throws || isThrowingCInt!M).pow(this.bscal, exp.bscal));
+            return typeof(return)(safeOp!(.max(policy, intFlagPolicyOf!M)).pow(this.bscal, exp.bscal));
         }
     }
 /// ditto
-    template SafeInt(N, Flag!"throws" throws, Flag!"bitOps" bitOps = Yes.bitOps)
+    template SafeInt(N, IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps)
         if((isIntegral!N && !isUnqual!N) || isCheckedInt!N)
     {
-        alias SafeInt = SafeInt!(BasicScalar!N, throws, bitOps);
+        alias SafeInt = SafeInt!(BasicScalar!N, policy, bitOps);
     }
     ///
     unittest {
@@ -1973,7 +1990,7 @@ Returns: $(UL
         assert(bc == 4294967295u);
 
         // ...that's why SafeInt won't let you do it.
-        import checkedint.throws : SafeInt, to; // set Yes.throws
+        import checkedint.throws : SafeInt, to; // use IntFlagPolicy.throws
 
         SafeInt!int sa = -1;
         SafeInt!uint sb = 0u;
@@ -1989,7 +2006,7 @@ Returns: $(UL
     }
     ///
     unittest {
-        // When Yes.throws is set, SafeInt operations that fail at runtime will throw a CheckedIntException.
+        // When IntFlagPolicy.throws is set, SafeInt operations that fail at runtime will throw a CheckedIntException.
         import checkedint.throws : SafeInt;
 
         SafeInt!uint sa = 1u;
@@ -2019,7 +2036,7 @@ Returns: $(UL
     }
     ///
     unittest {
-        // When No.throws is set, SafeInt operations that fail at runtime set one or more bits in IntFlags.local.
+        // When IntFlagPolicy.noex is set, SafeInt operations that fail at runtime set one or more bits in IntFlags.local.
         import checkedint.noex : SafeInt;
 
         SafeInt!uint sa = 1u;
@@ -2042,24 +2059,24 @@ Returns: $(UL
         IntFlags.local.clear();
     }
 
-    private template SafeInt(N, bool throws, bool bitOps)
+    private template SafeInt(N, IntFlagPolicy policy, bool bitOps)
         if(isIntegral!N)
     {
         alias SafeInt = SafeInt!(
             Unqual!N,
-            cast(Flag!"throws")throws,
+            policy,
             cast(Flag!"bitOps")bitOps);
     }
 
 /// Get the value of `num` as a `SafeInt!N`. The integral type `N` can be infered from the argument.
-    SafeInt!(N, throws, bitOps) safeInt(Flag!"throws" throws, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
+    SafeInt!(N, policy, bitOps) safeInt(IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
         if(isIntegral!N || isCheckedInt!N)
     {
         return typeof(return)(num.bscal);
     }
     ///
     unittest {
-        import checkedint.throws : safeInt, SafeInt; // set Yes.throws
+        import checkedint.throws : safeInt, SafeInt; // use IntFlagPolicy.throws
 
         auto a = safeInt(55uL);
         static assert(is(typeof(a) == SafeInt!ulong));
@@ -2075,12 +2092,12 @@ $(UL
         is generated. The message will usually suggest a workaround.)
     $(LI At runtime, if the result is mathematically incorrect an appropriate `IntFlag` will be raised.)
 )
-The runtime error-signalling policy may be selected using the `throws` template parameter.
+The runtime error-signalling policy may be selected using the `policy` template parameter.
 */
-    template safeOp(Flag!"throws" throws) {
-        // NOTE: Condition is inverted because ddoc only scans the first branch of a static if
-        static if(!throws) {
-        // No need to redundantly instantiate members which don't depend on `throws`.
+    template safeOp(IntFlagPolicy policy) {
+        // NOTE: ddoc only scans the first branch of a static if
+        static if(policy == IntFlagPolicy.none) {
+        // No need to redundantly instantiate members which don't depend on `policy`.
 
             private void cmpTypeCheck(N, M)() pure nothrow @nogc {
                 static assert(isBoolean!N == isBoolean!M,
@@ -2131,7 +2148,7 @@ $(UL
                 static assert(!__traits(compiles, safeOp.cmp!">"(-1, 1u)));
             }
         } else
-            alias cmp = safeOp!(No.throws).cmp;
+            alias cmp = safeOp!(IntFlagPolicy.none).cmp;
 
 /**
 Perform the unary (single-argument) integer operation specified by `op`.
@@ -2159,7 +2176,7 @@ always be negative (except for -0), but the unsigned return type cannot represen
                 }
 
                 if(over)
-                    IntFlag.posOver.raise!throws();
+                    IntFlag.posOver.raise!policy();
 
                 return ret;
             } else
@@ -2171,18 +2188,18 @@ always be negative (except for -0), but the unsigned return type cannot represen
         {
             static if(op == "++") {
                 if(num >= trueMax!N)
-                    IntFlag.posOver.raise!throws();
+                    IntFlag.posOver.raise!policy();
             } else
             static if(op == "--") {
                 if(num <= trueMin!N)
-                    IntFlag.negOver.raise!throws();
+                    IntFlag.negOver.raise!policy();
             }
 
             return mixin(op ~ "num");
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.unary!"~"(0u) == uint.max);
 
@@ -2224,7 +2241,7 @@ Get the absolute value of `num`.
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.abs(-25) == 25);
             assert(safeOp.abs(745u) == 745u);
@@ -2239,11 +2256,11 @@ Get the absolute value of `num`.
         int bsf(N)(const N num)
             if(isFixedPoint!N)
         {
-            return bsfImpl!throws(num);
+            return bsfImpl!policy(num);
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.bsf(20) == 2);
 
@@ -2257,11 +2274,11 @@ Get the absolute value of `num`.
         int bsr(N)(const N num)
             if(isFixedPoint!N)
         {
-            return bsrImpl!throws(num);
+            return bsrImpl!policy(num);
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.bsr( 20) ==  4);
             assert(safeOp.bsr(-20) == 31);
@@ -2285,11 +2302,11 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
             else
                 alias absN = num;
 
-            return bsrImpl!throws(absN);
+            return bsrImpl!policy(absN);
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.ilogb( 20) == 4);
             assert(safeOp.ilogb(-20) == 4);
@@ -2332,7 +2349,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                 }
 
                 if(over)
-                    IntFlag.over.raise!throws();
+                    IntFlag.over.raise!policy();
                 return cast(R)pR;
             } else
             static if(wop.among!("/", "%")) {
@@ -2347,7 +2364,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
 
                 R ret = void;
                 if(div0 || posOver) {
-                    (posOver? IntFlag.posOver : IntFlag.div0).raise!throws();
+                    (posOver? IntFlag.posOver : IntFlag.div0).raise!policy();
                     ret = 0; // Prevent unrecoverable FPE
                 } else
                     ret = cast(R)mixin("left " ~ wop ~ " right");
@@ -2359,7 +2376,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
 
                 enum invalidSh = ~cast(M)(8 * P.sizeof - 1);
                 if(right & invalidSh)
-                    IntFlag.undef.raise!throws();
+                    IntFlag.undef.raise!policy();
 
                 return cast(R) mixin("cast(P)left " ~ wop ~ " right");
             } else
@@ -2418,7 +2435,7 @@ it with the result of the operation.
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.binary!"+"(17, -5) == 12);
             static assert(!__traits(compiles, safeOp.binary!"+"(-1, 1u)));
@@ -2470,7 +2487,7 @@ it with the result of the operation.
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.binary!"<<"(-0x80,  2) == -0x200);
             safeOp.binary!"<<"(-0x80, -2);
@@ -2536,11 +2553,11 @@ Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPo
         auto mulPow2(N, M)(const N left, const M exp)
             if(isFixedPoint!N && isFixedPoint!M)
         {
-            return byPow2Impl!("*", throws, NumFromScal!N, NumFromScal!M)(left, exp);
+            return byPow2Impl!("*", policy, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.mulPow2(-23, 5) == -736);
             safeOp.mulPow2(10_000_000, 10);
@@ -2568,11 +2585,11 @@ Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPo
         auto divPow2(N, M)(const N left, const M exp)
             if(isFixedPoint!N && isFixedPoint!M)
         {
-            return byPow2Impl!("/", throws, NumFromScal!N, NumFromScal!M)(left, exp);
+            return byPow2Impl!("/", policy, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.divPow2(65536, 8) == 256);
             assert(safeOp.divPow2(-100, 100) == 0);
@@ -2597,11 +2614,11 @@ Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of i
         auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
             if(isFixedPoint!N && isFixedPoint!M)
         {
-            return byPow2Impl!("%", No.throws, NumFromScal!N, NumFromScal!M)(left, exp);
+            return byPow2Impl!("%", IntFlagPolicy.noex, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.modPow2( 101,  1) ==  1);
             assert(safeOp.modPow2( 101,  3) ==  5);
@@ -2636,12 +2653,12 @@ $(UL
                 po.flag = IntFlag.undef;
 
             if(!po.flag.isNull)
-                po.flag.raise!throws();
+                po.flag.raise!policy();
             return po.num;
         }
         ///
         unittest {
-            import checkedint.noex : safeOp; // set No.throws
+            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.pow(-10, 3) == -1_000);
             static assert(!__traits(compiles, safeOp.pow(16, 4uL)));
@@ -2663,36 +2680,39 @@ $(UL
 
 /**
 A wrapper for `std.conv.to()` which uses `checkedint.flags` for error signaling when converting between any combination
-of basic scalar types and `checkedint` types. This allows `checkedint.to()` to be used for numeric conversions in
-`nothrow` code, unlike `std.conv.to()`.
+of basic scalar types and `checkedint` types. With an appropriate `policy`, this allows `checkedint.to()` to be used
+for numeric conversions in `pure nothrow` code, unlike `std.conv.to()`.
 
 Conversions involving any other type are simply forwarded to `std.conv.to()`, with no runtime overhead.
 */
-    template to(T, Flag!"throws" throws)
+    template to(T, IntFlagPolicy policy)
     {
         private enum useFlags(S) = (isCheckedInt!T || isScalarType!T) && (isCheckedInt!S || isScalarType!S);
+        private enum reqAttrs =
+            ((policy == IntFlagPolicy.noex || policy == IntFlagPolicy.asserts)? " nothrow" : "") ~
+            ((policy == IntFlagPolicy.asserts || policy == IntFlagPolicy.throws)? " pure" : "");
 
         T to(S)(const S value)
             if(useFlags!S)
         {
             static if(isCheckedInt!T || isCheckedInt!S)
-                return T(checkedint.to!(BasicScalar!T, throws)(value.bscal));
+                return T(checkedint.to!(BasicScalar!T, policy)(value.bscal));
             else {
-                static if(! isFloatingPoint!T) {
+                static if(policy != IntFlagPolicy.none && !isFloatingPoint!T) {
                     static if(isFloatingPoint!S) {
                         if(value >= trueMin!T) {
                             if(value > trueMax!T)
-                                IntFlag.posOver.raise!throws();
+                                IntFlag.posOver.raise!policy();
                         } else
-                            (std.math.isNaN(value)? IntFlag.undef : IntFlag.negOver).raise!throws();
+                            (std.math.isNaN(value)? IntFlag.undef : IntFlag.negOver).raise!policy();
                     } else {
                         static if(cast(long)trueMin!S < cast(long)trueMin!T) {
                             if(value < cast(S)trueMin!T)
-                                IntFlag.negOver.raise!throws();
+                                IntFlag.negOver.raise!policy();
                         }
                         static if(cast(ulong)trueMax!S > cast(ulong)trueMax!T) {
                             if(value > cast(S)trueMax!T)
-                                IntFlag.posOver.raise!throws();
+                                IntFlag.posOver.raise!policy();
                         }
                     }
                 }
@@ -2700,25 +2720,18 @@ Conversions involving any other type are simply forwarded to `std.conv.to()`, wi
             }
         }
 
-        import std.conv : impl = to;
-        static if(throws) {
-            T to(S)(S value)
-                if(! useFlags!S)
-            {
-                return impl!T(value);
-            }
-        } else {
-            T to(S)(S value) nothrow
-                if(! useFlags!S)
-            {
-                 return impl!T(value);
-            }
-        }
+        mixin(`
+        T to(S)(S value)` ~ reqAttrs ~ `
+            if(!useFlags!S)
+        {
+            import std.conv : impl = to;
+            return impl!T(value);
+        }`);
     }
     ///
     unittest {
         // Conversions involving only basic scalars or checkedint types use IntFlags for error signalling.
-        import checkedint.noex : smartInt, SmartInt, smartOp, to; // set No.throws
+        import checkedint.noex : smartInt, SmartInt, smartOp, to; // use IntFlagPolicy.noex
 
         assert(to!int(smartInt(-421751L)) == -421751);
         assert(to!(SmartInt!ubyte)(100) == 100u);
@@ -2727,7 +2740,7 @@ Conversions involving any other type are simply forwarded to `std.conv.to()`, wi
         assert(to!int(50u) == 50);
         assert(!IntFlags.local);
 
-        // If No.throws is set, failed conversions return garbage, but...
+        // If IntFlagPolicy.noex is set, failed conversions return garbage, but...
         assert(smartOp.cmp!"!="(to!int(uint.max), uint.max));
         // ...IntFlags.local can be checked to see if anything went wrong.
         assert(IntFlags.local & IntFlag.posOver);
@@ -2737,11 +2750,12 @@ Conversions involving any other type are simply forwarded to `std.conv.to()`, wi
     ///
     unittest {
         // Everything else forwards to std.conv.to().
-        assert(to!(string, Yes.throws)(55) == "55");
-        assert(to!(real, Yes.throws)("3.141519e0") == 3.141519L);
+        assert(to!(string, IntFlagPolicy.throws)(55) == "55");
+        assert(to!(real, IntFlagPolicy.throws)("3.141519e0") == 3.141519L);
 
-        // Setting No.throws will block std.conv.to(), unless the instantiation is nothrow.
-        static assert(!__traits(compiles, to!(real, No.throws)("3.141519e0")));
+        // Setting IntFlagPolicy.noex or .asserts will block std.conv.to(), unless the instantiation is nothrow.
+        // Setting IntFlagPolicy.asserts or .throws will block std.conv.to(), unless the instantiation is pure.
+        static assert(!__traits(compiles, to!(real, IntFlagPolicy.noex)("3.141519e0")));
     }
 
     @property {
@@ -2775,7 +2789,7 @@ Useful in generic code that handles both basic types, and `checkedint` types.
         }
         ///
         unittest {
-            import checkedint.throws : smartInt, SmartInt; // set Yes.throws
+            import checkedint.throws : smartInt, SmartInt; // use IntFlagPolicy.throws
 
             assert(is(typeof(bscal(2u)) == uint));
             assert(is(typeof(bscal(SmartInt!int(2))) == int));
@@ -2807,20 +2821,20 @@ Useful in generic code that handles both basic types and `checkedint` types.
             return num;
         }
 /// ditto
-        SmartInt!(BasicScalar!N, isThrowingCInt!N, Yes.bitOps) bits(N)(const N num)
+        SmartInt!(BasicScalar!N, N.policy, Yes.bitOps) bits(N)(const N num)
             if(isSmartInt!N)
         {
             return num.bits;
         }
 /// ditto
-        SafeInt!(BasicScalar!N, isThrowingCInt!N, Yes.bitOps) bits(N)(const N num)
+        SafeInt!(BasicScalar!N, N.policy, Yes.bitOps) bits(N)(const N num)
             if(isSafeInt!N)
         {
             return num.bits;
         }
         ///
         unittest {
-            import checkedint.throws : SmartInt; // set Yes.throws
+            import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
             assert(is(typeof(bits(5)) == int));
 
@@ -2836,10 +2850,10 @@ Cast `num` to a basic type suitable for indexing an array.
 
 For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is returned.
 */
-        Select!(isSigned!N, ptrdiff_t, size_t) idx(Flag!"throws" throws, N)(const N num)
+        Select!(isSigned!N, ptrdiff_t, size_t) idx(IntFlagPolicy policy, N)(const N num)
             if(isScalarType!N || isCheckedInt!N)
         {
-            return to!(typeof(return), throws)(num.bscal);
+            return to!(typeof(return), policy)(num.bscal);
         }
 /// ditto
         Select!(isSigned!(BasicScalar!N), ptrdiff_t, size_t) idx(N)(const N num)
@@ -2849,7 +2863,7 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
         }
         ///
         unittest {
-            import checkedint.noex : idx, SmartInt, safeInt; // set No.throws
+            import checkedint.noex : idx, SmartInt, safeInt; // use IntFlagPolicy.noex
 
             assert(is(typeof(idx(cast(long)1)) == ptrdiff_t));
             assert(is(typeof(idx(cast(ubyte)1)) == size_t));
@@ -2878,7 +2892,7 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
 enum isSafeInt(T) = isInstanceOf!(SafeInt, T);
 ///
 unittest {
-    import checkedint.throws : SmartInt, SafeInt; // set Yes.throws
+    import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert( isSafeInt!(SafeInt!int));
 
@@ -2890,7 +2904,7 @@ unittest {
 enum isSmartInt(T) = isInstanceOf!(SmartInt, T);
 ///
 unittest {
-    import checkedint.throws : SmartInt, SafeInt; // set Yes.throws
+    import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert( isSmartInt!(SmartInt!int));
 
@@ -2902,7 +2916,7 @@ unittest {
 enum isCheckedInt(T) = isSafeInt!T || isSmartInt!T;
 ///
 unittest {
-    import checkedint.throws : SafeInt, SmartInt; // set Yes.throws
+    import checkedint.throws : SafeInt, SmartInt; // use IntFlagPolicy.throws
 
     assert( isCheckedInt!(SafeInt!int));
     assert( isCheckedInt!(SmartInt!int));
@@ -2926,7 +2940,7 @@ template hasBitOps(T) {
 }
 ///
 unittest {
-    import checkedint.throws : SafeInt, SmartInt; // set Yes.throws
+    import checkedint.throws : SafeInt, SmartInt; // use IntFlagPolicy.throws
 
     assert( hasBitOps!(SafeInt!(int, Yes.bitOps)));
     assert( hasBitOps!(SmartInt!(int, Yes.bitOps)));
@@ -2939,24 +2953,39 @@ unittest {
     assert(!hasBitOps!float);
 }
 
-/**
-Evaluates to `true` if `isCheckedInt!T` and failed operations on `T` will `throw` a
-$(LINK2 ./flags.html#CheckedIntException, `CheckedIntException`).
-*/
-template isThrowingCInt(T) {
-    static if(isCheckedInt!T)
-        enum isThrowingCInt = TemplateArgsOf!T[1];
+/// Get the `IntFlagPolicy` associated with some type `T`.
+template intFlagPolicyOf(T) {
+    static if(is(typeof(T.policy) : IntFlagPolicy))
+        enum IntFlagPolicy intFlagPolicyOf = T.policy;
     else
-        enum isThrowingCInt = false;
+        enum intFlagPolicyOf = IntFlagPolicy.none;
 }
 ///
 unittest {
-    assert( isThrowingCInt!(SafeInt!(int, Yes.throws)));
-    assert( isThrowingCInt!(SmartInt!(int, Yes.throws)));
+    alias IFP = IntFlagPolicy;
+    assert(intFlagPolicyOf!(SmartInt!(long, IFP.throws)) == IFP.throws);
+    assert(intFlagPolicyOf!(SafeInt!(uint, IFP.asserts)) == IFP.asserts);
+    assert(intFlagPolicyOf!(SmartInt!(ushort, IFP.noex)) == IFP.noex);
 
-    assert(!isThrowingCInt!(SafeInt!(int, No.throws)));
-    assert(!isThrowingCInt!(SmartInt!(int, No.throws)));
-    assert(!isThrowingCInt!int);
+    // basic types implicitly have the `none` policy
+    assert(intFlagPolicyOf!(wchar) == IFP.none);
+    assert(intFlagPolicyOf!(int) == IFP.none);
+    assert(intFlagPolicyOf!(double) == IFP.none);
+    assert(intFlagPolicyOf!(bool) == IFP.none);
+}
+/// `intFlagPolicyOf` works with custom types, too:
+unittest {
+    alias IFP = IntFlagPolicy;
+    struct Foo {
+        enum policy = IFP.asserts;
+    }
+    assert(intFlagPolicyOf!Foo == IFP.asserts);
+
+    struct Bar {
+        // This will be ignored by intFlagPolicyOf, because it has the wrong type:
+        enum policy = 2;
+    }
+    assert(intFlagPolicyOf!Bar == IFP.none);
 }
 
 /**
@@ -2978,7 +3007,7 @@ template BasicScalar(T) {
 }
 ///
 unittest {
-    import checkedint.throws : SafeInt, SmartInt; // set Yes.throws
+    import checkedint.throws : SafeInt, SmartInt; // use IntFlagPolicy.throws
 
     assert(is(BasicScalar!(SafeInt!int) == int));
     assert(is(BasicScalar!(SmartInt!ushort) == ushort));
@@ -3012,17 +3041,17 @@ private {
     }
 
     /+pragma(inline, true) {+/
-        int bsfImpl(Flag!"throws" throws, N)(const N num)
+        int bsfImpl(IntFlagPolicy policy, N)(const N num)
             if(isFixedPoint!N)
         {
             static if(isSigned!N)
-                return bsfImpl!(throws, Unsigned!N)(num);
+                return bsfImpl!(policy, Unsigned!N)(num);
             else {
                 static assert(N.sizeof <= ulong.sizeof);
 
                 int ret = void;
                 if(num == 0) {
-                    IntFlag.undef.raise!throws();
+                    IntFlag.undef.raise!policy();
                     ret = int.min;
                 } else
                     ret = bsf(num);
@@ -3030,17 +3059,17 @@ private {
                 return ret;
             }
         }
-        int bsrImpl(Flag!"throws" throws, N)(const N num)
+        int bsrImpl(IntFlagPolicy policy, N)(const N num)
             if(isFixedPoint!N)
         {
             static if(isSigned!N)
-                return bsrImpl!(throws, Unsigned!N)(num);
+                return bsrImpl!(policy, Unsigned!N)(num);
             else {
                 static assert(N.sizeof <= ulong.sizeof);
 
                 int ret = void;
                 if(num == 0) {
-                    IntFlag.undef.raise!throws();
+                    IntFlag.undef.raise!policy();
                     ret = int.min;
                 } else
                     ret = bsr(num);
@@ -3114,7 +3143,7 @@ private {
                 }
             }
         }
-        auto byPow2Impl(string op, Flag!"throws" throws, N, M)(const N left, const M exp)
+        auto byPow2Impl(string op, IntFlagPolicy policy, N, M)(const N left, const M exp)
             if(op.among!("*", "/", "%") && isIntegral!N && isIntegral!M)
         {
             alias R = Select!(op.among!("*", "/") != 0, Promoted!N, N);
@@ -3149,7 +3178,7 @@ private {
                     }
 
                     if(back != rc)
-                        IntFlag.over.raise!throws();
+                        IntFlag.over.raise!policy();
                 }
             } else {
                 if(exp & ~maxSh)

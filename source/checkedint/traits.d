@@ -18,7 +18,7 @@ public import checkedint :
     isSmartInt,
     isCheckedInt,
     hasBitOps,
-    isThrowingCInt,
+    intFlagPolicyOf,
     BasicScalar;
 
 private template isEx(alias Predicate) {

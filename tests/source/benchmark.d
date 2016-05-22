@@ -6,8 +6,9 @@ Authors: Thomas Stuart Bockman
 
 module checkedint.tests.benchmark;
 import checkedint, checkedint.flags, checkedint.traits;
+alias IFP = IntFlagPolicy;
 
-import std.algorithm, std.stdio, std.typecons;
+import std.algorithm, std.stdio;
 static if(__VERSION__ >= 2068) {
     version(GNU) { static assert(false); }
     import std.meta : AliasSeq;
@@ -41,10 +42,12 @@ void benchMacro(string testStr)() {
     foreach(Vstr; AliasSeq!("int", "uint", "long", "ulong")) {
         foreach(Nstr; AliasSeq!(
             Vstr,
-            "SafeInt!(" ~ Vstr ~ ", No.throws)",
-            "SafeInt!(" ~ Vstr ~ ", Yes.throws)",
-            "SmartInt!(" ~ Vstr ~ ", No.throws)",
-            "SmartInt!(" ~ Vstr ~ ", Yes.throws)"))
+            "SafeInt!(" ~ Vstr ~ ", IFP.noex)",
+            "SafeInt!(" ~ Vstr ~ ", IFP.asserts)",
+            "SafeInt!(" ~ Vstr ~ ", IFP.throws)",
+            "SmartInt!(" ~ Vstr ~ ", IFP.noex)",
+            "SmartInt!(" ~ Vstr ~ ", IFP.asserts)",
+            "SmartInt!(" ~ Vstr ~ ", IFP.throws)"))
         {
             mixin("alias N = " ~ Nstr ~ ";");
 

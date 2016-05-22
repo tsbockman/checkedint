@@ -5,9 +5,9 @@ Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
 
-$(BIG $(B `Yes.throws`)) $(BR)
-When the `Yes.throws` is set, errors are signalled by simply throwing a new `CheckedIntException`. This is the default
-method because:
+$(BIG $(B `IntFlagPolicy.throws`)) $(BR)
+When the `throws` policy is set, errors are signalled by simply throwing a new `CheckedIntException`. This is the
+recommended policy because:
 $(UL
     $(LI The API user is not required to explicitly handle errors.)
     $(LI Printing a precise stack trace is very helpful for debugging.)
@@ -15,68 +15,117 @@ $(UL
 However, this approach is not suitable in all cases. In particular:
 $(UL
     $(LI Obviously, it will not work in `nothrow` code.)
-    $(LI As of $(B D 2.070), exceptions are still not safe to use in `@nogc` code.)
+    $(LI As of $(B D 2.071), exceptions are still not safe to use in `@nogc` code.)
     $(LI Exceptions are too slow for code that is expected to signal many integer math errors in $(B normal) operation.)
 )
-$(BIG $(B `No.throws`)) $(BR)
-An alternative error signalling method may be selected using the `No.throws` option:
+
+$(BIG $(B `IntFlagPolicy.asserts`)) $(BR)
+When the `asserts` policy is set, errors trigger an assertion failure. The result depends upon whether assertions were
+enabled at compiler time:
+$(UL
+    $(LI With `version(assert)` - enabled by default in debug and unittest builds - a `core.exception.AssertError` will
+    be thrown. Its `msg` property will be set to the description of an `IntFlag` that was raised.)
+    $(LI Otherwise (in release mode), `assert(0);` will be used to halt the program immediately. Unfortunately, no
+    message or stack trace can be provided in this case. Use one of the other two error signalling policies if you need
+    detailed information in release mode.)
+)
+The `asserts` policy is the only one that is compatible with `pure nothrow @nogc` code.
+
+$(BIG $(B `IntFlagPolicy.noex`)) $(BR)
+An alternative error signalling method may be selected using the `noex` policy:
 $(OL
     $(LI Whenever an integer math error occurs, a bit flag is raised in `IntFlags.local`, which is a TLS variable.)
     $(LI The integer math operations in `checkedint` only set bit flags; they never clear them. Thus, any flag that is
     raised because of an error will remain set until handled by the API user.)
     $(LI The API user periodically checks whether any flags have been raised like so: `if (IntFlags.local)`)
-    $(LI `IntFlags.local` may be inspected to determine the general cause of the error - for example, "divide by zero".)
+    $(LI `IntFlags.local` may be inspected to determine the general type of the error - for example, "divide by zero".)
     $(LI Once the API user has handled the error somehow, `IntFlags.clear()` can be used to unset all bit flags before
     continuing the program.)
 )
 The `IntFlags.pushPop` mixin can be used to prevent a function from handling or clearing flags that were set by the
 caller.
 
-Care must be taken when using `No.throws` to insert sufficient `if (IntFlags.local)` checks; otherwise `checkedint` will
-not provide much protection from integer math related bugs.
+Care must be taken when using the `noex` policy to insert sufficient `if (IntFlags.local)` checks; otherwise
+`checkedint` will not provide much protection from integer math related bugs.
 */
 module checkedint.flags;
 
-import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/, std.typecons;
+import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/;
 
 @safe:
 
+///
+enum IntFlagPolicy {
+    none = 0,
+    noex = 1,
+    asserts = 2,
+    throws = 3
+}
+/// In mixed-policy `checkedint` operations, the higher ranking policy should be used.
+unittest {
+    assert(!IntFlagPolicy.none); // none == 0
+    assert(IntFlagPolicy.noex > IntFlagPolicy.none);
+    assert(IntFlagPolicy.asserts > IntFlagPolicy.noex);
+    assert(IntFlagPolicy.throws > IntFlagPolicy.asserts);
+}
+
 /**
-Function used to signal a failure and its proximate cause from integer math code. Depending on the value of the `throws`
+Function used to signal a failure and its proximate cause from integer math code. Depending on the value of the `policy`
 parameter, `raise()` will either:
 $(UL
-    $(LI Throw a `CheckedIntException`, or)
+    $(LI Throw a `CheckedIntException`,)
+    $(LI Trigger an assertion failure, or)
     $(LI Set a bit in `IntFlags.local` that can be checked by the caller later.)
 )
 */
-template raise(Flag!"throws" throws) {
-    void raise(IntFlags flags) {
-        static if(throws) {
-            version (DigitalMars)
-                pragma(inline, false); // DMD usually won't inline the caller without this.
-
-            if(flags.anySet)
-                throw new CheckedIntException(flags);
-        } else {
-            /+pragma(inline, true);+/
+template raise(IntFlagPolicy policy) {
+    static if(policy == IntFlagPolicy.throws) {
+        void raise(IntFlags flags) pure {
+            version(DigitalMars) pragma(inline, false); // DMD usually won't inline the caller without this.
+            if(flags) throw new CheckedIntException(flags);
+        }
+        void raise(IntFlag flag) pure {
+            version(DigitalMars) pragma(inline, false); // DMD usually won't inline the caller without this.
+            if(flag) throw new CheckedIntException(flag);
+        }
+    } else
+    static if(policy == IntFlagPolicy.asserts) {
+        void raise(IntFlags flags) pure nothrow @nogc {
+            version(assert) {
+                version(DigitalMars) pragma(inline, false); // DMD usually won't inline the caller without this.
+                assert(!flags, flags.front.desc); // throw AssertError
+            } else
+                if(flags) assert(0); // halt
+        }
+        void raise(IntFlag flag) pure nothrow @nogc {
+            version(assert) {
+                version(DigitalMars) pragma(inline, false); // DMD usually won't inline the caller without this.
+                assert(!flag, flag.desc); // throw AssertError
+            } else
+                if(flag) assert(0); // halt
+        }
+    } else
+    static if(policy == IntFlagPolicy.noex) {
+        void raise(IntFlags flags) nothrow @nogc {
+          /+pragma(inline, true);+/
             IntFlags.local |= flags;
         }
-    }
-    void raise(IntFlag flag) {
-        static if(throws) {
-            version (DigitalMars)
-                pragma(inline, false); // DMD usually won't inline the caller without this.
-
-            throw new CheckedIntException(flag);
-        } else {
-            /+pragma(inline, true);+/
+        void raise(IntFlag flag) nothrow @nogc {
+          /+pragma(inline, true);+/
             IntFlags.local |= flag;
         }
-    }
+    } else
+    static if(policy == IntFlagPolicy.none) {
+        void raise(IntFlags flags) pure nothrow @nogc {
+          /+pragma(inline, true);+/ }
+        void raise(IntFlag flag) pure nothrow @nogc {
+          /+pragma(inline, true);+/ }
+    } else
+        static assert(false);
 }
 ///
 unittest {
-    import checkedint.throws : raise; // set Yes.throws
+    import checkedint.throws : raise; // set IntFlagPolicy.throws
 
     bool caught = false;
     try {
@@ -87,8 +136,20 @@ unittest {
     assert(caught);
 }
 ///
+@trusted unittest {
+    import checkedint.asserts : raise; // set IntFlagPolicy.asserts
+
+    bool caught = false;
+    try {
+        raise(IntFlag.div0);
+    } catch(Error e) {
+        caught = (e.msg == "divide by zero");
+    }
+    assert(caught);
+}
+///
 unittest {
-    import checkedint.noex : raise; // set No.throws
+    import checkedint.noex : raise; // set IntFlagPolicy.noex
 
     raise(IntFlag.div0);
     raise(IntFlag.posOver);
@@ -99,17 +160,19 @@ unittest {
 }
 ///
 unittest {
-    // Both signaling strategies may be usefully mixed within the same program:
+    // Multiple signaling strategies may be usefully mixed within the same program:
+    alias IFP = IntFlagPolicy;
+
     static void fails() nothrow {
-        raise!(No.throws)(IntFlag.negOver);
-        raise!(No.throws)(IntFlag.imag);
+        raise!(IFP.noex)(IntFlag.negOver);
+        raise!(IFP.noex)(IntFlag.imag);
     }
 
     bool caught = false;
     try {
         fails();
         // Flags that were raised by `nothrow` code can easily be turned into an exception by the caller.
-        raise!(Yes.throws)(IntFlags.local.clear());
+        raise!(IFP.throws)(IntFlags.local.clear());
     } catch(CheckedIntException e) {
         caught = (e.intFlags == (IntFlag.negOver | IntFlag.imag));
     }
@@ -126,44 +189,45 @@ private:
         this.index = index;
     }
 
+    // Ordered from lowest to highest priority, because pure @nogc assert can only show one.
     private static immutable strs = [
         "{NULL}",
-        "{undefined result}",
-        "{divide by zero}",
-        "{imaginary component}",
         "{overflow}",
         "{positive overflow}",
-        "{negative overflow}"
+        "{negative overflow}",
+        "{imaginary component}",
+        "{undefined result}",
+        "{divide by zero}"
     ];
 public:
     static if(__VERSION__ >= 2067) {
         version(GNU) { static assert(false); }
 
-/// The result of the operation is undefined mathematically, by the API, or both.
-        enum IntFlag undef   = 1;
-/// A division by zero was attempted.
-        enum IntFlag div0    = 2;
-/// The result is imaginary, and as such not representable by an integral type.
-        enum IntFlag imag    = 3;
 /// Overflow occured.
-        enum IntFlag over    = 4;
+        enum IntFlag over    = 1;
 /// Overflow occured because a value was too large.
-        enum IntFlag posOver = 5;
+        enum IntFlag posOver = 2;
 /// Overflow occured because a value was too negative.
-        enum IntFlag negOver = 6;
+        enum IntFlag negOver = 3;
+/// The result is imaginary, and as such not representable by an integral type.
+        enum IntFlag imag    = 4;
+/// The result of the operation is undefined mathematically, by the API, or both.
+        enum IntFlag undef   = 5;
+/// A division by zero was attempted.
+        enum IntFlag div0    = 6;
     } else {
         static @property pure nothrow @nogc {
-            auto undef() {
-                return IntFlag(1); }
-            auto div0() {
-                return IntFlag(2); }
-            auto imag() {
-                return IntFlag(3); }
             auto over() {
-                return IntFlag(4); }
+                return IntFlag(1); }
             auto posOver() {
-                return IntFlag(5); }
+                return IntFlag(2); }
             auto negOver() {
+                return IntFlag(3); }
+            auto imag() {
+                return IntFlag(4); }
+            auto undef() {
+                return IntFlag(5); }
+            auto div0() {
                 return IntFlag(6); }
         }
     }
@@ -258,7 +322,8 @@ because `IntFlag` is implicitly convertible to `IntFlags`.
 /**
 Clear all flags, and return the set of flags that were previously set.
 
-`raise!(Yes.throws)(IntFlags.local.clear())` is a convenient way that the caller of a `nothrow` function can
+`raise!(IntFlagPolicy.throws)(IntFlags.local.clear())` is a convenient way that the caller of a `nothrow` function can
+convert any flags that were raised into an exception.
 */
     IntFlags clear() pure nothrow @nogc {
         IntFlags ret = this;
@@ -350,7 +415,7 @@ An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
         static assert(hasLength!IntFlags);
     }
 
-/// The standard `IntFlags` set for the current thread. `raise!(No.throws)()` mutates this variable.
+/// The standard `IntFlags` set for the current thread. `raise!(IntFlagPolicy.noex)()` mutates this variable.
     static IntFlags local;
 
 /**
@@ -368,7 +433,7 @@ scope(exit) {
 }";
     ///
     unittest {
-        import checkedint.noex : raise; // set No.throws
+        import checkedint.noex : raise; // set IntFlagPolicy.noex
 
         string[] log;
 
@@ -434,14 +499,21 @@ scope(exit) {
         assert((flags.toString() == "{undefined result}") && (flags.toString() == IntFlag.undef.toString()));
 
         flags |= IntFlag.imag;
-        assert(flags.toString() == "{imaginary component, undefined result}", flags.toString());
+        assert(flags.toString() == "{undefined result, imaginary component}", flags.toString());
+    }
+
+/// An IntFlags value with all possible flags raised.
+    enum IntFlags all = IntFlags((~0u >>> (8*_bits.sizeof - IntFlag.strs.length)) ^ 0x1);
+    ///
+    unittest {
+        assert(IntFlags.all.length == 6);
     }
 }
 
 /**
 An `Exception` representing the cause of an integer math failure.
 
-A new instances may be created and thrown using `raise!(Yes.throws)()`.
+A new instances may be created and thrown using `raise!(IntFlagPolicy.throws)()`.
 */
 class CheckedIntException : Exception {
     /// An `IntFlags` bitset indicating the proximate cause(s) of the exception.
