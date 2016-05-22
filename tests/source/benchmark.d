@@ -78,6 +78,7 @@ template SafeFold(N) {
     }
 }
 
+// Unsafe high-speed shims:
 private /+pragma(inline, true)+/ {
     auto mulPow2(N, M)(const N left, const M exp) {
         return left << exp; }
@@ -85,6 +86,16 @@ private /+pragma(inline, true)+/ {
         return left >> exp; }
     auto modPow2(N, M)(const N left, const M exp) {
         return left & ~(~cast(N)0 << exp); }
+
+    auto idx(N)(const N num) {
+        static if(isCheckedInt!N)
+            return num.idx;
+        else
+        static if(isSigned!N)
+            return cast(ptrdiff_t)num;
+        else
+            return cast(size_t)num;
+    }
 }
 
 void trialPrimes(N)() {
