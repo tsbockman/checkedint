@@ -1521,7 +1521,7 @@ performance boost as using it everywhere, with far less loss of safety.
         version (Debug)
             alias DebugInt = SafeInt!(N, policy, bitOps);
         else
-            alias DebugInt = Unqual!N;
+            alias DebugInt = Unqual!(BasicScalar!N);
     }
 
 // safe /////////////////////////////////////////////////
@@ -2916,7 +2916,7 @@ unittest {
 enum isCheckedInt(T) = isSafeInt!T || isSmartInt!T;
 ///
 unittest {
-    import checkedint.throws : SafeInt, SmartInt; // use IntFlagPolicy.throws
+    import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert( isCheckedInt!(SafeInt!int));
     assert( isCheckedInt!(SmartInt!int));
@@ -2940,7 +2940,7 @@ template hasBitOps(T) {
 }
 ///
 unittest {
-    import checkedint.throws : SafeInt, SmartInt; // use IntFlagPolicy.throws
+    import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert( hasBitOps!(SafeInt!(int, Yes.bitOps)));
     assert( hasBitOps!(SmartInt!(int, Yes.bitOps)));
@@ -2951,41 +2951,6 @@ unittest {
     assert(!hasBitOps!(SafeInt!(int, No.bitOps)));
     assert(!hasBitOps!(SmartInt!(int, No.bitOps)));
     assert(!hasBitOps!float);
-}
-
-/// Get the `IntFlagPolicy` associated with some type `T`.
-template intFlagPolicyOf(T) {
-    static if(is(typeof(T.policy) : IntFlagPolicy))
-        enum IntFlagPolicy intFlagPolicyOf = T.policy;
-    else
-        enum intFlagPolicyOf = IntFlagPolicy.none;
-}
-///
-unittest {
-    alias IFP = IntFlagPolicy;
-    assert(intFlagPolicyOf!(SmartInt!(long, IFP.throws)) == IFP.throws);
-    assert(intFlagPolicyOf!(SafeInt!(uint, IFP.asserts)) == IFP.asserts);
-    assert(intFlagPolicyOf!(SmartInt!(ushort, IFP.noex)) == IFP.noex);
-
-    // basic types implicitly have the `none` policy
-    assert(intFlagPolicyOf!(wchar) == IFP.none);
-    assert(intFlagPolicyOf!(int) == IFP.none);
-    assert(intFlagPolicyOf!(double) == IFP.none);
-    assert(intFlagPolicyOf!(bool) == IFP.none);
-}
-/// `intFlagPolicyOf` works with custom types, too:
-unittest {
-    alias IFP = IntFlagPolicy;
-    struct Foo {
-        enum policy = IFP.asserts;
-    }
-    assert(intFlagPolicyOf!Foo == IFP.asserts);
-
-    struct Bar {
-        // This will be ignored by intFlagPolicyOf, because it has the wrong type:
-        enum policy = 2;
-    }
-    assert(intFlagPolicyOf!Bar == IFP.none);
 }
 
 /**
@@ -3007,7 +2972,7 @@ template BasicScalar(T) {
 }
 ///
 unittest {
-    import checkedint.throws : SafeInt, SmartInt; // use IntFlagPolicy.throws
+    import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert(is(BasicScalar!(SafeInt!int) == int));
     assert(is(BasicScalar!(SmartInt!ushort) == ushort));
@@ -3200,11 +3165,12 @@ private {
         IntFlag flag;
     }
 
-    /+pragma(inline, false)+/ // Minimize template bloat by using a common pow() implementation
+    // Minimize template bloat by using a common pow() implementation
     PowOut!B powImpl(B, E)(const B base, const E exp)
         if((is(B == int) || is(B == uint) || is(B == long) || is(B == ulong)) &&
             (is(E == long) || is(E == ulong)))
     {
+        static if(__VERSION__ >= 2068) pragma(inline, false);
         PowOut!B ret;
 
         static if(isSigned!B) {

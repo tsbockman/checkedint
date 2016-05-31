@@ -1,5 +1,5 @@
 /**
-Common error signaling facilities for the `checkedint` package.
+Common error signaling facilities for the $(LINK2 ./package.html, `checkedint`) package.
 
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
@@ -16,7 +16,7 @@ However, this approach is not suitable in all cases. In particular:
 $(UL
     $(LI Obviously, it will not work in `nothrow` code.)
     $(LI As of $(B D 2.071), exceptions are still not safe to use in `@nogc` code.)
-    $(LI Exceptions are too slow for code that is expected to signal many integer math errors in $(B normal) operation.)
+    $(LI Exceptions are too slow for code that is expected to signal many integer math errors in $(I normal) operation.)
 )
 
 $(BIG $(B `IntFlagPolicy.asserts`)) $(BR)
@@ -67,6 +67,43 @@ unittest {
     assert(IntFlagPolicy.noex > IntFlagPolicy.none);
     assert(IntFlagPolicy.asserts > IntFlagPolicy.noex);
     assert(IntFlagPolicy.throws > IntFlagPolicy.asserts);
+}
+
+/// Get the `IntFlagPolicy` associated with some type `T`.
+template intFlagPolicyOf(T) {
+    static if(is(typeof(T.policy) : IntFlagPolicy))
+        enum IntFlagPolicy intFlagPolicyOf = T.policy;
+    else
+        enum intFlagPolicyOf = IntFlagPolicy.none;
+}
+///
+unittest {
+    import checkedint : SmartInt, SafeInt;
+
+    alias IFP = IntFlagPolicy;
+    assert(intFlagPolicyOf!(SmartInt!(long, IFP.throws)) == IFP.throws);
+    assert(intFlagPolicyOf!(SafeInt!(uint, IFP.asserts)) == IFP.asserts);
+    assert(intFlagPolicyOf!(SmartInt!(ushort, IFP.noex)) == IFP.noex);
+
+    // basic types implicitly have the `none` policy
+    assert(intFlagPolicyOf!(wchar) == IFP.none);
+    assert(intFlagPolicyOf!(int) == IFP.none);
+    assert(intFlagPolicyOf!(double) == IFP.none);
+    assert(intFlagPolicyOf!(bool) == IFP.none);
+}
+/// `intFlagPolicyOf` works with custom types, too:
+unittest {
+    alias IFP = IntFlagPolicy;
+    struct Foo {
+        enum policy = IFP.asserts;
+    }
+    assert(intFlagPolicyOf!Foo == IFP.asserts);
+
+    struct Bar {
+        // This will be ignored by intFlagPolicyOf, because it has the wrong type:
+        enum policy = 2;
+    }
+    assert(intFlagPolicyOf!Bar == IFP.none);
 }
 
 /**

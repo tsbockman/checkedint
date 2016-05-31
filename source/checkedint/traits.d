@@ -13,12 +13,13 @@ This module is separate from `checkedint` because it is only useful in generic c
 conflict with some from `std.traits`.
 */
 module checkedint.traits;
+public import checkedint.flags :
+    intFlagPolicyOf;
 public import checkedint :
     isSafeInt,
     isSmartInt,
     isCheckedInt,
     hasBitOps,
-    intFlagPolicyOf,
     BasicScalar;
 
 private template isEx(alias Predicate) {
@@ -53,7 +54,7 @@ template mostNegative(T)
     static if(isFloatingPoint!T)
         enum mostNegative = -T.max;
     else
-        enum mostNegative = T.min;
+        enum mostNegative =  T.min;
 }
 
 private template TransEx(alias TypeTransform) {
@@ -61,7 +62,7 @@ private template TransEx(alias TypeTransform) {
         static if(isCheckedInt!T) {
             alias TTB = TypeTransform!(CopyTypeQualifiers!(T, BasicScalar!T));
             alias CheckedInt = Select!(isSmartInt!T, SmartInt, SafeInt);
-            alias TransEx = CopyTypeQualifiers!(TTB, CheckedInt!(TTB, TemplateArgsOf!T[1]));
+            alias TransEx = CopyTypeQualifiers!(TTB, CheckedInt!(TTB, intFlagPolicyOf!T, hasBitOps!T));
         } else
             alias TransEx = TypeTransform!T;
     }
