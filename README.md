@@ -16,7 +16,7 @@ The main downsides to using `checkedint` are:
 * Some added friction when interfacing to non-`checkedint`-aware code.
 * Slower compilation and larger binaries.
 
-Use `dub build -b docs` to generate more extensive documentation for this package. The docs are still incomplete, but are far enough along now to be useful.
+Use `dub build -b docs` to generate more extensive documentation for this package.
 
 ## Installation
 

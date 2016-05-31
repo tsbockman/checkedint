@@ -1,10 +1,15 @@
 /**
+Compatibility shim to allow code written against the latest `std.traits`
+module to compile with older versions of D.
+
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
-*/
+**/
 
-module future.traits;
+/* HACK: Added '0' to the end of the name to preventdub build -b docs
+         from overwriting the output of checkedint.traits */
+module future.traits0; 
 
 public import std.traits;
 static if(__VERSION__ < 2068)

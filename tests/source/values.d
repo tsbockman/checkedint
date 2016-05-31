@@ -2,18 +2,15 @@
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
-*/
-
+**/
 module checkedint.tests.values;
 
-import std.math, future.traits;
+import std.math, future.traits0;
 static if(__VERSION__ >= 2068) {
     version(GNU) { static assert(false); }
-    public import std.meta;
-} else {
-    public import std.typetuple;
-    alias AliasSeq = TypeTuple;
-}
+    import std.meta : AliasSeq;
+} else
+    import std.typetuple : AliasSeq = TypeTuple;
 
 pure: nothrow: @nogc: @safe:
 

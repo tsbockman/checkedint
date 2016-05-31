@@ -1,9 +1,11 @@
 /**
+Compatibility shim to allow code written against the latest `core.bitop`
+module to compile with older versions of D.
+
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
-*/
-
+**/
 module future.bitop;
 public import core.bitop;
 

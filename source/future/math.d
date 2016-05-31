@@ -1,9 +1,11 @@
 /**
+Compatibility shim to allow code written against the latest `std.math`
+module to compile with older versions of D.
+
 Copyright: Copyright Thomas Stuart Bockman 2016
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
-*/
-
+**/
 module future.math;
 public import std.math;
 

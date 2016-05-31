@@ -4,10 +4,10 @@ Aliases for the `checkedint` module using the `noex` `IntFlagPolicy`.
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
-*/
+**/
 module checkedint.noex;
 
-import future.traits, std.typecons;
+import future.traits0, std.typecons;
 
 @safe: /+pragma(inline, true):+/
 

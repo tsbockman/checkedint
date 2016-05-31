@@ -2,14 +2,13 @@
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
-*/
-
+**/
 module checkedint.tests.contract.internal;
 public import checkedint.tests.values;
 
 import checkedint.noex;
 
-public import std.algorithm, future.format, std.stdio, future.traits;
+public import std.algorithm, future.format, std.stdio, future.traits0;
 public static import stdm = future.math;
 static if(__VERSION__ >= 2068) {
     version(GNU) { static assert(false); }

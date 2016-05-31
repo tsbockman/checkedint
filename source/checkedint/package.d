@@ -100,11 +100,11 @@ $(UL
     $(LI The assignment operators (`++` or `+=`, for example) should never be slower than the equivalent two operation
         sequence, and are sometimes a little bit faster.)
 )
-*/
+**/
 module checkedint;
 import checkedint.flags;
 
-import future.bitop, core.checkedint, std.algorithm, std.format, future.traits, std.typecons;
+import future.bitop, core.checkedint, std.algorithm, std.format, future.traits0, std.typecons;
 static import std.math;
 static if(__VERSION__ >= 2068) {
     version(GNU) { static assert(false); }
