@@ -1,4 +1,8 @@
 /**
+Generate numeric test values hitting all the likely corner cases for simple
+integer math algorithms. Floating-point is also well-covered, with the
+exception of subnormal values.
+
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman

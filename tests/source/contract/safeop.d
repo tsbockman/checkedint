@@ -1,4 +1,12 @@
 /**
+Precise and detailed description of the expected behaviour of
+`checkedint.safeOp` against which it can be automatically tested.
+80+ bit floating-point is used to compute the expected value for each
+operation with many different combinations of inputs.
+
+$(RED Note:) These tests currently will not work on systems where
+`is(real == double)`, because `Precision!double < Precision!ulong`.
+
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
