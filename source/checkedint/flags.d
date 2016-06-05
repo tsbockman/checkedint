@@ -113,13 +113,15 @@ unittest
     assert(intFlagPolicyOf!Bar == IFP.none);
 }
 
-/// Function used to signal a failure and its proximate cause from integer math code. Depending on the value of the
-/// `policy` parameter, `raise()` will either:
-/// $(UL
-///     $(LI Throw a `CheckedIntException`,)
-///     $(LI Trigger an assertion failure, or)
-///     $(LI Set a bit in `IntFlags.local` that can be checked by the caller later.)
-/// )
+/**
+Function used to signal a failure and its proximate cause from integer math code. Depending on the value of the
+`policy` parameter, `raise()` will either:
+$(UL
+    $(LI Throw a `CheckedIntException`,)
+    $(LI Trigger an assertion failure, or)
+    $(LI Set a bit in `IntFlags.local` that can be checked by the caller later.)
+)
+**/
 template raise(IntFlagPolicy policy)
 {
     static if (policy == IntFlagPolicy.throws)
@@ -374,11 +376,13 @@ public:
     }
 }
 
-/// A bitset that can be used to track integer math failures.
-///
-/// `IntFlags` is also a forward range which can be used to iterate over the set (raised) `IntFlag` values. Fully
-/// consuming the range is equivalent to calling `clear()`; iterate over a copy made with `save()`, instead, if this
-/// is not your intention.
+/**
+A bitset that can be used to track integer math failures.
+
+`IntFlags` is also a forward range which can be used to iterate over the set (raised) `IntFlag` values. Fully
+consuming the range is equivalent to calling `clear()`; iterate over a copy made with `save()`, instead, if this
+is not your intention.
+**/
 struct IntFlags
 {
 /+pragma(inline, true):+/
@@ -400,8 +404,10 @@ private:
     }
 
 public:
-    /// Assign the set of flags represented by `that` to this `IntFlags`. Note that `IntFlag` values are accepted also,
-    /// because `IntFlag` is implicitly convertible to `IntFlags`.
+    /**
+    Assign the set of flags represented by `that` to this `IntFlags`. Note that `IntFlag` values are accepted also,
+    because `IntFlag` is implicitly convertible to `IntFlags`.
+    **/
     this(IntFlags that) pure nothrow @nogc
     {
         bits = that.bits;
@@ -423,10 +429,12 @@ public:
         assert(IntFlags.local.clear() == (IntFlag.negOver | IntFlag.imag));
     }
 
-    /// Clear all flags, and return the set of flags that were previously set.
-    ///
-    /// `raise!(IntFlagPolicy.throws)(IntFlags.local.clear())` is a convenient way that the caller of a `nothrow`
-    /// function can convert any flags that were raised into an exception.
+    /**
+    Clear all flags, and return the set of flags that were previously set.
+
+    `raise!(IntFlagPolicy.throws)(IntFlags.local.clear())` is a convenient way that the caller of a `nothrow`
+    function can convert any flags that were raised into an exception.
+    **/
     IntFlags clear() pure nothrow @nogc
     {
         IntFlags ret = this;
@@ -476,9 +484,11 @@ public:
         assert(!(flags & IntFlag.negOver));
     }
 
-    /// `true` if any non-null flag is set, otherwise `false`.
-    ///
-    /// An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
+    /**
+    `true` if any non-null flag is set, otherwise `false`.
+
+    An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
+    **/
     @property bool anySet() const pure nothrow @nogc
     {
         return bits != 0;
@@ -533,12 +543,14 @@ public:
     /// The standard `IntFlags` set for the current thread. `raise!(IntFlagPolicy.noex)()` mutates this variable.
     static IntFlags local;
 
-    /// A `mixin` string that may be used to (effectively) push a new `IntFlags.local` variable onto the stack at the
-    /// beginning of a scope, and restore the previous one at the end.
-    ///
-    /// Any flags raised during the scope must be manually checked, handled, and cleared before the end, otherwise a
-    /// debugging `assert` will be triggered to warn you that restoring the old `IntFlags.local` value would cause a
-    /// loss of information.
+    /**
+    A `mixin` string that may be used to (effectively) push a new `IntFlags.local` variable onto the stack at the
+    beginning of a scope, and restore the previous one at the end.
+
+    Any flags raised during the scope must be manually checked, handled, and cleared before the end, otherwise a
+    debugging `assert` will be triggered to warn you that restoring the old `IntFlags.local` value would cause a
+    loss of information.
+    **/
     enum string pushPop = r"
 IntFlags outerIntFlags = IntFlags.local.clear();
 scope(exit) {
@@ -600,7 +612,7 @@ scope(exit) {
     /// ditto
     string toString() const pure
     {
-        switch(length)
+        switch (length)
         {
         case 0:
             return "{}";
@@ -634,9 +646,11 @@ scope(exit) {
     }
 }
 
-/// An `Exception` representing the cause of an integer math failure.
-///
-/// A new instances may be created and thrown using `raise!(IntFlagPolicy.throws)()`.
+/**
+An `Exception` representing the cause of an integer math failure.
+
+A new instances may be created and thrown using `raise!(IntFlagPolicy.throws)()`.
+**/
 class CheckedIntException : Exception
 {
     /// An `IntFlags` bitset indicating the proximate cause(s) of the exception.

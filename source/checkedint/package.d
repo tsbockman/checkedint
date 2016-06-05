@@ -122,14 +122,16 @@ else
 /+pragma(inline, true)
 {+/
 // smart /////////////////////////////////////////////////
-    /// Wrapper for any basic integral type `N` that uses the checked operations from `smartOp` and bounds checks
-    /// assignments with `checkedint.to()`.
-    ///
-    /// $(UL
-    ///     $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
-    ///     $(LI `bitOps` may be set to `No.bitOps` if desired, to turn bitwise operations on this type into a
-    ///         compile-time error.)
-    /// )
+    /**
+    Wrapper for any basic integral type `N` that uses the checked operations from `smartOp` and bounds checks
+    assignments with `checkedint.to()`.
+
+    $(UL
+        $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
+        $(LI `bitOps` may be set to `No.bitOps` if desired, to turn bitwise operations on this type into a
+            compile-time error.)
+    )
+    **/
     struct SmartInt(N, IntFlagPolicy _policy, Flag!"bitOps" bitOps = Yes.bitOps)
         if (isIntegral!N && isUnqual!N)
     {
@@ -138,11 +140,13 @@ else
 
         static if (bitOps)
         {
-            /// The basic integral value of this `SmartInt`. Accessing this directly may be useful for:
-            /// $(UL
-            ///     $(LI Intentionally doing modular (unchecked) arithmetic, or)
-            ///     $(LI Interacting with APIs that are not `checkedint` aware.)
-            /// )
+            /**
+            The basic integral value of this `SmartInt`. Accessing this directly may be useful for:
+            $(UL
+                $(LI Intentionally doing modular (unchecked) arithmetic, or)
+                $(LI Interacting with APIs that are not `checkedint` aware.)
+            )
+            **/
             N bscal;
             ///
             unittest
@@ -222,9 +226,11 @@ else
         }
 
         // Construction, assignment, and casting /////////////////////////////////////////////////
-        /// Assign the value of `that` to this `SmartInt` instance.
-        ///
-        /// `checkedint.to()` is used to verify `that >= N.min && that <= N.max`. If not, an `IntFlag` will be raised.
+        /**
+        Assign the value of `that` to this `SmartInt` instance.
+
+        `checkedint.to()` is used to verify `that >= N.min && that <= N.max`. If not, an `IntFlag` will be raised.
+        **/
         this(M)(const M that)
             if (isCheckedInt!M || isScalarType!M)
         {
@@ -257,8 +263,10 @@ else
             assert(IntFlags.local.clear() == (IntFlag.posOver | IntFlag.negOver | IntFlag.undef));
         }
 
-        /// Convert this value to floating-point. This always succeeds, although some loss of precision may
-        /// occur if M.sizeof <= N.sizeof.
+        /**
+        Convert this value to floating-point. This always succeeds, although some loss of precision may
+        occur if M.sizeof <= N.sizeof.
+        **/
         M opCast(M)() const pure nothrow @nogc
             if (isFloatingPoint!M)
         {
@@ -292,8 +300,10 @@ else
             assert(!cast(bool)n);
         }
 
-        /// Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if
-        /// `M` cannot represent the current value of this `SmartInt`.
+        /**
+        Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if
+        `M` cannot represent the current value of this `SmartInt`.
+        **/
         M opCast(M)() const
             if (isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
@@ -316,12 +326,14 @@ else
             assert(IntFlags.local.clear() == IntFlag.negOver);
         }
 
-        /// Convert this value to a type suitable for indexing an array:
-        /// $(UL
-        ///     $(LI If `N` is signed, a `ptrdiff_t` is returned.)
-        ///     $(LI If `N` is unsigned, a `size_t` is returned.)
-        /// )
-        /// `checkedint.to()` is used for bounds checking.
+        /**
+        Convert this value to a type suitable for indexing an array:
+        $(UL
+            $(LI If `N` is signed, a `ptrdiff_t` is returned.)
+            $(LI If `N` is unsigned, a `size_t` is returned.)
+        )
+        `checkedint.to()` is used for bounds checking.
+        **/
         @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const
         {
             return to!(typeof(return), policy)(bscal);
@@ -391,14 +403,16 @@ else
         {
             return smartOp!(policy).cmp!"=="(this.bscal, right.bscal);
         }
-        /// Perform a mathematically correct comparison to `right`.
-        ///
-        /// Returns: $(UL
-        ///     $(LI `-1` if this value is less than `right`.)
-        ///     $(LI ` 0` if this value is precisely equal to `right`.)
-        ///     $(LI ` 1` if this value is greater than `right`.)
-        ///     $(LI `float.nan` if `right` is a floating-point `nan` value.)
-        /// )
+        /**
+        Perform a mathematically correct comparison to `right`.
+
+        Returns: $(UL
+            $(LI `-1` if this value is less than `right`.)
+            $(LI ` 0` if this value is precisely equal to `right`.)
+            $(LI ` 1` if this value is greater than `right`.)
+            $(LI `float.nan` if `right` is a floating-point `nan` value.)
+        )
+        **/
         auto opCmp(M)(const M right) const pure nothrow @nogc
             if (isFloatingPoint!M)
         {
@@ -695,13 +709,15 @@ else
         assert(a == 55);
     }
 
-    /// Implements various integer math operations with error checking.
-    ///
-    /// `smartOp` strives to give the mathematically correct result, with integer-style rounding, for all inputs. Only
-    /// if the correct result is undefined or not representable by the return type is an error signalled, using
-    /// `checkedint.flags`.
-    ///
-    /// The error-signalling policy may be selected using the `policy` template parameter.
+    /**
+    Implements various integer math operations with error checking.
+
+    `smartOp` strives to give the mathematically correct result, with integer-style rounding, for all inputs. Only
+    if the correct result is undefined or not representable by the return type is an error signalled, using
+    `checkedint.flags`.
+
+    The error-signalling policy may be selected using the `policy` template parameter.
+    **/
     template smartOp(IntFlagPolicy policy)
     {
         // NOTE: ddoc only scans the first branch of a static if
@@ -1036,9 +1052,11 @@ else
             assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
-        /// Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
-        ///
-        /// `smartOp.ilogb(0)` will raise `IntFlag.undef`.
+        /**
+        Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
+
+        `smartOp.ilogb(0)` will raise `IntFlag.undef`.
+        **/
         ubyte ilogb(N)(const N num)
             if (isFixedPoint!N)
         {
@@ -1475,11 +1493,13 @@ else
             assert(!IntFlags.local);
         }
 
-        /// Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
-        /// alternative to `left << exp` that is still very fast.
-        ///
-        /// Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is
-        /// equivalent to `divPow2(left, exp)`.
+        /**
+        Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
+        alternative to `left << exp` that is still very fast.
+
+        Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is
+        equivalent to `divPow2(left, exp)`.
+        **/
         auto mulPow2(N, M)(const N left, const M exp) pure nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
@@ -1504,11 +1524,13 @@ else
             assert(smartOp.mulPow2(-100, -100) == 0);
         }
 
-        /// Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
-        /// alternative to `left >> exp` that is still very fast.
-        ///
-        /// Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is
-        /// equivalent to `mulPow2(left, exp)`.
+        /**
+        Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
+        alternative to `left >> exp` that is still very fast.
+
+        Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is
+        equivalent to `mulPow2(left, exp)`.
+        **/
         auto divPow2(N, M)(const N left, const M exp) pure nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
@@ -1533,8 +1555,10 @@ else
             assert(IntFlags.local.clear() == IntFlag.posOver);
         }
 
-        /// Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
-        /// alternative to `left & ((1 << exp) - 1)` that is still very fast.
+        /**
+        Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
+        alternative to `left & ((1 << exp) - 1)` that is still very fast.
+        **/
         auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
@@ -1559,14 +1583,16 @@ else
             assert(smartOp.modPow2(101, 1_000) == 101);
         }
 
-        /// Raise `base` to the `exp` power.
-        ///
-        /// Errors that may be signalled if neither input is floating-point:
-        /// $(UL
-        ///     $(LI `IntFlag.posOver` or `IntFlag.negOver` if the absolute value of the result is too large to
-        ///         represent with the return type.)
-        ///     $(LI `IntFlag.div0` if `base == 0` and `exp < 0`.)
-        /// )
+        /**
+        Raise `base` to the `exp` power.
+
+        Errors that may be signalled if neither input is floating-point:
+        $(UL
+            $(LI `IntFlag.posOver` or `IntFlag.negOver` if the absolute value of the result is too large to
+                represent with the return type.)
+            $(LI `IntFlag.div0` if `base == 0` and `exp < 0`.)
+        )
+        **/
         auto pow(N, M)(const N base, const M exp) pure nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
@@ -1654,11 +1680,13 @@ else
 
         static if (bitOps)
         {
-            /// The basic integral value of this `SafeInt`. Accessing this directly may be useful for:
-            /// $(UL
-            ///     $(LI Intentionally doing modular (unchecked) arithmetic, or)
-            ///     $(LI Interacting with APIs that are not `checkedint` aware.)
-            /// )
+            /**
+            The basic integral value of this `SafeInt`. Accessing this directly may be useful for:
+            $(UL
+                $(LI Intentionally doing modular (unchecked) arithmetic, or)
+                $(LI Interacting with APIs that are not `checkedint` aware.)
+            )
+            **/
             N bscal;
             ///
             unittest
@@ -1749,10 +1777,12 @@ else
             );
         }
 
-        /// Assign the value of `that` to this `SafeInt` instance.
-        ///
-        /// Trying to assign a value that cannot be proven at compile time to be representable by `N` is an error. Use
-        /// `checkedint.to()` to safely convert `that` with runtime bounds checking, instead.
+        /**
+        Assign the value of `that` to this `SafeInt` instance.
+
+        Trying to assign a value that cannot be proven at compile time to be representable by `N` is an error. Use
+        `checkedint.to()` to safely convert `that` with runtime bounds checking, instead.
+        **/
         this(M)(const M that) pure nothrow @nogc
             if (isCheckedInt!M || isScalarType!M)
         {
@@ -1790,8 +1820,10 @@ else
             assert(IntFlags.local.clear() == IntFlag.posOver);
         }
 
-        /// Convert this value to floating-point. This always succeeds, although some loss of precision may
-        /// occur if M.sizeof <= N.sizeof.
+        /**
+        Convert this value to floating-point. This always succeeds, although some loss of precision may
+        occur if M.sizeof <= N.sizeof.
+        **/
         M opCast(M)() const pure nothrow @nogc
             if (isFloatingPoint!M)
         {
@@ -1826,8 +1858,10 @@ else
             assert(!cast(bool)n);
         }
 
-        /// Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if
-        /// `M` cannot represent the current value of this `SafeInt`.
+        /**
+        Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if
+        `M` cannot represent the current value of this `SafeInt`.
+        **/
         M opCast(M)() const
             if (isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
@@ -1850,12 +1884,14 @@ else
             assert(IntFlags.local.clear() == IntFlag.negOver);
         }
 
-        /// Convert this value to a type suitable for indexing an array:
-        /// $(UL
-        ///     $(LI If `N` is signed, a `ptrdiff_t` is returned.)
-        ///     $(LI If `N` is unsigned, a `size_t` is returned.)
-        /// )
-        /// `checkedint.to()` is used for bounds checking.
+        /**
+        Convert this value to a type suitable for indexing an array:
+        $(UL
+            $(LI If `N` is signed, a `ptrdiff_t` is returned.)
+            $(LI If `N` is unsigned, a `size_t` is returned.)
+        )
+        `checkedint.to()` is used for bounds checking.
+        **/
         @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const
         {
             return to!(typeof(return), policy)(bscal);
@@ -1926,13 +1962,15 @@ else
             return safeOp!(policy).cmp!"=="(this.bscal, right.bscal);
         }
 
-        /// Perform a floating-point comparison to `right`.
-        ///
-        /// Returns: $(UL
-        ///     $(LI `-1` if this value is less than `right`.)
-        ///     $(LI ` 0` if this value is equal to `right`.)
-        ///     $(LI ` 1` if this value is greater than `right`.)
-        ///     $(LI `float.nan` if `right` is a floating-point `nan` value.))
+        /**
+        Perform a floating-point comparison to `right`.
+
+        Returns: $(UL
+            $(LI `-1` if this value is less than `right`.)
+            $(LI ` 0` if this value is equal to `right`.)
+            $(LI ` 1` if this value is greater than `right`.)
+            $(LI `float.nan` if `right` is a floating-point `nan` value.))
+        **/
         auto opCmp(M)(const M right) const pure nothrow @nogc
             if (isFloatingPoint!M)
         {
@@ -2221,15 +2259,17 @@ else
         assert(a == 55u);
     }
 
-    /// Implements various integer math operations with error checking.
-    ///
-    /// `safeOp` strives to mimic the standard integer math operations in every way, except:
-    /// $(UL
-    ///     $(LI If the operation is generally untrustworthy - for example, signed/unsigned comparisons - a compile-time error
-    ///         is generated. The message will usually suggest a workaround.)
-    ///     $(LI At runtime, if the result is mathematically incorrect an appropriate `IntFlag` will be raised.)
-    /// )
-    /// The runtime error-signalling policy may be selected using the `policy` template parameter.
+    /**
+    Implements various integer math operations with error checking.
+
+    `safeOp` strives to mimic the standard integer math operations in every way, except:
+    $(UL
+        $(LI If the operation is generally untrustworthy - for example, signed/unsigned comparisons - a compile-time error
+            is generated. The message will usually suggest a workaround.)
+        $(LI At runtime, if the result is mathematically incorrect an appropriate `IntFlag` will be raised.)
+    )
+    The runtime error-signalling policy may be selected using the `policy` template parameter.
+    **/
     template safeOp(IntFlagPolicy policy)
     {
         // NOTE: ddoc only scans the first branch of a static if
@@ -2291,12 +2331,14 @@ else
         else
             alias cmp = safeOp!(IntFlagPolicy.none).cmp;
 
-        /// Perform the unary (single-argument) integer operation specified by `op`.
-        ///
-        /// Trying to negate `-` an unsigned value will generate a compile-time error, because mathematically, the result should
-        /// always be negative (except for -0), but the unsigned return type cannot represent this.
-        ///
-        /// `++` and `--` are checked for overflow at runtime, and will raise `IntFlag.posOver` or `IntFlag.negOver` if needed.
+        /**
+        Perform the unary (single-argument) integer operation specified by `op`.
+
+        Trying to negate `-` an unsigned value will generate a compile-time error, because mathematically, the result should
+        always be negative (except for -0), but the unsigned return type cannot represent this.
+
+        `++` and `--` are checked for overflow at runtime, and will raise `IntFlag.posOver` or `IntFlag.negOver` if needed.
+        **/
         N unary(string op, N)(const N num)
             if ((isIntegral!N) && op.among!("-", "+", "~"))
         {
@@ -2370,9 +2412,11 @@ else
             assert(c == 8);
         }
 
-        /// Get the absolute value of `num`.
-        ///
-        /// `IntFlag.posOver` is raised if `N` is signed and `num == N.min`.
+        /**
+        Get the absolute value of `num`.
+
+        `IntFlag.posOver` is raised if `N` is signed and `num == N.min`.
+        **/
         N abs(N)(const N num)
             if (isIntegral!N || isBoolean!N)
         {
@@ -2430,9 +2474,11 @@ else
             assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
-        /// Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
-        ///
-        /// `safeOp.ilogb(0)` will raise `IntFlag.undef`.
+        /**
+        Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
+
+        `safeOp.ilogb(0)` will raise `IntFlag.undef`.
+        **/
         int ilogb(N)(const N num)
             if (isFixedPoint!N)
         {
@@ -2679,11 +2725,13 @@ else
             assert(!IntFlags.local);
         }
 
-        /// Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-        /// `left << exp` that is still very fast.
-        ///
-        /// Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is equivalent to
-        /// `divPow2(left, exp)`.
+        /**
+        Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
+        `left << exp` that is still very fast.
+
+        Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is equivalent to
+        `divPow2(left, exp)`.
+        **/
         auto mulPow2(N, M)(const N left, const M exp) pure nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
@@ -2708,11 +2756,13 @@ else
             assert(safeOp.mulPow2(-100, -100) == 0);
         }
 
-        /// Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-        /// `left >> exp` that is still very fast.
-        ///
-        /// Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is equivalent to
-        /// `mulPow2(left, exp)`.
+        /**
+        Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
+        `left >> exp` that is still very fast.
+
+        Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is equivalent to
+        `mulPow2(left, exp)`.
+        **/
         auto divPow2(N, M)(const N left, const M exp) pure nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
@@ -2737,8 +2787,10 @@ else
             assert(IntFlags.local.clear() == IntFlag.posOver);
         }
 
-        /// Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-        /// `left & ((1 << exp) - 1)` that is still very fast.
+        /**
+        Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
+        `left & ((1 << exp) - 1)` that is still very fast.
+        **/
         auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
@@ -2763,14 +2815,16 @@ else
             assert(safeOp.modPow2(101, 1_000) == 101);
         }
 
-        /// Raise `base` to the `exp` power.
-        ///
-        /// Errors that may be signalled if neither input is floating-point:
-        /// $(UL
-        ///     $(LI `IntFlag.posOver` or `IntFlag.negOver` if the absolute value of the result is too large to
-        ///         represent with the return type.)
-        ///     $(LI `exp < 0`, `IntFlag.undef` is raised because `std.math.pow` would trigger an FPE given the same input.)
-        /// )
+        /**
+        Raise `base` to the `exp` power.
+
+        Errors that may be signalled if neither input is floating-point:
+        $(UL
+            $(LI `IntFlag.posOver` or `IntFlag.negOver` if the absolute value of the result is too large to
+                represent with the return type.)
+            $(LI `exp < 0`, `IntFlag.undef` is raised because `std.math.pow` would trigger an FPE given the same input.)
+        )
+        **/
         CallType!(std.math.pow, N, M) pow(N, M)(const N base, const M exp)
             if (isFixedPoint!N && isFixedPoint!M)
         {
@@ -2808,12 +2862,13 @@ else
     private alias safeOp(bool throws) = safeOp!(cast(Flag!"throws")throws);
 
 // conv /////////////////////////////////////////////////
+    /**
+    A wrapper for `std.conv.to()` which uses `checkedint.flags` for error signaling when converting between any combination
+    of basic scalar types and `checkedint` types. With an appropriate `policy`, this allows `checkedint.to()` to be used
+    for numeric conversions in `pure nothrow` code, unlike `std.conv.to()`.
 
-    /// A wrapper for `std.conv.to()` which uses `checkedint.flags` for error signaling when converting between any combination
-    /// of basic scalar types and `checkedint` types. With an appropriate `policy`, this allows `checkedint.to()` to be used
-    /// for numeric conversions in `pure nothrow` code, unlike `std.conv.to()`.
-    ///
-    /// Conversions involving any other type are simply forwarded to `std.conv.to()`, with no runtime overhead.
+    Conversions involving any other type are simply forwarded to `std.conv.to()`, with no runtime overhead.
+    **/
     template to(T, IntFlagPolicy policy)
     {
         private enum useFlags(S) = (isCheckedInt!T || isScalarType!T) && (isCheckedInt!S || isScalarType!S);
@@ -2897,9 +2952,11 @@ else
     }
 
     @property {
-        /// Get a view or copy of `num` as a basic scalar.
-        ///
-        /// Useful in generic code that handles both basic types, and `checkedint` types.
+        /**
+        Get a view or copy of `num` as a basic scalar.
+
+        Useful in generic code that handles both basic types, and `checkedint` types.
+        **/
       /+ref inout(N) bscal(N)(return ref inout(N) num)
             if (isScalarType!N)
         {
@@ -2935,9 +2992,11 @@ else
             assert(bscal(smartInt(75_000)) == 75_000);
         }
 
-        /// Get a view or copy of `num` that supports bitwise operations.
-        ///
-        /// Useful in generic code that handles both basic types and `checkedint` types.
+        /**
+        Get a view or copy of `num` that supports bitwise operations.
+
+        Useful in generic code that handles both basic types and `checkedint` types.
+        **/
       /+ref inout(N) bits(N)(return ref inout(N) num)
             if (isFixedPoint!N)
         {
@@ -2981,9 +3040,11 @@ else
             assert((bits(noBits) << 2) == 20);
         }
 
-        /// Cast `num` to a basic type suitable for indexing an array.
-        ///
-        /// For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is returned.
+        /**
+        Cast `num` to a basic type suitable for indexing an array.
+
+        For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is returned.
+        **/
         Select!(isSigned!N, ptrdiff_t, size_t) idx(IntFlagPolicy policy, N)(const N num)
             if (isScalarType!N || isCheckedInt!N)
         {
@@ -3061,12 +3122,14 @@ unittest
     assert(!isCheckedInt!int);
 }
 
-/// Evaluates to `true` if either:
-/// $(UL
-///     $(LI `isScalarType!T`, or)
-///     $(LI `isCheckedInt!T`)
-/// )
-/// $(B And) bitwise operators such as `<<` and `~` are available for `T`.
+/**
+Evaluates to `true` if either:
+$(UL
+    $(LI `isScalarType!T`, or)
+    $(LI `isCheckedInt!T`)
+)
+$(B And) bitwise operators such as `<<` and `~` are available for `T`.
+**/
 template hasBitOps(T)
 {
     static if (isCheckedInt!T)
@@ -3090,12 +3153,14 @@ unittest
     assert(!hasBitOps!float);
 }
 
-/// Aliases to the basic scalar type associated with `T`, assuming either:
-/// $(UL
-///     $(LI `isScalarType!T`, or)
-///     $(LI `isCheckedInt!T`)
-/// )
-/// Otherwise, `BasicScalar` aliases to `void`.
+/**
+Aliases to the basic scalar type associated with `T`, assuming either:
+$(UL
+    $(LI `isScalarType!T`, or)
+    $(LI `isCheckedInt!T`)
+)
+Otherwise, `BasicScalar` aliases to `void`.
+**/
 template BasicScalar(T)
 {
     static if (isScalarType!T)
