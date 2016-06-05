@@ -389,7 +389,7 @@ else
             return to!(string, IntFlagPolicy.noex)(bscal);
         }
         /// ditto
-        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @safe
+        void toString(Writer, Char = char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
         {
             formatValue(sink, bscal, fmt);
         }
@@ -748,8 +748,8 @@ else
             ) $(BR)
             Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
             $(UL
-                $(LI `cast(N)boolean == numeric`)
-                $(LI `boolean == (numeric != 0)`)
+                $(LI `numeric == cast(N)boolean`)
+                $(LI `(numeric != 0) == boolean`)
             )
             **/
             bool cmp(string op, N, M)(const N left, const M right) pure @safe nothrow @nogc
@@ -799,8 +799,8 @@ else
             ) $(BR)
             Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
             $(UL
-                $(LI `cast(N)boolean == numeric`)
-                $(LI `boolean == (numeric != 0)`)
+                $(LI `numeric == cast(N)boolean`)
+                $(LI `(numeric != 0) == boolean`)
             )
             **/
             int cmp(N, M)(const N left, const M right) pure @safe nothrow @nogc
@@ -1640,7 +1640,7 @@ else
     way, you can use `SafeInt!N` to debug your integer logic in testing, but switch to basic `N` in release mode for
     maximum speed and the smallest binaries.
 
-    While this may be very helpful for debuggin your algorithms, note that `DebugInt` is $(B $(RED not)) a substitute
+    While this may be very helpful for debuggin your algorithms, note that `DebugInt` is $(B not) a substitute
     for input validation in release mode. Unrecoverable FPEs or silent data-corrupting overflow can still occur in
     release mode if you get your algorithm wrong, or fail to add manual bounds checks in the right places.
 
@@ -1945,14 +1945,14 @@ else
         }
 
         /// Get a `string` representation of this value.
-        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
-        {
-            formatValue(sink, bscal, fmt);
-        }
-        /// ditto
         string toString() const @safe
         {
             return to!(string, IntFlagPolicy.noex)(bscal);
+        }
+        /// ditto
+        void toString(Writer, Char = char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
+        {
+            formatValue(sink, bscal, fmt);
         }
         ///
         unittest
@@ -2313,8 +2313,8 @@ else
             ) $(BR)
             Direct comparisons between boolean values and numeric ones are also forbidden. Make your intention explicit:
             $(UL
-                $(LI `cast(N)boolean == numeric`)
-                $(LI `boolean == (numeric != 0)`)
+                $(LI `numeric == cast(N)boolean`)
+                $(LI `(numeric != 0) == boolean`)
             )
             **/
             bool cmp(string op, N, M)(const N left, const M right) pure @safe nothrow @nogc
@@ -2608,7 +2608,7 @@ else
         ) $(BR)
         Note also:
         $(UL
-            $(LI The shift operators are $(B $(RED not)) checked for overflow and should not be used for multiplication,
+            $(LI The shift operators are $(B not) checked for overflow and should not be used for multiplication,
                 division, or exponentiation. Instead, use `mulPow2()` and `divPow2()`, which internally use the bitshifts for speed,
                 but check for overflow and correctly handle negative values.)
             $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)

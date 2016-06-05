@@ -362,15 +362,14 @@ public:
     }
 
     /// Get a string representation of this `IntFlag`. The format is the same as that returned by `IntFlags.toString()`.
-    void toString(Writer, Char)(
-        Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const pure nothrow @nogc
-    {
-        formatValue(sink, strs[index], fmt);
-    }
-    /// ditto
     string toString() const pure @safe nothrow @nogc
     {
         return strs[index];
+    }
+    /// ditto
+    void toString(Writer, Char = char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
+    {
+        formatValue(sink, strs[index], fmt);
     }
     ///
     unittest
@@ -591,7 +590,22 @@ scope(exit)
 
 /+pragma(inline):+/
     /// Get a string representation of the list of set flags.
-    void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt) const
+    string toString() const pure @safe
+    {
+        switch (length)
+        {
+        case 0:
+            return "{}";
+        case 1:
+            return front.toString();
+        default:
+            auto buff = appender!string();
+            toString(buff);
+            return cast(immutable)(buff.data);
+        }
+    }
+    /// ditto
+    void toString(Writer, Char = char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
     {
         put(sink, '{');
 
@@ -606,26 +620,6 @@ scope(exit)
         }
 
         put(sink, '}');
-    }
-    /// ditto
-    void toString(Writer)(Writer sink) const
-    {
-        toString(sink, (FormatSpec!char).init);
-    }
-    /// ditto
-    string toString() const pure @safe
-    {
-        switch (length)
-        {
-        case 0:
-            return "{}";
-        case 1:
-            return front.toString();
-        default:
-            auto buff = appender!string();
-            toString(buff);
-            return cast(immutable)(buff.data);
-        }
     }
     ///
     unittest
