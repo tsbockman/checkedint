@@ -190,7 +190,7 @@ static import bsct = future.traits0;
 
     /// `checkedint`-aware version of `std.traits.mostNegative`
     template mostNegative(T)
-        if (isFixedPoint!T)
+        if (isNumeric!T)
     {
         static if (isFloatingPoint!T)
             enum mostNegative = -T.max;

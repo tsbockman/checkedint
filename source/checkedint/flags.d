@@ -218,9 +218,7 @@ unittest
     raise(IntFlag.div0);
     raise(IntFlag.posOver);
 
-    assert(IntFlags.local == (IntFlag.div0 | IntFlag.posOver));
-
-    IntFlags.local.clear();
+    assert(IntFlags.local.clear() == (IntFlag.div0 | IntFlag.posOver));
 }
 ///
 unittest
@@ -408,7 +406,7 @@ public:
     {
         bits = that.bits;
     }
-    ref IntFlags opAssign(IntFlags that) pure nothrow @nogc
+    ref IntFlags opAssign(IntFlags that) /+return+/ pure nothrow @nogc
     {
         bits = that.bits;
         return this;
@@ -422,9 +420,7 @@ public:
         assert(flags == (IntFlag.negOver | IntFlag.imag));
 
         IntFlags.local = flags;
-        assert(IntFlags.local == (IntFlag.negOver | IntFlag.imag));
-
-        IntFlags.local.clear();
+        assert(IntFlags.local.clear() == (IntFlag.negOver | IntFlag.imag));
     }
 
     /// Clear all flags, and return the set of flags that were previously set.
@@ -453,7 +449,7 @@ public:
         return ret.opOpAssign!op(that);
     }
     /// ditto
-    ref IntFlags opOpAssign(string op)(IntFlags that) pure nothrow @nogc
+    ref IntFlags opOpAssign(string op)(IntFlags that) /+return+/ pure nothrow @nogc
         if (op.among!("&", "|", "-"))
     {
         static if (op == "&")
@@ -510,7 +506,7 @@ public:
         return IntFlag(bsr(bits | 1));
     }
     /// Clear the first set `IntFlag`. This is equivalent to `flags -= flags.front`.
-    ref IntFlags popFront() pure nothrow @nogc
+    ref IntFlags popFront() /+return+/ pure nothrow @nogc
     {
         // bsr() is undefined for 0.
         bits = bits & ~(1u << bsr(bits | 1));
@@ -573,7 +569,7 @@ scope(exit) {
         onlyZero(-50);
         onlyZero(22);
         onlyZero(0);
-        assert(IntFlags.local == IntFlag.imag);
+        assert(IntFlags.local.clear() == IntFlag.imag);
 
         assert(log == ["{negative overflow}", "{positive overflow}"]);
     }

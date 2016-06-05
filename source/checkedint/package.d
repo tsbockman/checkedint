@@ -160,7 +160,7 @@ else
             }
 
             /// Get a view of this `SmartInt` that allows bitwise operations.
-            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() inout pure nothrow @nogc
+            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() /+return+/ inout pure nothrow @nogc
             {
                 return this;
             }
@@ -176,7 +176,7 @@ else
         }
         else
         {
-            @property ref inout(N) bscal() inout pure nothrow @nogc
+            @property ref inout(N) bscal() /+return+/ inout pure nothrow @nogc
             {
                 return bits.bscal;
             }
@@ -254,9 +254,7 @@ else
             n = uint.max;
             n = long.min;
             n = real.nan;
-            assert(IntFlags.local == (IntFlag.posOver | IntFlag.negOver | IntFlag.undef));
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == (IntFlag.posOver | IntFlag.negOver | IntFlag.undef));
         }
 
         /// Convert this value to floating-point. This always succeeds, although some loss of precision may
@@ -315,9 +313,7 @@ else
             auto m = SmartInt!long(-1).mulPow2(n);
             auto b = cast(wchar)m;
             static assert(is(typeof(b) == wchar));
-            assert(IntFlags.local == IntFlag.negOver);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
         }
 
         /// Convert this value to a type suitable for indexing an array:
@@ -435,7 +431,7 @@ else
             return typeof(return)(smartOp!(policy).unary!op(bscal));
         }
         /// ditto
-        ref typeof(this) opUnary(string op)()
+        ref typeof(this) opUnary(string op)() /+return+/
             if (op.among!("++", "--"))
         {
             smartOp!(policy).unary!op(bscal);
@@ -516,7 +512,7 @@ else
             return SmartInt!(typeof(wret), mixPolicy, mixBitOps)(wret);
         }
         /// ditto
-        ref typeof(this) opOpAssign(string op, M)(const M right)
+        ref typeof(this) opOpAssign(string op, M)(const M right) /+return+/
             if (isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
@@ -670,8 +666,7 @@ else
         assert(IntFlags.local & IntFlag.div0);
 
         // Each flag will remain set until cleared:
-        assert(IntFlags.local == (IntFlag.negOver | IntFlag.div0));
-        IntFlags.local.clear();
+        assert(IntFlags.local.clear() == (IntFlag.negOver | IntFlag.div0));
         assert(!IntFlags.local);
     }
 
@@ -993,15 +988,13 @@ else
 
             auto b = smartOp.unary!"+"(uint.max);
             static assert(is(typeof(b) == int));
-            assert(IntFlags.local == IntFlag.posOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
 
             uint c = 1u;
             assert(smartOp.unary!"--"(c) == 0u);
             assert(c == 0u);
             smartOp.unary!"--"(c);
-            assert(IntFlags.local == IntFlag.negOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
 
             int d = 7;
             assert(smartOp.unary!"++"(d) == 8);
@@ -1022,9 +1015,7 @@ else
             assert(smartOp.bsf(20) == 2);
 
             smartOp.bsf(0);
-            assert(IntFlags.local == IntFlag.undef);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
         /// `core.bitop.bsr` without the undefined behaviour. `smartOp.bsr(0)` will raise `IntFlag.undef`.
@@ -1042,9 +1033,7 @@ else
             assert(smartOp.bsr(-20) == 31);
 
             smartOp.bsr(0);
-            assert(IntFlags.local == IntFlag.undef);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
         /// Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
@@ -1064,9 +1053,7 @@ else
             assert(smartOp.ilogb(-20) == 4);
 
             smartOp.ilogb(0);
-            assert(IntFlags.local == IntFlag.undef);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
         private auto binaryImpl(string op, N, M)(const N left, const M right)
@@ -1384,8 +1371,7 @@ else
             long b =      -6_744_073_709_551_615L;
             auto c = smartOp.binary!"+"(a, b);
             static assert(isSigned!(typeof(c)));
-            assert(IntFlags.local == IntFlag.posOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
 
             assert(smartOp.binary!"+="(a, b) == 18_440_000_000_000_000_000uL);
             assert(a == 18_440_000_000_000_000_000uL);
@@ -1397,8 +1383,7 @@ else
             assert(f == -7);
 
             smartOp.binary!"-="(d, e);
-            assert(IntFlags.local == IntFlag.negOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
 
             uint g = 1u << 31;
             int h = -1;
@@ -1407,8 +1392,7 @@ else
             assert(i == int.min);
 
             smartOp.binary!"*="(g, h);
-            assert(IntFlags.local == IntFlag.negOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
 
             long j = long.min;
             ulong k = 1uL << 63;
@@ -1417,8 +1401,7 @@ else
             assert(m == -1);
 
             smartOp.binary!"/="(j, -1);
-            assert(IntFlags.local == IntFlag.posOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
 
             ushort n = 20u;
             ulong p = ulong.max;
@@ -1427,8 +1410,7 @@ else
             assert(q == 20u);
 
             smartOp.binary!"%="(n, 0);
-            assert(IntFlags.local == IntFlag.div0);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.div0);
         }
         ///
         unittest
@@ -1516,12 +1498,10 @@ else
 
             assert(smartOp.mulPow2(-23, 5) == -736);
             smartOp.mulPow2(10_000_000, 10);
-            assert(IntFlags.local == IntFlag.posOver);
+            assert(IntFlags.local.clear() == IntFlag.posOver);
 
             assert(smartOp.mulPow2(65536, -8) == 256);
             assert(smartOp.mulPow2(-100, -100) == 0);
-
-            IntFlags.local.clear();
         }
 
         /// Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
@@ -1550,9 +1530,7 @@ else
             assert(smartOp.divPow2(-23, -5) == -736);
 
             smartOp.divPow2(10_000_000, -10);
-            assert(IntFlags.local == IntFlag.posOver);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
         }
 
         /// Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
@@ -1619,11 +1597,9 @@ else
             assert(smartOp.pow(2, -1) == 0);
 
             smartOp.pow(-3, 27);
-            assert(IntFlags.local == IntFlag.negOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
             smartOp.pow(0, -5);
-            assert(IntFlags.local == IntFlag.div0);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.div0);
         }
     }
     private alias smartOp(bool throws) = smartOp!(cast(Flag!"throws")throws);
@@ -1700,7 +1676,7 @@ else
             }
 
             /// Get a view of this `SafeInt` that allows bitwise operations.
-            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() inout pure nothrow @nogc
+            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() /+return+/ inout pure nothrow @nogc
             {
                 return this;
             }
@@ -1716,7 +1692,7 @@ else
         }
         else
         {
-            @property ref inout(N) bscal() inout pure nothrow @nogc
+            @property ref inout(N) bscal() /+return+/ inout pure nothrow @nogc
             {
                 return bits.bscal;
             }
@@ -1784,7 +1760,7 @@ else
             this.bscal = that.bscal;
         }
         /// ditto
-        ref typeof(this) opAssign(M)(const M that) pure nothrow @nogc
+        ref typeof(this) opAssign(M)(const M that) /+return+/ pure nothrow @nogc
             if (isCheckedInt!M || isScalarType!M)
         {
             checkImplicit!M();
@@ -1811,9 +1787,7 @@ else
             assert(n == 315);
 
             n = to!int(long.max);
-            assert(IntFlags.local == IntFlag.posOver);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
         }
 
         /// Convert this value to floating-point. This always succeeds, although some loss of precision may
@@ -1873,9 +1847,7 @@ else
             auto m = SafeInt!long(-1).mulPow2(n);
             auto b = cast(wchar)m;
             static assert(is(typeof(b) == wchar));
-            assert(IntFlags.local == IntFlag.negOver);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
         }
 
         /// Convert this value to a type suitable for indexing an array:
@@ -1989,7 +1961,7 @@ else
             return typeof(return)(safeOp!(policy).unary!op(bscal));
         }
         /// ditto
-        ref typeof(this) opUnary(string op)()
+        ref typeof(this) opUnary(string op)() /+return+/
             if (op.among!("++", "--"))
         {
             safeOp!(policy).unary!op(bscal);
@@ -2064,7 +2036,7 @@ else
             return typeof(return)(safeOp!(.max(policy, intFlagPolicyOf!M)).binary!op(this.bscal, right.bscal));
         }
         /// ditto
-        ref typeof(this) opOpAssign(string op, M)(const M right)
+        ref typeof(this) opOpAssign(string op, M)(const M right) /+return+/
             if (isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
@@ -2220,11 +2192,8 @@ else
         assert(IntFlags.local & IntFlag.div0);
 
         // Each flag will remain set until cleared:
-        assert(IntFlags.local == (IntFlag.negOver | IntFlag.div0));
-        IntFlags.local.clear();
+        assert(IntFlags.local.clear() == (IntFlag.negOver | IntFlag.div0));
         assert(!IntFlags.local);
-
-        IntFlags.local.clear();
     }
 
     private template SafeInt(N, IntFlagPolicy policy, bool bitOps)
@@ -2384,8 +2353,7 @@ else
             assert(safeOp.unary!"-"(20L) == -20L);
             static assert(!__traits(compiles, safeOp.unary!"-"(20uL)));
             safeOp.unary!"-"(long.min);
-            assert(IntFlags.local == IntFlag.posOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
 
             auto a = safeOp.unary!"+"(uint.max);
             static assert(is(typeof(a) == uint));
@@ -2395,8 +2363,7 @@ else
             assert(safeOp.unary!"--"(b) == 0u);
             assert(b == 0u);
             safeOp.unary!"--"(b);
-            assert(IntFlags.local == IntFlag.negOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
 
             int c = 7;
             assert(safeOp.unary!"++"(c) == 8);
@@ -2425,9 +2392,7 @@ else
             assert(safeOp.abs(745u) == 745u);
 
             safeOp.abs(int.min);
-            assert(IntFlags.local == IntFlag.posOver);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
         }
 
         /// `core.bitop.bsf` without the undefined behaviour. `safeOp.bsf(0)` will raise `IntFlag.undef`.
@@ -2444,9 +2409,7 @@ else
             assert(safeOp.bsf(20) == 2);
 
             safeOp.bsf(0);
-            assert(IntFlags.local == IntFlag.undef);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
         /// `core.bitop.bsr` without the undefined behaviour. `safeOp.bsr(0)` will raise `IntFlag.undef`.
@@ -2464,9 +2427,7 @@ else
             assert(safeOp.bsr(-20) == 31);
 
             safeOp.bsr(0);
-            assert(IntFlags.local == IntFlag.undef);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
         /// Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
@@ -2491,9 +2452,7 @@ else
             assert(safeOp.ilogb(-20) == 4);
 
             safeOp.ilogb(0);
-            assert(IntFlags.local == IntFlag.undef);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
         private auto binaryImpl(string op, N, M)(const N left, const M right)
@@ -2633,13 +2592,11 @@ else
 
             ulong a = 18_446_744_073_709_551_615uL;
             safeOp.binary!"+="(a, 1u);
-            assert(IntFlags.local == IntFlag.posOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
 
             assert(safeOp.binary!"-"(17u, 5u) == 12u);
             safeOp.binary!"-"(5u, 17u);
-            assert(IntFlags.local == IntFlag.negOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
 
             ulong b = 123_456_789_987_654_321uL;
             static assert(!__traits(compiles, safeOp.binary!"-="(b, 987_654_321)));
@@ -2648,8 +2605,7 @@ else
 
             assert(safeOp.binary!"*"(-1 << 30, 2) == int.min);
             safeOp.binary!"*"(1 << 30, 2);
-            assert(IntFlags.local == IntFlag.negOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
 
             uint c = 1u << 18;
             assert(safeOp.binary!"*="(c, 1u << 4) == 1u << 22);
@@ -2658,19 +2614,16 @@ else
             assert(safeOp.binary!"/"(22, 11) == 2);
             assert(!__traits(compiles, safeOp.binary!"/"(-22, 11u)));
             safeOp.binary!"/"(0, 0);
-            assert(IntFlags.local == IntFlag.div0);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.div0);
 
             long j = long.min;
             safeOp.binary!"/="(j, -1);
-            assert(IntFlags.local == IntFlag.posOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
 
             assert(safeOp.binary!"%"(20u, 7u) == 6u);
             static assert(!__traits(compiles, safeOp.binary!"%"(20u, -7)));
             safeOp.binary!"%"(20u, 0u);
-            assert(IntFlags.local == IntFlag.div0);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.div0);
 
             short n = 75;
             assert(safeOp.binary!"%="(n, -10) == 5);
@@ -2683,8 +2636,7 @@ else
 
             assert(safeOp.binary!"<<"(-0x80,  2) == -0x200);
             safeOp.binary!"<<"(-0x80, -2);
-            assert(IntFlags.local == IntFlag.undef);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
 
             ubyte a = 0x3u;
             safeOp.binary!"<<="(a, 7);
@@ -2692,8 +2644,7 @@ else
 
             assert(safeOp.binary!">>"(-0xC, 5u) == -0x1);
             safeOp.binary!">>"(-0xC, long.max);
-            assert(IntFlags.local == IntFlag.undef);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
 
             short b = 0x700;
             assert(safeOp.binary!">>="(b, 8) == 0x7);
@@ -2701,8 +2652,7 @@ else
 
             assert(safeOp.binary!">>>"(-0x80, 2u) == 0x3FFF_FFE0);
             safeOp.binary!">>>"(-0x80, 32);
-            assert(IntFlags.local == IntFlag.undef);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
 
             int c = 0xFE_DCBA;
             assert(safeOp.binary!">>>="(c, 12) == 0xFED);
@@ -2752,12 +2702,10 @@ else
 
             assert(safeOp.mulPow2(-23, 5) == -736);
             safeOp.mulPow2(10_000_000, 10);
-            assert(IntFlags.local == IntFlag.posOver);
+            assert(IntFlags.local.clear() == IntFlag.posOver);
 
             assert(safeOp.mulPow2(65536, -8) == 256);
             assert(safeOp.mulPow2(-100, -100) == 0);
-
-            IntFlags.local.clear();
         }
 
         /// Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
@@ -2786,9 +2734,7 @@ else
             assert(safeOp.divPow2(-23, -5) == -736);
 
             safeOp.divPow2(10_000_000, -10);
-            assert(IntFlags.local == IntFlag.posOver);
-
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.posOver);
         }
 
         /// Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
@@ -2851,15 +2797,12 @@ else
             assert(safeOp.pow(-10, 3) == -1_000);
             static assert(!__traits(compiles, safeOp.pow(16, 4uL)));
             safeOp.pow(2, -1);
-            assert(IntFlags.local == IntFlag.undef);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
 
             safeOp.pow(-3, 27);
-            assert(IntFlags.local == IntFlag.negOver);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.negOver);
             safeOp.pow(0, -5);
-            assert(IntFlags.local == IntFlag.undef);
-            IntFlags.local.clear();
+            assert(IntFlags.local.clear() == IntFlag.undef);
         }
     }
     private alias safeOp(bool throws) = safeOp!(cast(Flag!"throws")throws);
@@ -2939,9 +2882,7 @@ else
         // If IntFlagPolicy.noex is set, failed conversions return garbage, but...
         assert(smartOp.cmp!"!="(to!int(uint.max), uint.max));
         // ...IntFlags.local can be checked to see if anything went wrong.
-        assert(IntFlags.local & IntFlag.posOver);
-
-        IntFlags.local.clear();
+        assert(IntFlags.local.clear() == IntFlag.posOver);
     }
     ///
     unittest
@@ -3070,12 +3011,10 @@ else
             static if (size_t.sizeof == 4)
             {
                 idx(ulong.max);
-                assert(IntFlags.local == IntFlag.posOver);
-                IntFlags.local.clear();
+                assert(IntFlags.local.clear() == IntFlag.posOver);
 
                 idx(long.min);
-                assert(IntFlags.local == IntFlag.negOver);
-                IntFlags.local.clear();
+                assert(IntFlags.local.clear() == IntFlag.negOver);
             }
         }
     }
