@@ -31,17 +31,18 @@ The `checkedint` package offers solutions to all of these issues and more.
 $(BIG $(B `SafeInt` versus `SmartInt`)) $(BR)
 Two different approaches are available:
 $(UL
-    $(LI `SmartInt` and `smartOp` strive to actually give the mathematically correct answer whenever possible, rather
-        than just signaling an error.)
-    $(LI `SafeInt` and `safeOp` strive to match the behaviour of the basic integral types exactly, $(B except) that
-        where the behaviour of the basic type is wrong, or very unintuitive, an error is signaled instead.)
+    $(LI $(LINK2 ./package.html#SmartInt, `SmartInt`) and $(LINK2 ./package.html#smartOp, `smartOp`) strive to actually
+        give the mathematically correct answer whenever possible, rather than just signaling an error.)
+    $(LI $(LINK2 ./package.html#SafeInt, `SafeInt`) and $(LINK2 ./package.html#safeOp, `safeOp`) strive to match the
+        behaviour of the basic integral types exactly, $(B except) that where the behaviour of the basic type is
+        wrong, or very unintuitive, an error is signaled instead.)
 )
 There is no meaningful performance difference between `SafeInt` and `SmartInt`. For general use, choose `SmartInt` to
 simplify your code and maximize the range of inputs it accepts.
 
 `SafeInt` is intended mainly as a debugging tool, to help identify problems in code that must also work correctly with
-the basic integral types. The `DebugInt` `template` `alias` makes it simple to use of `SafeInt` in debug builds, and raw
-basic types in release builds.
+the basic integral types. The $(LINK2 ./package.html#DebugInt, `DebugInt`) `template` `alias` makes it simple to use
+of `SafeInt` in debug builds, and raw basic types in release builds.
 
 $(TABLE
     $(TR $(TD)                $(TH `int` (basic type)) $(TH `SafeInt!int`)          $(TH `SmartInt!int`))
@@ -59,8 +60,8 @@ $(BIG $(B Error Signaling)) $(BR)
 Some types of problem are signaled by a compile-time error, others at runtime. Runtime signaling is done through
 $(LINK2 ./flags.html, `checkedint.flags`). Three different runtime signalling policies are available:
 $(UL
-    $(LI With `IntFlagPolicy.throws`, a `CheckedIntException` is thrown. These are normal exceptions; not FPEs. As
-        such, they can be caught and include a stack trace.)
+    $(LI With `IntFlagPolicy.throws`, a $(LINK2 ./flags.html#CheckedIntException, `CheckedIntException`) is thrown.
+        These are normal exceptions; not FPEs. As such, they can be caught and include a stack trace.)
     $(LI With `IntFlagPolicy.asserts`, an assertion failure will be triggered. This policy is compatible with
         `pure nothrow @nogc` code, but will crash the program in the event of a runtime integer math error.)
     $(LI Alternatively, `IntFlagPolicy.noex` can be selected so that a thread-local flag is set when an operation fails.
@@ -75,8 +76,8 @@ The $(LINK2 ./traits.html, `checkedint.traits`) module provides `checkedint`-awa
 traits from `std.traits`, such as `Signed`, `isSigned` and `isIntegral`. This allows writing generic algorithms that
 work with any of `SmartInt`, `SafeInt`, and the built-in numeric types such as `uint` and `long`.
 
-Also of note is the `idx()` function, which concisely and safely casts from any integral type (built-in, `SmartInt`, or
-`SafeInt`) to either `size_t` or `ptrdiff_t` for easy array indexing.
+Also of note is the $(LINK2 ./package.html#idx, `idx()`) function, which concisely and safely casts from any integral type
+(built-in, `SmartInt`, or `SafeInt`) to either `size_t` or `ptrdiff_t` for easy array indexing.
 
 $(BIG $(B Performance)) $(BR)
 Replacing all basic integer types with `SmartInt` or `SafeInt` will slow down exectuion somewhat. How much depends on
@@ -87,13 +88,15 @@ $(OL
     $(LI With GDC or LDC, the performance hit in code that is bottlenecked by integer math will probably be between 30%
         and 100%. The performance hit may be considerably larger with DMD, due to the weakness of the inliner.)
     $(LI `checkedint` can't slow down code where it's not used! If you really need more speed, try switching to
-        `DebugInt` for the hottest code in your program (like inner loops) before giving up on `checkedint` entirely.)
+        $(LINK2 ./package.html#DebugInt, `DebugInt`) for the hottest code in your program (like inner loops) before
+        giving up on `checkedint` entirely.)
 )
 The above guidelines should be more than sufficient for most programs. But, here are some micro-optimization tips as
 well, if you need them:
 $(UL
-    $(LI Always use `mulPow2()`, `divPow2()`, and `modPow2()` whenever they can naturally express your intent - they're
-        faster than a regular `/`, `%`, or `pow()`.)
+    $(LI Always use $(LINK2 ./package.html#smartOp.mulPow2, `mulPow2()`),
+        $(LINK2 ./package.html#smartOp.divPow2, `divPow2()`), and $(LINK2 ./package.html#smartOp.modPow2, `modPow2()`)
+        whenever they can naturally express your intent - they're faster than a regular `/`, `%`, or `pow()`.)
     $(LI Unsigned types are a little bit faster than signed types, assuming negative values aren't needed.)
     $(LI Although they are perfectly safe with `checkedint`, mixed signed/unsigned operations are a little bit slower
         than same-signedness ones.)
@@ -117,14 +120,13 @@ else
     private alias AliasSeq = TypeTuple;
 }
 
-@safe:
-
 /+pragma(inline, true)
 {+/
 // smart /////////////////////////////////////////////////
     /**
-    Wrapper for any basic integral type `N` that uses the checked operations from `smartOp` and bounds checks
-    assignments with `checkedint.to()`.
+    Wrapper for any basic integral type `N` that uses the checked operations from
+    $(LINK2 ./package.html#smartOp, `smartOp`) and bounds checks assignments with
+    $(LINK2 ./package.html#to, `checkedint.to()`).
 
     $(UL
         $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
@@ -164,7 +166,7 @@ else
             }
 
             /// Get a view of this `SmartInt` that allows bitwise operations.
-            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() /+return+/ inout pure nothrow @nogc
+            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() /+return+/ inout pure @safe nothrow @nogc
             {
                 return this;
             }
@@ -180,7 +182,7 @@ else
         }
         else
         {
-            @property ref inout(N) bscal() /+return+/ inout pure nothrow @nogc
+            @property ref inout(N) bscal() /+return+/ inout pure @safe nothrow @nogc
             {
                 return bits.bscal;
             }
@@ -215,11 +217,11 @@ else
         }
         else
         {
-            static @property auto min() pure nothrow @nogc
+            static @property auto min() pure @safe nothrow @nogc
             {
                 return typeof(this)(trueMin!N);
             }
-            static @property auto max() pure nothrow @nogc
+            static @property auto max() pure @safe nothrow @nogc
             {
                 return typeof(this)(trueMax!N);
             }
@@ -229,15 +231,16 @@ else
         /**
         Assign the value of `that` to this `SmartInt` instance.
 
-        `checkedint.to()` is used to verify `that >= N.min && that <= N.max`. If not, an `IntFlag` will be raised.
+        $(LINK2 ./package.html#to, `checkedint.to()`) is used to verify `that >= N.min && that <= N.max`. If not, an
+        $(LINK2 ./flags.html, `IntFlag`) will be raised.
         **/
-        this(M)(const M that)
+        this(M)(const M that) @safe
             if (isCheckedInt!M || isScalarType!M)
         {
             this.bscal = to!(N, policy)(that);
         }
         /// ditto
-        ref typeof(this) opAssign(M)(const M that)
+        ref typeof(this) opAssign(M)(const M that) @safe
             if (isCheckedInt!M || isScalarType!M)
         {
             this.bscal = to!(N, policy)(that);
@@ -267,7 +270,7 @@ else
         Convert this value to floating-point. This always succeeds, although some loss of precision may
         occur if M.sizeof <= N.sizeof.
         **/
-        M opCast(M)() const pure nothrow @nogc
+        M opCast(M)() const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return cast(M)bscal;
@@ -284,7 +287,7 @@ else
         }
 
         /// `this != 0`
-        M opCast(M)() const pure nothrow @nogc
+        M opCast(M)() const pure @safe nothrow @nogc
             if (is(M == bool))
         {
             return bscal != 0;
@@ -302,10 +305,10 @@ else
         }
 
         /**
-        Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if
-        `M` cannot represent the current value of this `SmartInt`.
+        Convert this value to type `M` using $(LINK2 ./package.html#to, `checkedint.to()`) for bounds checking. An
+        $(LINK2 ./flags.html, `IntFlag`) will be raised if `M` cannot represent the current value of this `SmartInt`.
         **/
-        M opCast(M)() const
+        M opCast(M)() const @safe
             if (isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
             return to!(M, policy)(bscal);
@@ -333,9 +336,9 @@ else
             $(LI If `N` is signed, a `ptrdiff_t` is returned.)
             $(LI If `N` is unsigned, a `size_t` is returned.)
         )
-        `checkedint.to()` is used for bounds checking.
+        $(LINK2 ./package.html#to, `checkedint.to()`) is used for bounds checking.
         **/
-        @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const
+        @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const @safe
         {
             return to!(typeof(return), policy)(bscal);
         }
@@ -369,7 +372,7 @@ else
         }
 
         /// Get a simple hashcode for this value.
-        size_t toHash() const pure nothrow @nogc
+        size_t toHash() const pure @safe nothrow @nogc
         {
             static if (N.sizeof > size_t.sizeof)
             {
@@ -381,12 +384,12 @@ else
         }
 
         /// Get a `string` representation of this value.
-        string toString() const
+        string toString() const @safe
         {
             return to!(string, IntFlagPolicy.noex)(bscal);
         }
         /// ditto
-        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted
+        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @safe
         {
             formatValue(sink, bscal, fmt);
         }
@@ -399,7 +402,7 @@ else
 
         // Comparison /////////////////////////////////////////////////
         /// Returns `true` if this value is mathematically precisely equal to `right`.
-        bool opEquals(M)(const M right) const pure nothrow @nogc
+        bool opEquals(M)(const M right) const pure @safe nothrow @nogc
             if (isCheckedInt!M || isScalarType!M)
         {
             return smartOp!(policy).cmp!"=="(this.bscal, right.bscal);
@@ -414,7 +417,7 @@ else
             $(LI `float.nan` if `right` is a floating-point `nan` value.)
         )
         **/
-        auto opCmp(M)(const M right) const pure nothrow @nogc
+        auto opCmp(M)(const M right) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return
@@ -423,15 +426,15 @@ else
                 (bscal == right)?  0 : float.nan;
         }
         /// ditto
-        int opCmp(M)(const M right) const pure nothrow @nogc
+        int opCmp(M)(const M right) const pure @safe nothrow @nogc
             if (isCheckedInt!M || isScalarType!M)
         {
             return smartOp!(policy).cmp(this.bscal, right.bscal);
         }
 
         // Unary /////////////////////////////////////////////////
-        /// See `smartOp`.
-        typeof(this) opUnary(string op)() const pure nothrow @nogc
+        /// See $(LINK2 ./package.html#smartOp, `smartOp`).
+        typeof(this) opUnary(string op)() const pure @safe nothrow @nogc
             if (op == "~")
         {
             static assert(bitOps,
@@ -440,13 +443,13 @@ else
             return typeof(return)(smartOp!(policy).unary!op(bscal));
         }
         /// ditto
-        SmartInt!(Signed!N, policy, bitOps) opUnary(string op)() const
+        SmartInt!(Signed!N, policy, bitOps) opUnary(string op)() const @safe
             if (op == "+" || op == "-")
         {
             return typeof(return)(smartOp!(policy).unary!op(bscal));
         }
         /// ditto
-        ref typeof(this) opUnary(string op)() /+return+/
+        ref typeof(this) opUnary(string op)() /+return+/ @safe
             if (op.among!("++", "--"))
         {
             smartOp!(policy).unary!op(bscal);
@@ -454,13 +457,13 @@ else
         }
 
         /// ditto
-        SmartInt!(Unsigned!N, policy, bitOps) abs() const pure nothrow @nogc
+        SmartInt!(Unsigned!N, policy, bitOps) abs() const pure @safe nothrow @nogc
         {
             return typeof(return)(smartOp!(policy).abs(bscal));
         }
 
         /// Count the number of set bits using `core.bitop.popcnt()`.
-        SmartInt!(int, policy, bitOps) popcnt()() const pure nothrow @nogc
+        SmartInt!(int, policy, bitOps) popcnt()() const pure @safe nothrow @nogc
         {
             static assert(bitOps, "Bitwise operations are disabled.");
 
@@ -468,15 +471,15 @@ else
             return typeof(return)(stdPC(bscal));
         }
 
-        /// See `smartOp`.
-        SmartInt!(ubyte, policy, bitOps) bsf()() const
+        /// See $(LINK2 ./package.html#smartOp, `smartOp`).
+        SmartInt!(ubyte, policy, bitOps) bsf()() const @safe
         {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             return typeof(return)(smartOp!(policy).bsf(bscal));
         }
         /// ditto
-        SmartInt!(ubyte, policy, bitOps) bsr()() const
+        SmartInt!(ubyte, policy, bitOps) bsr()() const @safe
         {
             static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
@@ -484,26 +487,26 @@ else
         }
 
         /// ditto
-        SmartInt!(ubyte, policy, bitOps) ilogb() const
+        SmartInt!(ubyte, policy, bitOps) ilogb() const @safe
         {
             return typeof(return)(smartOp!(policy).ilogb(bscal));
         }
 
         // Binary /////////////////////////////////////////////////
         /// ditto
-        auto opBinaryRight(string op, M)(const M left) const pure nothrow @nogc
+        auto opBinaryRight(string op, M)(const M left) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return smartOp!(policy).binary!op(left, bscal);
         }
         /// ditto
-        auto opBinary(string op, M)(const M right) const pure nothrow @nogc
+        auto opBinary(string op, M)(const M right) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return smartOp!(policy).binary!op(bscal, right);
         }
         /// ditto
-        auto opBinaryRight(string op, M)(const M left) const
+        auto opBinaryRight(string op, M)(const M left) const @safe
             if (isSafeInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -515,7 +518,7 @@ else
             return SmartInt!(typeof(wret), mixPolicy, mixBitOps)(wret);
         }
         /// ditto
-        auto opBinary(string op, M)(const M right) const
+        auto opBinary(string op, M)(const M right) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -527,7 +530,7 @@ else
             return SmartInt!(typeof(wret), mixPolicy, mixBitOps)(wret);
         }
         /// ditto
-        ref typeof(this) opOpAssign(string op, M)(const M right) /+return+/
+        ref typeof(this) opOpAssign(string op, M)(const M right) /+return+/ @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
@@ -538,13 +541,13 @@ else
         }
 
         /// ditto
-        auto mulPow2(M)(const M exp) const pure nothrow @nogc
+        auto mulPow2(M)(const M exp) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return smartOp!(policy).mulPow2(bscal, exp);
         }
         /// ditto
-        auto mulPow2(M)(const M exp) const
+        auto mulPow2(M)(const M exp) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -552,13 +555,13 @@ else
             return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
         /// ditto
-        auto divPow2(M)(const M exp) const pure nothrow @nogc
+        auto divPow2(M)(const M exp) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return smartOp!(policy).divPow2(bscal, exp);
         }
         /// ditto
-        auto divPow2(M)(const M exp) const
+        auto divPow2(M)(const M exp) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -566,13 +569,13 @@ else
             return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
         /// ditto
-        auto modPow2(M)(const M exp) const pure nothrow @nogc
+        auto modPow2(M)(const M exp) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return smartOp!(policy).modPow2(bscal, exp);
         }
         /// ditto
-        auto modPow2(M)(const M exp) const
+        auto modPow2(M)(const M exp) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -581,13 +584,13 @@ else
         }
 
         /// Raise `this` to the `exp` power using `std.math.pow()`.
-        auto pow(M)(const M exp) const pure nothrow @nogc
+        auto pow(M)(const M exp) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return std.math.pow(bscal, exp);
         }
-        /// See `smartOp`.
-        auto pow(M)(const M exp) const
+        /// See $(LINK2 ./package.html#smartOp, `smartOp`).
+        auto pow(M)(const M exp) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -695,7 +698,7 @@ else
     }
 
     /// Get the value of `num` as a `SmartInt!N`. The integral type `N` can be infered from the argument.
-    SmartInt!(N, policy, bitOps) smartInt(IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
+    SmartInt!(N, policy, bitOps) smartInt(IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num) @safe
         if (isIntegral!N || isCheckedInt!N)
     {
         return typeof(return)(num.bscal);
@@ -749,7 +752,7 @@ else
                 $(LI `boolean == (numeric != 0)`)
             )
             **/
-            bool cmp(string op, N, M)(const N left, const M right) pure nothrow @nogc
+            bool cmp(string op, N, M)(const N left, const M right) pure @safe nothrow @nogc
                 if (isScalarType!N && isScalarType!M)
             {
                 cmpTypeCheck!(N, M)();
@@ -800,7 +803,7 @@ else
                 $(LI `boolean == (numeric != 0)`)
             )
             **/
-            int cmp(N, M)(const N left, const M right) pure nothrow @nogc
+            int cmp(N, M)(const N left, const M right) pure @safe nothrow @nogc
                 if (isScalarType!N && isScalarType!M)
             {
                 cmpTypeCheck!(N, M)();
@@ -840,7 +843,7 @@ else
             }
 
             /// Get the absolute value of `num`. Because the return type is always unsigned, overflow is not possible.
-            Unsigned!N abs(N)(const N num) pure nothrow @nogc
+            Unsigned!N abs(N)(const N num) pure @safe nothrow @nogc
                 if (isIntegral!N)
             {
                 static if (!isSigned!N)
@@ -851,7 +854,7 @@ else
                          num);
             }
             /// ditto
-            IntFromChar!N abs(N)(const N num) pure nothrow @nogc
+            IntFromChar!N abs(N)(const N num) pure @safe nothrow @nogc
                 if (isSomeChar!N)
             {
                 return num;
@@ -927,19 +930,19 @@ else
         Note that like the standard operators, `++` and `--` take the operand by `ref` and overwrite its value with
         the result.
         **/
-        N unary(string op, N)(const N num) pure nothrow @nogc
+        N unary(string op, N)(const N num) pure @safe nothrow @nogc
             if (isIntegral!N && op == "~")
         {
             return ~num;
         }
         /// ditto
-        IntFromChar!N unary(string op, N)(const N num) pure nothrow @nogc
+        IntFromChar!N unary(string op, N)(const N num) pure @safe nothrow @nogc
             if (isSomeChar!N && op == "~")
         {
             return ~num;
         }
         /// ditto
-        Signed!(Promoted!N) unary(string op, N)(const N num)
+        Signed!(Promoted!N) unary(string op, N)(const N num) @safe 
             if (isFixedPoint!N && op.among!("-", "+"))
         {
             alias R = typeof(return);
@@ -972,7 +975,7 @@ else
             }
         }
         /// ditto
-        /+ref+/ N unary(string op, N)(/+return+/ ref N num)
+        /+ref+/ N unary(string op, N)(/+return+/ ref N num) @safe
             if (isIntegral!N && op.among!("++", "--"))
         {
             static if (op == "++")
@@ -1019,7 +1022,7 @@ else
         }
 
         /// `core.bitop.bsf` without the undefined behaviour. `smartOp.bsf(0)` will raise `IntFlag.undef`.
-        ubyte bsf(N)(const N num)
+        ubyte bsf(N)(const N num) @safe
             if (isFixedPoint!N)
         {
             return cast(ubyte) bsfImpl!policy(num);
@@ -1036,7 +1039,7 @@ else
         }
 
         /// `core.bitop.bsr` without the undefined behaviour. `smartOp.bsr(0)` will raise `IntFlag.undef`.
-        ubyte bsr(N)(const N num)
+        ubyte bsr(N)(const N num) @safe
             if (isFixedPoint!N)
         {
             return cast(ubyte) bsrImpl!policy(num);
@@ -1058,7 +1061,7 @@ else
 
         `smartOp.ilogb(0)` will raise `IntFlag.undef`.
         **/
-        ubyte ilogb(N)(const N num)
+        ubyte ilogb(N)(const N num) @safe
             if (isFixedPoint!N)
         {
             return cast(ubyte) bsrImpl!policy(abs(num));
@@ -1075,7 +1078,7 @@ else
             assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
-        private auto binaryImpl(string op, N, M)(const N left, const M right)
+        private auto binaryImpl(string op, N, M)(const N left, const M right) @safe
             if (isIntegral!N && isIntegral!M)
         {
             enum wop = (op[$-1] == '=')? op[0 .. $-1] : op;
@@ -1362,7 +1365,7 @@ else
         Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will
         overwrite it with the result of the operation.
         **/
-        auto binary(string op, N, M)(const N left, const M right)
+        auto binary(string op, N, M)(const N left, const M right) @safe
             if (isFixedPoint!N && isFixedPoint!M &&
                 op.among!("+", "-", "*", "/", "%", "^^", "<<", ">>", ">>>", "&", "|", "^"))
         {
@@ -1372,7 +1375,7 @@ else
             return binaryImpl!(op, NumFromScal!N, NumFromScal!M)(left, right);
         }
         /// ditto
-        /+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right)
+        /+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right) @safe
             if (isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
         {
             static assert(op != "^^=",
@@ -1501,13 +1504,13 @@ else
         Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is
         equivalent to `divPow2(left, exp)`.
         **/
-        auto mulPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+        auto mulPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("*", NumFromScal!N, NumFromScal!M)(left, exp);
         }
         /// ditto
-        auto mulPow2(N, M)(const N left, const M exp)
+        auto mulPow2(N, M)(const N left, const M exp) @safe
             if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("*", policy, NumFromScal!N, NumFromScal!M)(left, exp);
@@ -1532,13 +1535,13 @@ else
         Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is
         equivalent to `mulPow2(left, exp)`.
         **/
-        auto divPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+        auto divPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("/", NumFromScal!N, NumFromScal!M)(left, exp);
         }
         /// ditto
-        auto divPow2(N, M)(const N left, const M exp)
+        auto divPow2(N, M)(const N left, const M exp) @safe
             if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("/", policy, NumFromScal!N, NumFromScal!M)(left, exp);
@@ -1560,13 +1563,13 @@ else
         Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
         alternative to `left & ((1 << exp) - 1)` that is still very fast.
         **/
-        auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+        auto modPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("%", NumFromScal!N, NumFromScal!M)(left, exp);
         }
         /// ditto
-        auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+        auto modPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("%", IntFlagPolicy.noex, NumFromScal!N, NumFromScal!M)(left, exp);
@@ -1594,7 +1597,7 @@ else
             $(LI `IntFlag.div0` if `base == 0` and `exp < 0`.)
         )
         **/
-        auto pow(N, M)(const N base, const M exp) pure nothrow @nogc
+        auto pow(N, M)(const N base, const M exp) pure @safe nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             alias R = Result!(N, "^^", M);
@@ -1602,7 +1605,7 @@ else
             return std.math.pow(cast(R)base, exp);
         }
         /// ditto
-        auto pow(N, M)(const N base, const M exp)
+        auto pow(N, M)(const N base, const M exp) @safe
             if (isFixedPoint!N && isFixedPoint!M)
         {
             alias R = Result!(N, "^^", M);
@@ -1641,9 +1644,10 @@ else
     for input validation in release mode. Unrecoverable FPEs or silent data-corrupting overflow can still occur in
     release mode if you get your algorithm wrong, or fail to add manual bounds checks in the right places.
 
-    If performance is your only motivation for using `DebugInt` rather than `SmartInt`, consider limiting `DebugInt`
-    to only the hotest code paths - inner loops and the like. For most programs, this should provide nearly the same
-    performance boost as using it everywhere, with far less loss of safety.
+    If performance is your only motivation for using `DebugInt` rather than
+    $(LINK2 ./package.html#SmartInt, `SmartInt`), consider limiting `DebugInt` to only the hotest code paths - inner
+    loops and the like. For most programs, this should provide nearly the same performance boost as using it
+    everywhere, with far less loss of safety.
     **/
     template DebugInt(N, IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps)
         if (isIntegral!N || isCheckedInt!N)
@@ -1657,15 +1661,17 @@ else
 // safe /////////////////////////////////////////////////
     /**
     Wrapper for any basic integral type `N` that uses the checked operations from `safeOp` and rejects attempts to
-    directly assign values that cannot be proven to be within the range representable by `N`. (`checkedint.to()` can be
-    used to safely assign values of incompatible types, with runtime bounds checking.)
+    directly assign values that cannot be proven to be within the range representable by `N`.
+    ($(LINK2 ./package.html#to, `checkedint.to()`) can be used to safely assign values of incompatible types, with
+    runtime bounds checking.)
 
-    `SafeInt` is designed to be as interchangeable with `N` as possible, without compromising safety. The `DebugInt`
-    `template` allows a variable to use `SafeInt` in debug mode to find bugs, and `N` directly in release mode for
-    greater speed and a smaller binary.
+    `SafeInt` is designed to be as interchangeable with `N` as possible, without compromising safety. The
+    $(LINK2 ./package.html#DebugInt, `DebugInt`) `template` allows a variable to use `SafeInt` in debug mode to find
+    bugs, and `N` directly in release mode for greater speed and a smaller binary.
 
     If you're not trying to write generic code that works with both `SafeInt!N` and `N`, you should probably be using
-    `SmartInt` instead. It generates far fewer error messages; mostly it "just works".
+    $(LINK2 ./package.html#SmartInt, `SmartInt`) instead. It generates far fewer error messages; mostly it
+    "just works".
 
     $(UL
         $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
@@ -1705,7 +1711,7 @@ else
             }
 
             /// Get a view of this `SafeInt` that allows bitwise operations.
-            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() /+return+/ inout pure nothrow @nogc
+            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() /+return+/ inout pure @safe nothrow @nogc
             {
                 return this;
             }
@@ -1721,7 +1727,7 @@ else
         }
         else
         {
-            @property ref inout(N) bscal() /+return+/ inout pure nothrow @nogc
+            @property ref inout(N) bscal() /+return+/ inout pure @safe nothrow @nogc
             {
                 return bits.bscal;
             }
@@ -1756,18 +1762,18 @@ else
         }
         else
         {
-            static @property auto min() pure nothrow @nogc
+            static @property auto min() pure @safe nothrow @nogc
             {
                 return typeof(this)(trueMin!N);
             }
-            static @property auto max() pure nothrow @nogc
+            static @property auto max() pure @safe nothrow @nogc
             {
                 return typeof(this)(trueMax!N);
             }
         }
 
         // Construction, assignment, and casting /////////////////////////////////////////////////
-        private void checkImplicit(M)() const
+        private void checkImplicit(M)() const @safe
             if (isCheckedInt!M || isScalarType!M)
         {
             alias MB = BasicScalar!M;
@@ -1782,16 +1788,16 @@ else
         Assign the value of `that` to this `SafeInt` instance.
 
         Trying to assign a value that cannot be proven at compile time to be representable by `N` is an error. Use
-        `checkedint.to()` to safely convert `that` with runtime bounds checking, instead.
+        $(LINK2 ./package.html#to, `checkedint.to()`) to safely convert `that` with runtime bounds checking, instead.
         **/
-        this(M)(const M that) pure nothrow @nogc
+        this(M)(const M that) pure @safe nothrow @nogc
             if (isCheckedInt!M || isScalarType!M)
         {
             checkImplicit!M();
             this.bscal = that.bscal;
         }
         /// ditto
-        ref typeof(this) opAssign(M)(const M that) /+return+/ pure nothrow @nogc
+        ref typeof(this) opAssign(M)(const M that) /+return+/ pure @safe nothrow @nogc
             if (isCheckedInt!M || isScalarType!M)
         {
             checkImplicit!M();
@@ -1825,7 +1831,7 @@ else
         Convert this value to floating-point. This always succeeds, although some loss of precision may
         occur if M.sizeof <= N.sizeof.
         **/
-        M opCast(M)() const pure nothrow @nogc
+        M opCast(M)() const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return cast(M)bscal;
@@ -1842,7 +1848,7 @@ else
         }
 
         /// `this != 0`
-        M opCast(M)() const pure nothrow @nogc
+        M opCast(M)() const pure @safe nothrow @nogc
             if (is(M == bool))
         {
             return bscal != 0;
@@ -1860,10 +1866,10 @@ else
         }
 
         /**
-        Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if
-        `M` cannot represent the current value of this `SafeInt`.
+        Convert this value to type `M` using $(LINK2 ./package.html#to, `checkedint.to()`) for bounds checking. An
+        $(LINK2 ./flags.html, `IntFlag`) will be raised if `M` cannot represent the current value of this `SafeInt`.
         **/
-        M opCast(M)() const
+        M opCast(M)() const @safe
             if (isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
             return to!(M, policy)(bscal);
@@ -1891,9 +1897,9 @@ else
             $(LI If `N` is signed, a `ptrdiff_t` is returned.)
             $(LI If `N` is unsigned, a `size_t` is returned.)
         )
-        `checkedint.to()` is used for bounds checking.
+        $(LINK2 ./package.html#to, `checkedint.to()`) is used for bounds checking.
         **/
-        @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const
+        @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const @safe
         {
             return to!(typeof(return), policy)(bscal);
         }
@@ -1927,7 +1933,7 @@ else
         }
 
         /// Get a simple hashcode for this value.
-        size_t toHash() const pure nothrow @nogc
+        size_t toHash() const pure @safe nothrow @nogc
         {
             static if (N.sizeof > size_t.sizeof)
             {
@@ -1939,12 +1945,12 @@ else
         }
 
         /// Get a `string` representation of this value.
-        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted
+        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
         {
             formatValue(sink, bscal, fmt);
         }
         /// ditto
-        string toString() const
+        string toString() const @safe
         {
             return to!(string, IntFlagPolicy.noex)(bscal);
         }
@@ -1956,8 +1962,8 @@ else
         }
 
         // Comparison /////////////////////////////////////////////////
-        /// See `safeOp`.
-        bool opEquals(M)(const M right) const pure nothrow @nogc
+        /// See $(LINK2 ./package.html#safeOp, `safeOp`).
+        bool opEquals(M)(const M right) const pure @safe nothrow @nogc
             if (isSafeInt!M || isScalarType!M)
         {
             return safeOp!(policy).cmp!"=="(this.bscal, right.bscal);
@@ -1972,7 +1978,7 @@ else
             $(LI ` 1` if this value is greater than `right`.)
             $(LI `float.nan` if `right` is a floating-point `nan` value.))
         **/
-        auto opCmp(M)(const M right) const pure nothrow @nogc
+        auto opCmp(M)(const M right) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return
@@ -1980,8 +1986,8 @@ else
                 (left >  right)?  1 :
                 (left == right)?  0 : float.nan;
         }
-        /// See `safeOp`.
-        int opCmp(M)(const M right) const pure nothrow @nogc
+        /// See $(LINK2 ./package.html#safeOp, `safeOp`).
+        int opCmp(M)(const M right) const pure @safe nothrow @nogc
             if (isSafeInt!M || isFixedPoint!M)
         {
             return
@@ -1991,7 +1997,7 @@ else
 
         // Unary /////////////////////////////////////////////////
         /// ditto
-        typeof(this) opUnary(string op)() const
+        typeof(this) opUnary(string op)() const @safe
             if (op.among!("-", "+", "~"))
         {
             static assert(bitOps || (op != "~"),
@@ -2000,7 +2006,7 @@ else
             return typeof(return)(safeOp!(policy).unary!op(bscal));
         }
         /// ditto
-        ref typeof(this) opUnary(string op)() /+return+/
+        ref typeof(this) opUnary(string op)() /+return+/ @safe
             if (op.among!("++", "--"))
         {
             safeOp!(policy).unary!op(bscal);
@@ -2008,13 +2014,13 @@ else
         }
 
         /// ditto
-        typeof(this) abs() const
+        typeof(this) abs() const @safe
         {
             return typeof(return)(safeOp!(policy).abs(bscal));
         }
 
         /// Count the number of set bits using `core.bitop.popcnt()`.
-        SafeInt!(int, policy, bitOps) popcnt()() const pure nothrow @nogc
+        SafeInt!(int, policy, bitOps) popcnt()() const pure @safe nothrow @nogc
         {
             static assert(bitOps, "Bitwise operations are disabled.");
 
@@ -2022,15 +2028,15 @@ else
             return typeof(return)(stdPC(bscal));
         }
 
-        /// See `safeOp`.
-        SafeInt!(int, policy, bitOps) bsf()() const
+        /// See $(LINK2 ./package.html#safeOp, `safeOp`).
+        SafeInt!(int, policy, bitOps) bsf()() const @safe
         {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             return typeof(return)(safeOp!(policy).bsf(bscal));
         }
         /// ditto
-        SafeInt!(int, policy, bitOps) bsr()() const
+        SafeInt!(int, policy, bitOps) bsr()() const @safe
         {
             static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
@@ -2038,26 +2044,26 @@ else
         }
 
         /// ditto
-        SafeInt!(int, policy, bitOps) ilogb() const
+        SafeInt!(int, policy, bitOps) ilogb() const @safe
         {
             return typeof(return)(safeOp!(policy).ilogb(bscal));
         }
 
         // Binary /////////////////////////////////////////////////
         /// Perform a floating-point math operation.
-        M opBinaryRight(string op, M)(const M left) const pure nothrow @nogc
+        M opBinaryRight(string op, M)(const M left) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return mixin("left " ~ op ~ " bscal");
         }
         /// ditto
-        M opBinary(string op, M)(const M right) const pure nothrow @nogc
+        M opBinary(string op, M)(const M right) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return mixin("bscal " ~ op ~ " right");
         }
-        /// See `safeOp`.
-        SafeInt!(OpType!(M, op, N), policy, bitOps) opBinaryRight(string op, M)(const M left) const
+        /// See $(LINK2 ./package.html#safeOp, `safeOp`).
+        SafeInt!(OpType!(M, op, N), policy, bitOps) opBinaryRight(string op, M)(const M left) const @safe
             if (isFixedPoint!M)
         {
             static assert(bitOps || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
@@ -2066,7 +2072,7 @@ else
             return typeof(return)(safeOp!(policy).binary!op(left, bscal));
         }
         /// ditto
-        SafeInt!(OpType!(N, op, BasicScalar!M), .max(policy, intFlagPolicyOf!M), bitOps && hasBitOps!M) opBinary(string op, M)(const M right) const
+        SafeInt!(OpType!(N, op, BasicScalar!M), .max(policy, intFlagPolicyOf!M), bitOps && hasBitOps!M) opBinary(string op, M)(const M right) const @safe
             if (isSafeInt!M || isFixedPoint!M)
         {
             static assert(bitOps && hasBitOps!M || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
@@ -2075,7 +2081,7 @@ else
             return typeof(return)(safeOp!(.max(policy, intFlagPolicyOf!M)).binary!op(this.bscal, right.bscal));
         }
         /// ditto
-        ref typeof(this) opOpAssign(string op, M)(const M right) /+return+/
+        ref typeof(this) opOpAssign(string op, M)(const M right) /+return+/ @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
@@ -2087,13 +2093,13 @@ else
         }
 
         /// ditto
-        auto mulPow2(M)(const M exp) const pure nothrow @nogc
+        auto mulPow2(M)(const M exp) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return safeOp!(policy).mulPow2(bscal, exp);
         }
         /// ditto
-        auto mulPow2(M)(const M exp) const
+        auto mulPow2(M)(const M exp) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -2101,13 +2107,13 @@ else
             return SafeInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
         /// ditto
-        auto divPow2(M)(const M exp) const pure nothrow @nogc
+        auto divPow2(M)(const M exp) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return safeOp!(policy).divPow2(bscal, exp);
         }
         /// ditto
-        auto divPow2(M)(const M exp) const
+        auto divPow2(M)(const M exp) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -2115,13 +2121,13 @@ else
             return SafeInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
         /// ditto
-        auto modPow2(M)(const M exp) const pure nothrow @nogc
+        auto modPow2(M)(const M exp) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return safeOp!(policy).modPow2(bscal, exp);
         }
         /// ditto
-        auto modPow2(M)(const M exp) const
+        auto modPow2(M)(const M exp) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
@@ -2130,13 +2136,13 @@ else
         }
 
         /// Raise `this` to the `exp` power using `std.math.pow()`.
-        M pow(M)(const M exp) const pure nothrow @nogc
+        M pow(M)(const M exp) const pure @safe nothrow @nogc
             if (isFloatingPoint!M)
         {
             return std.math.pow(bscal, exp);
         }
-        /// See `safeOp`.
-        SafeInt!(CallType!(std.math.pow, N, BasicScalar!M), .max(policy, intFlagPolicyOf!M), bitOps && hasBitOps!M) pow(M)(const M exp) const
+        /// See $(LINK2 ./package.html#safeOp, `safeOp`).
+        SafeInt!(CallType!(std.math.pow, N, BasicScalar!M), .max(policy, intFlagPolicyOf!M), bitOps && hasBitOps!M) pow(M)(const M exp) const @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             return typeof(return)(safeOp!(.max(policy, intFlagPolicyOf!M)).pow(this.bscal, exp.bscal));
@@ -2245,7 +2251,7 @@ else
     }
 
     /// Get the value of `num` as a `SafeInt!N`. The integral type `N` can be infered from the argument.
-    SafeInt!(N, policy, bitOps) safeInt(IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
+    SafeInt!(N, policy, bitOps) safeInt(IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num) @safe
         if (isIntegral!N || isCheckedInt!N)
     {
         return typeof(return)(num.bscal);
@@ -2267,7 +2273,8 @@ else
     $(UL
         $(LI If the operation is generally untrustworthy - for example, signed/unsigned comparisons - a compile-time error
             is generated. The message will usually suggest a workaround.)
-        $(LI At runtime, if the result is mathematically incorrect an appropriate `IntFlag` will be raised.)
+        $(LI At runtime, if the result is mathematically incorrect an appropriate $(LINK2 ./flags.html, `IntFlag`)
+            will be raised.)
     )
     The runtime error-signalling policy may be selected using the `policy` template parameter.
     **/
@@ -2278,7 +2285,7 @@ else
         {
         // No need to redundantly instantiate members which don't depend on `policy`.
 
-            private void cmpTypeCheck(N, M)() pure nothrow @nogc
+            private void cmpTypeCheck(N, M)() pure @safe nothrow @nogc
             {
                 static assert(isBoolean!N == isBoolean!M,
                     "The intent of a direct comparison of " ~
@@ -2298,11 +2305,11 @@ else
 
             Unsafe signed/unsigned comparisons will trigger a compile-time error. Possible solutions include:
             $(UL
-                $(LI Should the inputs really have different signedness? Changing the type of one to match the other is the simplest
-                    solution.)
+                $(LI Should the inputs really have different signedness? Changing the type of one to match the other
+                    is the simplest solution.)
                 $(LI Consider using `smartOp.cmp()`, instead, as it can safely do signed/unsigned comparisons.)
-                $(LI Alternately, `checkedint.to()` can be used to safely convert the type of one input, with runtime bounds
-                    checking.)
+                $(LI Alternately, $(LINK2 ./package.html#to, `checkedint.to()`) can be used to safely convert the
+                    type of one input, with runtime bounds checking.)
             ) $(BR)
             Direct comparisons between boolean values and numeric ones are also forbidden. Make your intention explicit:
             $(UL
@@ -2310,7 +2317,7 @@ else
                 $(LI `boolean == (numeric != 0)`)
             )
             **/
-            bool cmp(string op, N, M)(const N left, const M right) pure nothrow @nogc
+            bool cmp(string op, N, M)(const N left, const M right) pure @safe nothrow @nogc
                 if (isScalarType!N && isScalarType!M)
             {
                 cmpTypeCheck!(N, M)();
@@ -2340,7 +2347,7 @@ else
 
         `++` and `--` are checked for overflow at runtime, and will raise `IntFlag.posOver` or `IntFlag.negOver` if needed.
         **/
-        N unary(string op, N)(const N num)
+        N unary(string op, N)(const N num) @safe
             if ((isIntegral!N) && op.among!("-", "+", "~"))
         {
             static assert(isSigned!N || op != "-",
@@ -2370,7 +2377,7 @@ else
                 return mixin(op ~ "num");
         }
         /// ditto
-        /+ref+/ N unary(string op, N)(/+return+/ ref N num)
+        /+ref+/ N unary(string op, N)(/+return+/ ref N num) @safe
             if ((isIntegral!N) && op.among!("++", "--"))
         {
             static if (op == "++")
@@ -2418,7 +2425,7 @@ else
 
         `IntFlag.posOver` is raised if `N` is signed and `num == N.min`.
         **/
-        N abs(N)(const N num)
+        N abs(N)(const N num) @safe
             if (isIntegral!N || isBoolean!N)
         {
             static if (isSigned!N)
@@ -2441,7 +2448,7 @@ else
         }
 
         /// `core.bitop.bsf` without the undefined behaviour. `safeOp.bsf(0)` will raise `IntFlag.undef`.
-        int bsf(N)(const N num)
+        int bsf(N)(const N num) @safe
             if (isFixedPoint!N)
         {
             return bsfImpl!policy(num);
@@ -2458,7 +2465,7 @@ else
         }
 
         /// `core.bitop.bsr` without the undefined behaviour. `safeOp.bsr(0)` will raise `IntFlag.undef`.
-        int bsr(N)(const N num)
+        int bsr(N)(const N num) @safe
             if (isFixedPoint!N)
         {
             return bsrImpl!policy(num);
@@ -2480,7 +2487,7 @@ else
 
         `safeOp.ilogb(0)` will raise `IntFlag.undef`.
         **/
-        int ilogb(N)(const N num)
+        int ilogb(N)(const N num) @safe
             if (isFixedPoint!N)
         {
             static if (isSigned!N)
@@ -2502,7 +2509,7 @@ else
             assert(IntFlags.local.clear() == IntFlag.undef);
         }
 
-        private auto binaryImpl(string op, N, M)(const N left, const M right)
+        private auto binaryImpl(string op, N, M)(const N left, const M right) @safe
             if (isFixedPoint!N && isFixedPoint!M)
         {
             enum wop = (op[$-1] == '=')? op[0 .. $-1] : op;
@@ -2610,7 +2617,7 @@ else
         Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will overwrite
         it with the result of the operation.
         **/
-        OpType!(N, op, M) binary(string op, N, M)(const N left, const M right)
+        OpType!(N, op, M) binary(string op, N, M)(const N left, const M right) @safe
             if (isFixedPoint!N && isFixedPoint!M &&
                 op.among!("+", "-", "*", "/", "%", "^^", "<<", ">>", ">>>", "&", "|", "^"))
         {
@@ -2620,7 +2627,7 @@ else
             return binaryImpl!op(left, right);
         }
         /// ditto
-        /+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right)
+        /+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right) @safe
             if (isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
         {
             static assert(op != "^^=",
@@ -2733,13 +2740,13 @@ else
         Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is equivalent to
         `divPow2(left, exp)`.
         **/
-        auto mulPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+        auto mulPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("*", NumFromScal!N, NumFromScal!M)(left, exp);
         }
         /// ditto
-        auto mulPow2(N, M)(const N left, const M exp)
+        auto mulPow2(N, M)(const N left, const M exp) @safe
             if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("*", policy, NumFromScal!N, NumFromScal!M)(left, exp);
@@ -2764,13 +2771,13 @@ else
         Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is equivalent to
         `mulPow2(left, exp)`.
         **/
-        auto divPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+        auto divPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("/", NumFromScal!N, NumFromScal!M)(left, exp);
         }
         /// ditto
-        auto divPow2(N, M)(const N left, const M exp)
+        auto divPow2(N, M)(const N left, const M exp) @safe
             if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("/", policy, NumFromScal!N, NumFromScal!M)(left, exp);
@@ -2792,13 +2799,13 @@ else
         Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
         `left & ((1 << exp) - 1)` that is still very fast.
         **/
-        auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+        auto modPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("%", NumFromScal!N, NumFromScal!M)(left, exp);
         }
         /// ditto
-        auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
+        auto modPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("%", IntFlagPolicy.noex, NumFromScal!N, NumFromScal!M)(left, exp);
@@ -2826,7 +2833,7 @@ else
             $(LI `exp < 0`, `IntFlag.undef` is raised because `std.math.pow` would trigger an FPE given the same input.)
         )
         **/
-        CallType!(std.math.pow, N, M) pow(N, M)(const N base, const M exp)
+        CallType!(std.math.pow, N, M) pow(N, M)(const N base, const M exp) @safe
             if (isFixedPoint!N && isFixedPoint!M)
         {
             alias R = typeof(return);
@@ -2865,8 +2872,9 @@ else
 // conv /////////////////////////////////////////////////
     /**
     A wrapper for `std.conv.to()` which uses `checkedint.flags` for error signaling when converting between any combination
-    of basic scalar types and `checkedint` types. With an appropriate `policy`, this allows `checkedint.to()` to be used
-    for numeric conversions in `pure nothrow` code, unlike `std.conv.to()`.
+    of basic scalar types and `checkedint` types. With an appropriate `policy`, this allows
+    $(LINK2 ./package.html#to, `checkedint.to()`) to be used for numeric conversions in `pure nothrow` code, unlike
+    `std.conv.to()`.
 
     Conversions involving any other type are simply forwarded to `std.conv.to()`, with no runtime overhead.
     **/
@@ -2877,7 +2885,7 @@ else
             ((policy == IntFlagPolicy.noex || policy == IntFlagPolicy.asserts)? " nothrow" : "") ~
             ((policy == IntFlagPolicy.asserts || policy == IntFlagPolicy.throws)? " pure" : "");
 
-        T to(S)(const S value)
+        T to(S)(const S value) @safe
             if (useFlags!S)
         {
             static if (isCheckedInt!T || isCheckedInt!S)
@@ -2958,25 +2966,25 @@ else
 
         Useful in generic code that handles both basic types, and `checkedint` types.
         **/
-      /+ref inout(N) bscal(N)(return ref inout(N) num)
+      /+ref inout(N) bscal(N)(return ref inout(N) num) @safe
             if (isScalarType!N)
         {
             return num;
         }
         /// ditto
-        ref inout(N) bscal(N)(return ref inout(N) num)
+        ref inout(N) bscal(N)(return ref inout(N) num) @safe
             if (isCheckedInt!N)
         {
             return num.bscal;
         }
         /// ditto +/
-        N bscal(N)(const N num)
+        N bscal(N)(const N num) @safe
             if (isScalarType!N)
         {
             return num;
         }
         /// ditto
-        BasicScalar!N bscal(N)(const N num)
+        BasicScalar!N bscal(N)(const N num) @safe
             if (isCheckedInt!N)
         {
             return num.bscal;
@@ -2998,31 +3006,31 @@ else
 
         Useful in generic code that handles both basic types and `checkedint` types.
         **/
-      /+ref inout(N) bits(N)(return ref inout(N) num)
+      /+ref inout(N) bits(N)(return ref inout(N) num) @safe
             if (isFixedPoint!N)
         {
             return num;
         }
         /// ditto
-        ref inout(N) bits(N)(return ref inout(N) num)
+        ref inout(N) bits(N)(return ref inout(N) num) @safe
             if (isCheckedInt!N)
         {
             return num.bits;
         }
         /// ditto +/
-        N bits(N)(const N num)
+        N bits(N)(const N num) @safe
             if (isFixedPoint!N)
         {
             return num;
         }
         /// ditto
-        SmartInt!(BasicScalar!N, N.policy, Yes.bitOps) bits(N)(const N num)
+        SmartInt!(BasicScalar!N, N.policy, Yes.bitOps) bits(N)(const N num) @safe
             if (isSmartInt!N)
         {
             return num.bits;
         }
         /// ditto
-        SafeInt!(BasicScalar!N, N.policy, Yes.bitOps) bits(N)(const N num)
+        SafeInt!(BasicScalar!N, N.policy, Yes.bitOps) bits(N)(const N num) @safe
             if (isSafeInt!N)
         {
             return num.bits;
@@ -3046,13 +3054,13 @@ else
 
         For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is returned.
         **/
-        Select!(isSigned!N, ptrdiff_t, size_t) idx(IntFlagPolicy policy, N)(const N num)
+        Select!(isSigned!N, ptrdiff_t, size_t) idx(IntFlagPolicy policy, N)(const N num) @safe
             if (isScalarType!N || isCheckedInt!N)
         {
             return to!(typeof(return), policy)(num.bscal);
         }
         /// ditto
-        Select!(isSigned!(BasicScalar!N), ptrdiff_t, size_t) idx(N)(const N num)
+        Select!(isSigned!(BasicScalar!N), ptrdiff_t, size_t) idx(N)(const N num) @safe
             if (isCheckedInt!N)
         {
             return num.idx;
@@ -3084,7 +3092,7 @@ else
 
 // traits /////////////////////////////////////////////////
 
-/// Evaluates to `true` if `T` is an instance of `SafeInt`.
+/// Evaluates to `true` if `T` is an instance of $(LINK2 ./package.html#SafeInt, `SafeInt`).
 enum isSafeInt(T) = isInstanceOf!(SafeInt, T);
 ///
 unittest
@@ -3097,7 +3105,7 @@ unittest
     assert(!isSafeInt!(SmartInt!int));
 }
 
-/// Evaluates to `true` if `T` is an instance of `SmartInt`.
+/// Evaluates to `true` if `T` is an instance of $(LINK2 ./package.html#SmartInt, `SmartInt`).
 enum isSmartInt(T) = isInstanceOf!(SmartInt, T);
 ///
 unittest
@@ -3110,7 +3118,10 @@ unittest
     assert(!isSmartInt!(SafeInt!int));
 }
 
-/// Evaluates to `true` if `T` is an instance of `SafeInt` or `SmartInt`.
+/**
+Evaluates to `true` if `T` is an instance of $(LINK2 ./package.html#SafeInt, `SafeInt`)
+or $(LINK2 ./package.html#SmartInt, `SmartInt`).
+**/
 enum isCheckedInt(T) = isSafeInt!T || isSmartInt!T;
 ///
 unittest
@@ -3209,7 +3220,7 @@ private
 
     /+pragma(inline, true)
     {+/
-        int bsfImpl(IntFlagPolicy policy, N)(const N num)
+        int bsfImpl(IntFlagPolicy policy, N)(const N num) @safe
             if (isFixedPoint!N)
         {
             static if (isSigned!N)
@@ -3230,7 +3241,7 @@ private
                 return ret;
             }
         }
-        int bsrImpl(IntFlagPolicy policy, N)(const N num)
+        int bsrImpl(IntFlagPolicy policy, N)(const N num) @safe
             if (isFixedPoint!N)
         {
             static if (isSigned!N)
@@ -3252,7 +3263,7 @@ private
             }
         }
 
-        auto byPow2Impl(string op, N, M)(const N left, const M exp) pure nothrow @nogc
+        auto byPow2Impl(string op, N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if (op.among!("*", "/", "%") && ((isFloatingPoint!N && isNumeric!M) || (isNumeric!N && isFloatingPoint!M)))
         {
             import std.math : exp2, isFinite, frexp, ldexp;
@@ -3328,7 +3339,7 @@ private
                 }
             }
         }
-        auto byPow2Impl(string op, IntFlagPolicy policy, N, M)(const N left, const M exp)
+        auto byPow2Impl(string op, IntFlagPolicy policy, N, M)(const N left, const M exp) @safe
             if (op.among!("*", "/", "%") && isIntegral!N && isIntegral!M)
         {
             alias R = Select!(op.among!("*", "/") != 0, Promoted!N, N);
@@ -3398,7 +3409,7 @@ private
     }
 
     // Minimize template bloat by using a common pow() implementation
-    PowOut!B powImpl(B, E)(const B base, const E exp)
+    PowOut!B powImpl(B, E)(const B base, const E exp) @safe
         if ((is(B == int) || is(B == uint) || is(B == long) || is(B == ulong)) &&
             (is(E == long) || is(E == ulong)))
     {

@@ -1,5 +1,5 @@
 /**
-Aliases for the `checkedint` module using the `noex` `IntFlagPolicy`.
+Aliases for the $(LINK2 ./package.html, `checkedint`) module using `IntFlagPolicy.noex`.
 
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).

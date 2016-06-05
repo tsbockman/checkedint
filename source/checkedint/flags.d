@@ -6,8 +6,8 @@ License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
 
 $(BIG $(B `IntFlagPolicy.throws`)) $(BR)
-When the `throws` policy is set, errors are signalled by simply throwing a new `CheckedIntException`. This is the
-recommended policy because:
+When the `throws` policy is set, errors are signalled by simply throwing a new
+$(LINK2 ./_flags.html#CheckedIntException, `CheckedIntException`). This is the recommended policy because:
 $(UL
     $(LI The API user is not required to explicitly handle errors.)
     $(LI Printing a precise stack trace is very helpful for debugging.)
@@ -34,7 +34,8 @@ The `asserts` policy is the only one that is compatible with `pure nothrow @nogc
 $(BIG $(B `IntFlagPolicy.noex`)) $(BR)
 An alternative error signalling method may be selected using the `noex` policy:
 $(OL
-    $(LI Whenever an integer math error occurs, a bit flag is raised in `IntFlags.local`, which is a TLS variable.)
+    $(LI Whenever an integer math error occurs, a bit flag is raised in
+        $(LINK2 ./_flags.html#IntFlags.local, `IntFlags.local`), which is a TLS variable.)
     $(LI The integer math operations in `checkedint` only set bit flags; they never clear them. Thus, any flag that is
         raised because of an error will remain set until handled by the API user.)
     $(LI The API user periodically checks whether any flags have been raised like so: `if (IntFlags.local)`)
@@ -42,8 +43,8 @@ $(OL
     $(LI Once the API user has handled the error somehow, `IntFlags.clear()` can be used to unset all bit flags before
         continuing the program.)
 )
-The `IntFlags.pushPop` mixin can be used to prevent a function from handling or clearing flags that were set by the
-caller.
+The $(LINK2 ./_flags.html#IntFlags.pushPop, `IntFlags.pushPop`) mixin can be used to prevent a function from handling
+or clearing flags that were set by the caller.
 
 Care must be taken when using the `noex` policy to insert sufficient `if (IntFlags.local)` checks; otherwise
 `checkedint` will not provide much protection from integer math related bugs.
@@ -51,8 +52,6 @@ Care must be taken when using the `noex` policy to insert sufficient `if (IntFla
 module checkedint.flags;
 
 import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/;
-
-@safe:
 
 ///
 enum IntFlagPolicy
@@ -117,21 +116,22 @@ unittest
 Function used to signal a failure and its proximate cause from integer math code. Depending on the value of the
 `policy` parameter, `raise()` will either:
 $(UL
-    $(LI Throw a `CheckedIntException`,)
+    $(LI Throw a $(LINK2 ./_flags.html#CheckedIntException, `CheckedIntException`),)
     $(LI Trigger an assertion failure, or)
-    $(LI Set a bit in `IntFlags.local` that can be checked by the caller later.)
+    $(LI Set a bit in $(LINK2 ./_flags.html#IntFlags.local, `IntFlags.local`) that can be checked by the caller
+        later.)
 )
 **/
 template raise(IntFlagPolicy policy)
 {
     static if (policy == IntFlagPolicy.throws)
     {
-        void raise(IntFlags flags) pure
+        void raise(IntFlags flags) pure @safe
         {
             version(DigitalMars) pragma(inline, false); // DMD usually won't inline the caller without this.
             if (flags) throw new CheckedIntException(flags);
         }
-        void raise(IntFlag flag) pure
+        void raise(IntFlag flag) pure @safe
         {
             version(DigitalMars) pragma(inline, false); // DMD usually won't inline the caller without this.
             if (flag) throw new CheckedIntException(flag);
@@ -139,7 +139,7 @@ template raise(IntFlagPolicy policy)
     }
     else static if (policy == IntFlagPolicy.asserts)
     {
-        void raise(IntFlags flags) pure nothrow @nogc
+        void raise(IntFlags flags) pure @safe nothrow @nogc
         {
             version(assert)
             {
@@ -151,7 +151,7 @@ template raise(IntFlagPolicy policy)
                 if (flags) assert(0); // halt
             }
         }
-        void raise(IntFlag flag) pure nothrow @nogc
+        void raise(IntFlag flag) pure @safe nothrow @nogc
         {
             version(assert)
             {
@@ -166,12 +166,12 @@ template raise(IntFlagPolicy policy)
     }
     else static if (policy == IntFlagPolicy.noex)
     {
-        void raise(IntFlags flags) nothrow @nogc
+        void raise(IntFlags flags) @safe nothrow @nogc
         {
           /+pragma(inline, true);+/
             IntFlags.local |= flags;
         }
-        void raise(IntFlag flag) nothrow @nogc
+        void raise(IntFlag flag) @safe nothrow @nogc
         {
           /+pragma(inline, true);+/
             IntFlags.local |= flag;
@@ -179,8 +179,8 @@ template raise(IntFlagPolicy policy)
     }
     else static if (policy == IntFlagPolicy.none)
     {
-        void raise(IntFlags flags) pure nothrow @nogc { /+pragma(inline, true);+/ }
-        void raise(IntFlag flag) pure nothrow @nogc { /+pragma(inline, true);+/ }
+        void raise(IntFlags flags) pure @safe nothrow @nogc { /+pragma(inline, true);+/ }
+        void raise(IntFlag flag) pure @safe nothrow @nogc { /+pragma(inline, true);+/ }
     } else
         static assert(false);
 }
@@ -232,7 +232,7 @@ unittest
     // Multiple signaling strategies may be usefully mixed within the same program:
     alias IFP = IntFlagPolicy;
 
-    static void fails() nothrow
+    static void fails() @safe nothrow
     {
         raise!(IFP.noex)(IntFlag.negOver);
         raise!(IFP.noex)(IntFlag.imag);
@@ -258,7 +258,7 @@ struct IntFlag
 /+pragma(inline, true):+/
 private:
     uint index;
-    this(uint index) pure nothrow @nogc
+    this(uint index) pure @safe nothrow @nogc
     {
         assert(index < strs.length);
         this.index = index;
@@ -294,7 +294,7 @@ public:
     }
     else
     {
-        static @property pure nothrow @nogc
+        static @property pure @safe nothrow @nogc
         {
             auto over()
             {
@@ -324,7 +324,7 @@ public:
     }
 
     /// `false` if this `IntFlag` is set to one of the error signals listed above. Otherwise `true`.
-    @property bool isNull() const pure nothrow @nogc
+    @property bool isNull() const pure @safe nothrow @nogc
     {
         return index == 0;
     }
@@ -336,7 +336,7 @@ public:
     }
 
     /// An `IntFlag` value is implicitly convertible to an `IntFlags` with only the one flag raised.
-    @property IntFlags mask() const pure nothrow @nogc
+    @property IntFlags mask() const pure @safe nothrow @nogc
     {
         return IntFlags(1u << index);
     }
@@ -350,7 +350,7 @@ public:
     }
 
     /// Get a description of this error flag.
-    @property string desc() const pure nothrow @nogc
+    @property string desc() const pure @safe nothrow @nogc
     {
         return strs[index][1 .. ($ - 1)];
     }
@@ -363,12 +363,12 @@ public:
 
     /// Get a string representation of this `IntFlag`. The format is the same as that returned by `IntFlags.toString()`.
     void toString(Writer, Char)(
-        Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted pure nothrow @nogc
+        Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const pure nothrow @nogc
     {
         formatValue(sink, strs[index], fmt);
     }
     /// ditto
-    string toString() const pure nothrow @nogc
+    string toString() const pure @safe nothrow @nogc
     {
         return strs[index];
     }
@@ -383,40 +383,40 @@ public:
 /**
 A bitset that can be used to track integer math failures.
 
-`IntFlags` is also a forward range which can be used to iterate over the set (raised) `IntFlag` values. Fully
-consuming the range is equivalent to calling `clear()`; iterate over a copy made with `save()`, instead, if this
-is not your intention.
+`IntFlags` is also a forward range which can be used to iterate over the set (raised)
+$(LINK2 ./_flags.html#IntFlag, `IntFlag`) values. Fully consuming the range is equivalent to calling `clear()`;
+iterate over a copy made with `save()`, instead, if this is not your intention.
 **/
 struct IntFlags
 {
 /+pragma(inline, true):+/
 private:
     uint _bits = 0;
-    @property uint bits() const pure nothrow @nogc
+    @property uint bits() const pure @safe nothrow @nogc
     {
         return _bits;
     }
-    @property void bits(uint bits) pure nothrow @nogc
+    @property void bits(uint bits) pure @safe nothrow @nogc
     {
         // filter out {NULL}
         _bits = bits & ~1;
     }
 
-    this(uint bits) pure nothrow @nogc
+    this(uint bits) pure @safe nothrow @nogc
     {
         this.bits = bits;
     }
 
 public:
     /**
-    Assign the set of flags represented by `that` to this `IntFlags`. Note that `IntFlag` values are accepted also,
-    because `IntFlag` is implicitly convertible to `IntFlags`.
+    Assign the set of flags represented by `that` to this `IntFlags`. Note that $(LINK2 ./_flags.html#IntFlag, `IntFlag`)
+    values are accepted also, because `IntFlag` is implicitly convertible to `IntFlags`.
     **/
-    this(IntFlags that) pure nothrow @nogc
+    this(IntFlags that) pure @safe nothrow @nogc
     {
         bits = that.bits;
     }
-    ref IntFlags opAssign(IntFlags that) /+return+/ pure nothrow @nogc
+    ref IntFlags opAssign(IntFlags that) /+return+/ pure @safe nothrow @nogc
     {
         bits = that.bits;
         return this;
@@ -439,7 +439,7 @@ public:
     `raise!(IntFlagPolicy.throws)(IntFlags.local.clear())` is a convenient way that the caller of a `nothrow`
     function can convert any flags that were raised into an exception.
     **/
-    IntFlags clear() pure nothrow @nogc
+    IntFlags clear() pure @safe nothrow @nogc
     {
         IntFlags ret = this;
         _bits = 0;
@@ -454,14 +454,14 @@ public:
     }
 
     /// Test (`&`), set (`|`), or unset (`-`) individual flags.
-    IntFlags opBinary(string op)(IntFlags that) const pure nothrow @nogc
+    IntFlags opBinary(string op)(IntFlags that) const @safe pure nothrow @nogc
         if (op.among!("&", "|", "-"))
     {
         IntFlags ret = this;
         return ret.opOpAssign!op(that);
     }
     /// ditto
-    ref IntFlags opOpAssign(string op)(IntFlags that) /+return+/ pure nothrow @nogc
+    ref IntFlags opOpAssign(string op)(IntFlags that) /+return+/ pure @safe nothrow @nogc
         if (op.among!("&", "|", "-"))
     {
         static if (op == "&")
@@ -491,7 +491,7 @@ public:
 
     An `IntFlags` value is implicitly convertible to `bool` through `anySet`.
     **/
-    @property bool anySet() const pure nothrow @nogc
+    @property bool anySet() const pure @safe nothrow @nogc
     {
         return bits != 0;
     }
@@ -507,30 +507,30 @@ public:
     }
 
     /// `true` if no non-null flags are set.
-    @property bool empty() const pure nothrow @nogc
+    @property bool empty() const pure @safe nothrow @nogc
     {
         return bits == 0;
     }
     /// Get the first set `IntFlag`.
-    @property IntFlag front() const pure nothrow @nogc
+    @property IntFlag front() const pure @safe nothrow @nogc
     {
         // bsr() is undefined for 0.
         return IntFlag(bsr(bits | 1));
     }
     /// Clear the first set `IntFlag`. This is equivalent to `flags -= flags.front`.
-    ref IntFlags popFront() /+return+/ pure nothrow @nogc
+    ref IntFlags popFront() /+return+/ pure @safe nothrow @nogc
     {
         // bsr() is undefined for 0.
         bits = bits & ~(1u << bsr(bits | 1));
         return this;
     }
     /// Get a mutable copy of this `IntFlags` value, so as not to `clear()` the original by iterating through it.
-    @property IntFlags save() const pure nothrow @nogc
+    @property IntFlags save() const pure @safe nothrow @nogc
     {
         return this;
     }
     /// Get the number of raised flags.
-    @property uint length() const pure nothrow @nogc
+    @property uint length() const pure @safe nothrow @nogc
     {
         return popcnt(bits);
     }
@@ -591,7 +591,7 @@ scope(exit)
 
 /+pragma(inline):+/
     /// Get a string representation of the list of set flags.
-    void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt) const @trusted
+    void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt) const
     {
         put(sink, '{');
 
@@ -613,7 +613,7 @@ scope(exit)
         toString(sink, (FormatSpec!char).init);
     }
     /// ditto
-    string toString() const pure
+    string toString() const pure @safe
     {
         switch (length)
         {
@@ -661,12 +661,12 @@ class CheckedIntException : Exception
 
 private:
     enum msg0 = "Integer math exception(s): ";
-    private this(IntFlag flag, string fn = __FILE__, size_t ln = __LINE__) pure nothrow
+    private this(IntFlag flag, string fn = __FILE__, size_t ln = __LINE__) pure @safe nothrow
     {
         intFlags = flag;
         super(msg0 ~ flag.toString(), fn, ln);
     }
-    private this(IntFlags flags, string fn = __FILE__, size_t ln = __LINE__) pure nothrow
+    private this(IntFlags flags, string fn = __FILE__, size_t ln = __LINE__) pure @safe nothrow
     {
         intFlags = flags;
 

@@ -1,5 +1,5 @@
 /**
-Aliases for the `checkedint` module using the `asserts` `IntFlagPolicy`.
+Aliases for the $(LINK2 ./package.html, `checkedint`) module using `IntFlagPolicy.asserts`.
 
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
