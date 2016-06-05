@@ -147,7 +147,9 @@ template raise(IntFlagPolicy policy)
                 assert(!flags, flags.front.desc); // throw AssertError
             }
             else
+            {
                 if (flags) assert(0); // halt
+            }
         }
         void raise(IntFlag flag) pure nothrow @nogc
         {
@@ -157,7 +159,9 @@ template raise(IntFlagPolicy policy)
                 assert(!flag, flag.desc); // throw AssertError
             }
             else
+            {
                 if (flag) assert(0); // halt
+            }
         }
     }
     else static if (policy == IntFlagPolicy.noex)
@@ -190,7 +194,7 @@ unittest
     {
         raise(IntFlag.div0);
     }
-    catch(CheckedIntException e)
+    catch (CheckedIntException e)
     {
         caught = (e.intFlags == IntFlag.div0);
     }
@@ -206,7 +210,7 @@ unittest
     {
         raise(IntFlag.div0);
     }
-    catch(Error e)
+    catch (Error e)
     {
         caught = (e.msg == "divide by zero");
     }
@@ -241,7 +245,7 @@ unittest
         // Flags that were raised by `nothrow` code can easily be turned into an exception by the caller.
         raise!(IFP.throws)(IntFlags.local.clear());
     }
-    catch(CheckedIntException e)
+    catch (CheckedIntException e)
     {
         caught = (e.intFlags == (IntFlag.negOver | IntFlag.imag));
     }
@@ -462,11 +466,9 @@ public:
     {
         static if (op == "&")
             bits = this.bits & that.bits;
-        else
-        static if (op == "|")
+        else static if (op == "|")
             bits = this.bits | that.bits;
-        else
-        static if (op == "-")
+        else static if (op == "-")
             bits = this.bits & ~(that.bits);
 
         return this;
@@ -553,7 +555,8 @@ public:
     **/
     enum string pushPop = r"
 IntFlags outerIntFlags = IntFlags.local.clear();
-scope(exit) {
+scope(exit)
+{
     assert(IntFlags.local.empty);
     IntFlags.local = outerIntFlags;
 }";

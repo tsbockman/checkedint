@@ -273,7 +273,8 @@ else
             return cast(M)bscal;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
             SmartInt!int n = 92;
@@ -360,7 +361,7 @@ else
                 {
                     arr[n.idx] = '?';
                 }
-                catch(CheckedIntException e)
+                catch (CheckedIntException e)
                 {
                     assert(e.intFlags == IntFlag.negOver);
                 }
@@ -639,7 +640,7 @@ else
             SmartInt!uint mc = mb - ma;
             assert(false);
         }
-        catch(CheckedIntException e)
+        catch (CheckedIntException e)
         {
             assert(e.intFlags == IntFlag.negOver);
             overflow = true;
@@ -653,7 +654,7 @@ else
             SmartInt!uint mc = ma / mb;
             assert(false);
         }
-        catch(CheckedIntException e)
+        catch (CheckedIntException e)
         {
             // ...but with SmartInt, it just throws a normal Exception.
             assert(e.intFlags == IntFlag.div0);
@@ -1918,7 +1919,7 @@ else
                 {
                     arr[n.idx] = '?';
                 }
-                catch(CheckedIntException e)
+                catch (CheckedIntException e)
                 {
                     assert(e.intFlags == IntFlag.negOver);
                 }
@@ -2189,7 +2190,7 @@ else
             SafeInt!uint sc = sb - sa;
             assert(false);
         }
-        catch(CheckedIntException e)
+        catch (CheckedIntException e)
         {
             assert(e.intFlags == IntFlag.negOver);
             overflow = true;
@@ -2203,7 +2204,7 @@ else
             SafeInt!uint sc = sa / sb;
             assert(false);
         }
-        catch(CheckedIntException e)
+        catch (CheckedIntException e)
         {
             // ...but with SafeInt, it just throws a normal Exception.
             assert(e.intFlags == IntFlag.div0);

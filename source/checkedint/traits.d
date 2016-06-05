@@ -70,13 +70,13 @@ static import bsct = future.traits0;
     ///
     unittest
     {
-        foreach(T; AliasSeq!(int, ushort, double, bool))
+        foreach (T; AliasSeq!(int, ushort, double, bool))
             assert(isBasicScalar!T && isScalarType!T);
 
         assert(!isBasicScalar!(SmartInt!int));
         assert( isScalarType!(SmartInt!int));
 
-        foreach(T; AliasSeq!(int[]))
+        foreach (T; AliasSeq!(int[]))
             assert(!(isBasicScalar!T || isScalarType!T));
     }
 
@@ -90,13 +90,13 @@ static import bsct = future.traits0;
     ///
     unittest
     {
-        foreach(T; AliasSeq!(int, ushort, double))
+        foreach (T; AliasSeq!(int, ushort, double))
             assert(isBasicNum!T && isNumeric!T);
 
         assert(!isBasicNum!(SmartInt!int));
         assert( isNumeric!(SmartInt!int));
 
-        foreach(T; AliasSeq!(int[], bool))
+        foreach (T; AliasSeq!(int[], bool))
             assert(!(isBasicNum!T || isNumeric!T));
     }
 
@@ -113,13 +113,13 @@ static import bsct = future.traits0;
     ///
     unittest
     {
-        foreach(T; AliasSeq!(int, ushort, bool))
+        foreach (T; AliasSeq!(int, ushort, bool))
             assert(isBasicFixed!T && isFixedPoint!T);
 
         assert(!isBasicFixed!(SmartInt!int));
         assert( isFixedPoint!(SmartInt!int));
 
-        foreach(T; AliasSeq!(double, int[]))
+        foreach (T; AliasSeq!(double, int[]))
             assert(!(isBasicFixed!T || isFixedPoint!T));
     }
 
@@ -133,13 +133,13 @@ static import bsct = future.traits0;
     ///
     unittest
     {
-        foreach(T; AliasSeq!(int, ushort))
+        foreach (T; AliasSeq!(int, ushort))
             assert(isBasicInt!T && isIntegral!T);
 
         assert(!isBasicInt!(SmartInt!int));
         assert( isIntegral!(SmartInt!int));
 
-        foreach(T; AliasSeq!(double, int[], bool))
+        foreach (T; AliasSeq!(double, int[], bool))
             assert(!(isBasicInt!T || isIntegral!T));
     }
 
@@ -158,13 +158,13 @@ static import bsct = future.traits0;
     ///
     unittest
     {
-        foreach(T; AliasSeq!(int, double))
+        foreach (T; AliasSeq!(int, double))
             assert(isBasicSigned!T && isSigned!T);
 
         assert(!isBasicSigned!(SmartInt!int));
         assert( isSigned!(SmartInt!int));
 
-        foreach(T; AliasSeq!(ushort, int[], bool))
+        foreach (T; AliasSeq!(ushort, int[], bool))
             assert(!(isBasicSigned!T || isSigned!T));
     }
 
@@ -178,13 +178,13 @@ static import bsct = future.traits0;
     ///
     unittest
     {
-        foreach(T; AliasSeq!(ushort))
+        foreach (T; AliasSeq!(ushort))
             assert(isBasicUnsigned!T && isUnsigned!T);
 
         assert(!isBasicUnsigned!(SmartInt!uint));
         assert( isUnsigned!(SmartInt!uint));
 
-        foreach(T; AliasSeq!(double, int[], bool))
+        foreach (T; AliasSeq!(double, int[], bool))
             assert(!(isBasicUnsigned!T || isUnsigned!T));
     }
 
