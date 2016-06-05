@@ -14,8 +14,10 @@ void main()
 {
     import std.stdio;
 
-    void compiledMsg(string name) {
-        writefln("Compiled with %s %s-bit, version %s.", name, size_t.sizeof * 8, __VERSION__); }
+    void compiledMsg(string name)
+    {
+        writefln("Compiled with %s %s-bit, version %s.", name, size_t.sizeof * 8, __VERSION__);
+    }
     version(DigitalMars) { compiledMsg("DMD"); }
     version(GNU)         { compiledMsg("GDC"); }
     version(LDC)         { compiledMsg("LDC"); }

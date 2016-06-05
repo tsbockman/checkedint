@@ -9,8 +9,10 @@ Authors: Thomas Stuart Bockman
 module future.format;
 public import std.format;
 
-static if(__VERSION__ < 2068) {
-    string format(Char, Args...)(in Char[] fmt, Args args) {
+static if (__VERSION__ < 2068)
+{
+    string format(Char, Args...)(in Char[] fmt, Args args)
+    {
         import std.array : appender;
         import std.format : formattedWrite;
 
@@ -18,6 +20,8 @@ static if(__VERSION__ < 2068) {
         formattedWrite(writer, fmt, args);
         return writer.data.idup;
     }
-} else {
+}
+else
+{
     version(GNU) { static assert(false); }
 }

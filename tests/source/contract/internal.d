@@ -13,10 +13,13 @@ import checkedint.noex;
 
 public import std.algorithm, future.format, std.stdio, future.traits0;
 public static import stdm = future.math;
-static if(__VERSION__ >= 2068) {
+static if (__VERSION__ >= 2068)
+{
     version(GNU) { static assert(false); }
     public import std.meta;
-} else {
+}
+else
+{
     public import std.typetuple;
     alias AliasSeq = TypeTuple;
 }
@@ -24,43 +27,49 @@ static if(__VERSION__ >= 2068) {
 package: /+@safe:+/
 
 alias Unused = const(void*);
-template OutIs(T) {
+template OutIs(T)
+{
     enum OutIs(N, M, PR) = is(PR == T);
 }
 
 private template TypeFmt(T)
-    if(isScalarType!T)
+    if (isScalarType!T)
 {
-    static if(isFloatingPoint!T)
+    static if (isFloatingPoint!T)
         enum TypeFmt = "%+." ~ format("%d", (T.mant_dig + 2) / 3) ~ "g";
-    else static if(isIntegral!T || isSomeChar!T)
+    else static if (isIntegral!T || isSomeChar!T)
         enum TypeFmt = "%+d";
     else
         enum TypeFmt = "%s";
 }
 
-void forbid(string subjectCall, N, M = void*)() {
+void forbid(string subjectCall, N, M = void*)()
+{
     N n;
-    static if(! is(M == void*))
+    static if (! is(M == void*))
         M m = 1; // Don't try to divide by zero.
 
-    static if(__traits(compiles, mixin(subjectCall))) {
+    static if (__traits(compiles, mixin(subjectCall)))
+    {
         writeln();
         writeln(subjectCall);
         writeln("\t" ~ N.stringof ~ " n;");
-        static if(! is(M == void*))
+        static if (! is(M == void*))
             writeln("\t" ~ M.stringof ~ " m;");
         writeln("\tFAILS: forbidden");
     }
 }
 
-void fuzz(alias subjectCall, alias SubjectIn, alias isValidOut, alias control, N, M = void*)() {
+void fuzz(alias subjectCall, alias SubjectIn, alias isValidOut, alias control, N, M = void*)()
+{
     enum isBin = !is(M == void*);
 
-    static if(is(typeof(subjectCall) == string)) {
-        static auto subject(const N nn, const M mm) {
+    static if (is(typeof(subjectCall) == string))
+    {
+        static auto subject(const N nn, const M mm)
+        {
             SubjectIn!N n = nn;
-            static if(isBin)
+            static if (isBin)
                 SubjectIn!M m = mm;
             return mixin(subjectCall);
         }
@@ -68,54 +77,62 @@ void fuzz(alias subjectCall, alias SubjectIn, alias isValidOut, alias control, N
         alias subject = subjectCall;
 
     alias PR = Unqual!(typeof(subject(N.init, M.init)));
-    static if(!isValidOut!(N, M, PR)) {
+    static if (!isValidOut!(N, M, PR))
+    {
         writeln();
         writeln(subjectCall);
         writeln("\t" ~ N.stringof ~ " n;");
-        static if(isBin)
+        static if (isBin)
             writeln("\t" ~ M.stringof ~ " m;");
         writeln("\t" ~ PR.stringof ~ " practice;");
         writeln("\tFAILS: return type");
         return;
-    } else {
+    }
+    else
+    {
         alias TR = Unqual!(typeof(control(N.init, M.init)));
-        foreach(const m; TestValues!M()) {
-            foreach(const n; TestValues!N()) {
+        foreach (const m; TestValues!M())
+        {
+            foreach (const n; TestValues!N())
+            {
                 const theory = control(n, m);
                 bool thrInval;
-                static if(isFloatingPoint!TR || !isScalarType!TR)
+                static if (isFloatingPoint!TR || !isScalarType!TR)
                     thrInval = stdm.isNaN(theory);
 
                 IntFlags.local.clear();
                 const practice = subject(n, m);
                 bool pracInval = IntFlags.local;
-                static if(isFloatingPoint!PR || !isScalarType!PR)
+                static if (isFloatingPoint!PR || !isScalarType!PR)
                     pracInval |= stdm.isNaN(practice);
 
                 uint failCount = 0;
-                void require(string name, bool success) {
-                    if(success)
+                void require(string name, bool success)
+                {
+                    if (success)
                         return;
 
-                    if(failCount <= 0) {
+                    if (failCount <= 0)
+                    {
                         writeln();
                         writeln(subjectCall);
                         writefln("\t" ~ N.stringof ~ " n = " ~ TypeFmt!N, n);
-                        static if(isBin)
+                        static if (isBin)
                             writefln("\t" ~ M.stringof ~ " m = " ~ TypeFmt!M, m);
                         writefln("\t" ~ TR.stringof ~ " theory = " ~ TypeFmt!TR, theory);
                         writefln("\t" ~ PR.stringof ~ " practice = " ~ TypeFmt!PR, practice);
                         writefln("\tIntFlags.local  = %s", IntFlags.local);
 
                         write("\tFAILS: ");
-                    } else
+                    }
+                    else
                         write(", ");
 
                     writef(name);
                     ++failCount;
                 }
 
-                static if(isFloatingPoint!TR && isFloatingPoint!PR)
+                static if (isFloatingPoint!TR && isFloatingPoint!PR)
                     const tpMatch = stdm.feqrel(theory, practice) >= (min(TR.mant_dig, PR.mant_dig) - 1);
                 else
                     const tpMatch = (theory == practice);
@@ -129,11 +146,11 @@ void fuzz(alias subjectCall, alias SubjectIn, alias isValidOut, alias control, N
                 IntFlags.local.clear();
 
                 bool consistent = (practiceT == practice);
-                static if(isFloatingPoint!PR)
+                static if (isFloatingPoint!PR)
                     consistent |= (stdm.isNaN(practiceT) && stdm.isNaN(practice));
                 require("consistent", consistent);
 
-                if(failCount > 0)
+                if (failCount > 0)
                     writeln();
             }
         }

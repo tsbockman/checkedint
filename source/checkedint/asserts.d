@@ -25,7 +25,7 @@ static import checkedint;
 
 alias SmartInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SmartInt!(N, IFP.asserts, bitOps);
 SmartInt!(N, bitOps) smartInt(Flag!"bitOps" bitOps = Yes.bitOps, N)(N num) pure nothrow @nogc
-    if(isIntegral!N || isCheckedInt!N)
+    if (isIntegral!N || isCheckedInt!N)
 {
     return typeof(return)(num.bscal);
 }
@@ -35,7 +35,7 @@ alias DebugInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.DebugInt!(N, I
 
 alias SafeInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SafeInt!(N, IFP.asserts, bitOps);
 SafeInt!(N, bitOps) safeInt(Flag!"bitOps" bitOps = Yes.bitOps, N)(N num) pure nothrow @nogc
-    if(isIntegral!N || isCheckedInt!N)
+    if (isIntegral!N || isCheckedInt!N)
 {
     return typeof(return)(num.bscal);
 }
@@ -44,7 +44,7 @@ alias safeOp = checkedint.safeOp!(IFP.asserts);
 alias to(T) = checkedint.to!(T, IFP.asserts);
 
 Select!(isSigned!(BasicScalar!N), ptrdiff_t, size_t) idx(N)(const N num) pure nothrow @nogc
-    if(isScalarType!N || isCheckedInt!N)
+    if (isScalarType!N || isCheckedInt!N)
 {
     return checkedint.to!(typeof(return), IFP.asserts)(num.bscal);
 }

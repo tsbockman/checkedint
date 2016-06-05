@@ -9,36 +9,39 @@ Authors: Thomas Stuart Bockman
 module future.math;
 public import std.math;
 
-static if(__VERSION__ >= 2067) {
+static if (__VERSION__ >= 2067)
+{
     version(GNU) { static assert(false); }
-} else {
+}
+else
+{
     import std.traits;
 
     int cmp(T)(const(T) x, const(T) y) @nogc @safe pure nothrow
-        if(isFloatingPoint!T)
+        if (isFloatingPoint!T)
     {
-        if(x < y)
+        if (x < y)
             return -1;
-        if(y < x)
+        if (y < x)
             return  1;
         const eq = (x == y);
-        if(eq && x != 0)
+        if (eq && x != 0)
             return  0;
 
         int sgnX = (-signbit(x) | 1) << isNaN(x);
         int sgnY = (-signbit(y) | 1) << isNaN(y);
-        if(sgnX < sgnY)
+        if (sgnX < sgnY)
             return -1;
-        if(sgnY < sgnX)
+        if (sgnY < sgnX)
             return  1;
-        if(eq)
+        if (eq)
             return  0;
 
         const pldX = getNaNPayload(x);
         const pldY = getNaNPayload(y);
-        if(pldX < pldY)
+        if (pldX < pldY)
             return -sgnX;
-        if(pldY < pldX)
+        if (pldY < pldX)
             return  sgnX;
         return 0;
     }

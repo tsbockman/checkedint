@@ -16,7 +16,8 @@ import checkedint.tests.contract.internal;
 
 import checkedint.flags;
 
-void all()() {
+void all()()
+{
     writeln();
     write("Testing smartOp... ");
     stdout.flush();
@@ -34,29 +35,37 @@ void all()() {
 
 /+@safe:+/
 
-void cmp(string op = null, N = void, M = void)() {
-    static if(op == null) {
-        foreach(op1; AliasSeq!("==", "!=", "<", "<=", ">", ">="))
+void cmp(string op = null, N = void, M = void)()
+{
+    static if (op == null)
+    {
+        foreach (op1; AliasSeq!("==", "!=", "<", "<=", ">", ">="))
             cmp!(op1, N, M)();
-    } else
-    static if(is(N == void)) {
-        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
+    }
+    else static if (is(N == void))
+    {
+        foreach (N1; AliasSeq!(IntegralTypes, CharTypes))
             cmp!(op, N1, M)();
-    } else
-    static if(is(M == void)) {
-        foreach(M1; AliasSeq!(IntegralTypes, CharTypes))
+    }
+    else static if (is(M == void))
+    {
+        foreach (M1; AliasSeq!(IntegralTypes, CharTypes))
             cmp!(op, N, M1)();
-    } else {
+    }
+    else
+    {
         static assert(isScalarType!N && isScalarType!M);
 
-        static void cover(bool direct)() {
-            static if(direct)
+        static void cover(bool direct)()
+        {
+            static if (direct)
                 enum sc = "smartOp.cmp!\"" ~ op ~ "\"(n, m)";
             else
                 enum sc = "smartOp.cmp(n, m) " ~ op ~ " 0";
 
             static assert(real.mant_dig >= max(precision!N, precision!M));
-            auto control(const real n, const real m) {
+            auto control(const real n, const real m)
+            {
                 auto wret = stdm.cmp(n, m);
                 return mixin("wret " ~ op ~ " 0");
             }
@@ -69,60 +78,79 @@ void cmp(string op = null, N = void, M = void)() {
 }
 alias cmp(N, M = void) = cmp!(null, N, M);
 
-void abs(N = void)() {
-    static if(is(N == void)) {
-        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
+void abs(N = void)()
+{
+    static if (is(N == void))
+    {
+        foreach (N1; AliasSeq!(IntegralTypes, CharTypes))
             abs!N1();
-    } else {
+    }
+    else
+    {
         static assert(isFixedPoint!N);
 
         enum sc = "smartOp.abs(n)";
 
         static assert(real.mant_dig >= precision!N);
-        auto control(const real n, Unused m = null) {
-            return stdm.abs(n); }
+        auto control(const real n, Unused m = null)
+        {
+            return stdm.abs(n);
+        }
         alias R = Unsigned!(IntFromChar!N);
 
         fuzz!(sc, Unqual, OutIs!R, control, N)();
     }
 }
 
-void ilogb(N = void)() {
-    static if(is(N == void)) {
-        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
+void ilogb(N = void)()
+{
+    static if (is(N == void))
+    {
+        foreach (N1; AliasSeq!(IntegralTypes, CharTypes))
             ilogb!N1();
-    } else {
+    }
+    else
+    {
         static assert(isFixedPoint!N);
 
         enum sc = "smartOp.ilogb(n)";
 
         static assert(real.mant_dig >= (8 * N.sizeof));
-        auto control(const real n, Unused m = null) {
-            return n != 0? stdm.ilogb(n) : real.nan; }
+        auto control(const real n, Unused m = null)
+        {
+            return n != 0? stdm.ilogb(n) : real.nan;
+        }
 
         fuzz!(sc, Unqual, OutIs!ubyte, control, N)();
     }
 }
 
-void unary(string op = null, N = void)() {
-    static if(op == null) {
-        foreach(op1; AliasSeq!("~", "+", "-", "++", "--"))
+void unary(string op = null, N = void)()
+{
+    static if (op == null)
+    {
+        foreach (op1; AliasSeq!("~", "+", "-", "++", "--"))
             unary!(op1, N)();
-    } else
-    static if(is(N == void)) {
-        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
+    }
+    else static if (is(N == void))
+    {
+        foreach (N1; AliasSeq!(IntegralTypes, CharTypes))
             unary!(op, N1)();
-    } else {
+    }
+    else
+    {
         static assert(isFixedPoint!N);
 
         enum sc = "smartOp.unary!\"" ~ op ~ "\"(n)";
 
         static assert(real.mant_dig >= precision!N);
-        auto control(Select!(op == "~", N, real) n, Unused m = null) {
-            return mixin(op ~ "n"); }
+        auto control(Select!(op == "~", N, real) n, Unused m = null)
+        {
+            return mixin(op ~ "n");
+        }
         enum isVO(N, M, PR) = (PR.sizeof >= N.sizeof) && (isSigned!PR || !op.among!("-", "+"));
 
-        static if(isIntegral!N || !op.among!("++", "--"))
+        static if (isIntegral!N || !op.among!("++", "--"))
             fuzz!(sc, Unqual, isVO, control, N)();
         else
             forbid!(sc, N)();
@@ -130,42 +158,51 @@ void unary(string op = null, N = void)() {
 }
 alias unary(N) = unary!(null, N);
 
-void binary(string op = null, N = void, M = void)() {
-    static if(op == null) {
-        foreach(op1; AliasSeq!("+", "-", "*", "/", "%", "<<", ">>", ">>>", "&", "|", "^"))
+void binary(string op = null, N = void, M = void)()
+{
+    static if (op == null)
+    {
+        foreach (op1; AliasSeq!("+", "-", "*", "/", "%", "<<", ">>", ">>>", "&", "|", "^"))
             binary!(op1, N, M)();
-    } else
-    static if(is(N == void)) {
-        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
+    }
+    else static if (is(N == void))
+    {
+        foreach (N1; AliasSeq!(IntegralTypes, CharTypes))
             binary!(op, N1, M)();
-    } else
-    static if(is(M == void)) {
-        foreach(M1; AliasSeq!(IntegralTypes, CharTypes))
+    }
+    else static if (is(M == void))
+    {
+        foreach (M1; AliasSeq!(IntegralTypes, CharTypes))
             binary!(op, N, M1)();
-    } else {
+    }
+    else
+    {
         static assert(isFixedPoint!N && isFixedPoint!M);
 
-        static if(isIntegral!N)
+        static if (isIntegral!N)
             alias UN = Unsigned!N;
         else
             alias UN = N;
 
-        static if(isIntegral!M)
+        static if (isIntegral!M)
             alias UM = Unsigned!M;
         else
             alias UM = M;
 
-        static void cover(bool assign)() {
+        static void cover(bool assign)()
+        {
             enum sc = "smartOp.binary!\"" ~ op ~ (assign? "=" : "") ~ "\"(n, m)";
 
             static assert(real.mant_dig >= max(precision!N, precision!M));
-            static if(op.among!("<<", ">>", ">>>")) {
-                static N control(const N n, const M m) {
+            static if (op.among!("<<", ">>", ">>>"))
+            {
+                static N control(const N n, const M m)
+                {
                     const shL = (op == "<<") ^ (m < 0);
                     enum int maxSh = (8 * N.sizeof) - 1;
                     const um = cast(UM)stdm.abs(m);
 
-                    static if(op == ">>>")
+                    static if (op == ">>>")
                         auto wret = cast(UN)n;
                     else
                         N wret = n;
@@ -175,7 +212,8 @@ void binary(string op = null, N = void, M = void)() {
                     wret = cast(typeof(wret))(shL?
                         wret << im :
                         wret >> im);
-                    if(again) {
+                    if (again)
+                    {
                         again = false;
                         goto Lagain;
                     }
@@ -183,14 +221,17 @@ void binary(string op = null, N = void, M = void)() {
                     return cast(N)wret;
                 }
                 enum isVO(N, M, PR) = isIntegral!PR && (PR.sizeof == N.sizeof) && (isSigned!PR == isSigned!N);
-            } else
-            static if(op.among!("&", "|", "^")) {
-                static auto control(const N n, const M m) {
-                    static if(assign)
+            }
+            else static if (op.among!("&", "|", "^"))
+            {
+                static auto control(const N n, const M m)
+                {
+                    static if (assign)
                         alias R = N;
-                    else {
+                    else
+                    {
                         alias P = Select!(N.sizeof >= M.sizeof, N, M);
-                        static if(isIntegral!P)
+                        static if (isIntegral!P)
                             alias UP = Unsigned!P;
                         else
                             alias UP = P;
@@ -202,9 +243,12 @@ void binary(string op = null, N = void, M = void)() {
                 }
                 enum isVO(N, M, PR) = isIntegral!PR && (PR.sizeof == max(N.sizeof, M.sizeof)) &&
                     (isSigned!PR == (isSigned!N && isSigned!M));
-            } else {
-                static auto control(const real n, const real m) {
-                    static if(op == "/")
+            }
+            else
+            {
+                static auto control(const real n, const real m)
+                {
+                    static if (op == "/")
                         return stdm.trunc(n / m);
                     else
                         return mixin("n " ~ op ~ " m");
@@ -213,7 +257,7 @@ void binary(string op = null, N = void, M = void)() {
                     ((isSigned!PR == (isSigned!N || (isSigned!M && op != "%"))) || op == "-");
             }
 
-            static if(isIntegral!N || !assign)
+            static if (isIntegral!N || !assign)
                 fuzz!(sc, Unqual, Select!(assign, OutIs!N, isVO), control, N, M)();
             else
                 forbid!(sc, N, M)();
@@ -224,38 +268,49 @@ void binary(string op = null, N = void, M = void)() {
 }
 alias binary(N, M = void) = binary!(null, N, M);
 
-void byPow2(string op = null, N = void, M = void)() {
-    static if(op == null) {
-        foreach(op1; AliasSeq!("*", "/", "%"))
+void byPow2(string op = null, N = void, M = void)()
+{
+    static if (op == null)
+    {
+        foreach (op1; AliasSeq!("*", "/", "%"))
             byPow2!(op1, N, M)();
-    } else
-    static if(is(N == void)) {
-        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
+    }
+    else static if (is(N == void))
+    {
+        foreach (N1; AliasSeq!(IntegralTypes, CharTypes))
             byPow2!(op, N1, M)();
-    } else
-    static if(is(M == void)) {
-        foreach(M1; AliasSeq!(IntegralTypes, CharTypes))
+    }
+    else static if (is(M == void))
+    {
+        foreach (M1; AliasSeq!(IntegralTypes, CharTypes))
             byPow2!(op, N, M1)();
-    } else {
+    }
+    else
+    {
         static assert(isScalarType!N && isScalarType!M);
 
         enum sc = "smartOp." ~ (op == "*"? "mul" : (op == "/"? "div" : "mod")) ~ "Pow2(n, m)";
 
         static assert(real.mant_dig >= max(precision!N, precision!M));
-        real control(const real n, const real m) {
-            if(n == 0 && stdm.isFinite(m))
+        real control(const real n, const real m)
+        {
+            if (n == 0 && stdm.isFinite(m))
                 return 0;
-            else {
+            else
+            {
                 const p2 = stdm.exp2(m);
 
-                static if(op.among!("*", "/")) {
+                static if (op.among!("*", "/"))
+                {
                     const wret = mixin("n " ~ op ~ " p2");
-                    static if(isFloatingPoint!N || isFloatingPoint!M)
+                    static if (isFloatingPoint!N || isFloatingPoint!M)
                         return wret;
                     else
                         return stdm.trunc(wret);
-                } else {
-                    if(!stdm.isFinite(p2))
+                }
+                else
+                {
+                    if (!stdm.isFinite(p2))
                         return (p2 > 0)? n : (p2 < 0)? 0 : real.nan;
                     else
                         return n % (p2 == 0? real.min_normal : p2);
@@ -272,15 +327,20 @@ void byPow2(string op = null, N = void, M = void)() {
 }
 alias byPow2(N, M = void) = byPow2!(null, N, M);
 
-void pow(N = void, M = void)() {
-    static if(is(N == void)) {
-        foreach(N1; AliasSeq!(IntegralTypes, CharTypes))
+void pow(N = void, M = void)()
+{
+    static if (is(N == void))
+    {
+        foreach (N1; AliasSeq!(IntegralTypes, CharTypes))
             pow!(N1, M)();
-    } else
-    static if(is(M == void)) {
-        foreach(M1; AliasSeq!(IntegralTypes, CharTypes))
+    }
+    else static if (is(M == void))
+    {
+        foreach (M1; AliasSeq!(IntegralTypes, CharTypes))
             pow!(N, M1)();
-    } else {
+    }
+    else
+    {
         static assert(isFixedPoint!N && isFixedPoint!M);
         forbid!("smartOp.binary!\"^^\"(n, m)", N, M)();
         forbid!("smartOp.binary!\"^^=\"(n, m)", N, M)();
@@ -288,13 +348,17 @@ void pow(N = void, M = void)() {
         enum sc = "smartOp.pow(n, m)";
 
         static assert(real.mant_dig >= max(precision!N, precision!M));
-        real control(const real n, const real m) {
-            static if(__VERSION__ >= 2070) {
+        real control(const real n, const real m)
+        {
+            static if (__VERSION__ >= 2070)
+            {
                 version(GNU) { static assert(false); }
                 return stdm.trunc(stdm.pow(n, m));
-            } else {
+            }
+            else
+            {
                 // DMD issue #14786
-                if(n == -1 && stdm.fabs(m) <= ulong.max)
+                if (n == -1 && stdm.fabs(m) <= ulong.max)
                     return (cast(ulong)m & 0x1)? -1 : 1;
                 else
                     return stdm.trunc(stdm.pow(n, m));

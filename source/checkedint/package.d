@@ -12,7 +12,8 @@ Authors: Thomas Stuart Bockman
 
 $(BIG $(B Problems solved by `checkedint`)) $(BR)
 As in many other programming languages (C, C++, Java, etc.) D's basic integral types (such as `int` or `ulong`) are
-surprisingly difficult to use correctly, due to variuos departures from the behaviour of ideal mathematical integers:
+surprisingly difficult to use correctly in the general case, due to variuos departures from the behaviour of ideal
+mathematical integers:
 $(UL
     $(LI Overflow silently wraps around: `assert(uint.max + 1 == 0);`)
     $(LI Mixed signed/unsigned comparisons often give the wrong result: `assert(-1 > 1u);`)
@@ -84,8 +85,7 @@ $(OL
     $(LI Build with $(B $(RED `--inline`)) and $(B `-O`) (DMD) or $(B `-O3`) (GDC and LDC). This by itself can improve
         the performance of `checkedint` by around $(B 1,000%).)
     $(LI With GDC or LDC, the performance hit in code that is bottlenecked by integer math will probably be between 30%
-        and 100%. With DMD, performance varies wildly from one frontend version to the next, depending on the whims of
-        the inscrutable and fickle inliner.)
+        and 100%. The performance hit may be considerably larger with DMD, due to the weakness of the inliner.)
     $(LI `checkedint` can't slow down code where it's not used! If you really need more speed, try switching to
         `DebugInt` for the hottest code in your program (like inner loops) before giving up on `checkedint` entirely.)
 )
@@ -106,45 +106,47 @@ import checkedint.flags;
 
 import future.bitop, core.checkedint, std.algorithm, std.format, future.traits0, std.typecons;
 static import std.math;
-static if(__VERSION__ >= 2068) {
+static if (__VERSION__ >= 2068)
+{
     version(GNU) { static assert(false); }
     import std.meta;
-} else {
+}
+else
+{
     import std.typetuple;
     private alias AliasSeq = TypeTuple;
 }
 
 @safe:
 
-/+pragma(inline, true) {+/
+/+pragma(inline, true)
+{+/
 // smart /////////////////////////////////////////////////
-/**
-Wrapper for any basic integral type `N` that uses the checked operations from `smartOp` and bounds checks assignments
-with `checkedint.to()`.
-
-$(UL
-    $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
-    $(LI `bitOps` may be set to `No.bitOps` if desired, to turn bitwise operations on this type into a compile-time
-        error.)
-)
-*/
+    /// Wrapper for any basic integral type `N` that uses the checked operations from `smartOp` and bounds checks
+    /// assignments with `checkedint.to()`.
+    ///
+    /// $(UL
+    ///     $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
+    ///     $(LI `bitOps` may be set to `No.bitOps` if desired, to turn bitwise operations on this type into a
+    ///         compile-time error.)
+    /// )
     struct SmartInt(N, IntFlagPolicy _policy, Flag!"bitOps" bitOps = Yes.bitOps)
-        if(isIntegral!N && isUnqual!N)
+        if (isIntegral!N && isUnqual!N)
     {
-/// The error signalling policy used by this `SmartInt` type.
+        /// The error signalling policy used by this `SmartInt` type.
         enum IntFlagPolicy policy = _policy;
 
-        static if(bitOps) {
-/**
-The basic integral value of this `SmartInt`. Accessing this directly may be useful for:
-$(UL
-    $(LI Intentionally doing modular (unchecked) arithmetic, or)
-    $(LI Interacting with APIs that are not `checkedint` aware.)
-)
-*/
+        static if (bitOps)
+        {
+            /// The basic integral value of this `SmartInt`. Accessing this directly may be useful for:
+            /// $(UL
+            ///     $(LI Intentionally doing modular (unchecked) arithmetic, or)
+            ///     $(LI Interacting with APIs that are not `checkedint` aware.)
+            /// )
             N bscal;
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
                 SmartInt!uint n;
@@ -157,72 +159,87 @@ $(UL
                 assert(n == uint.max);
             }
 
-/// Get a view of this `SmartInt` that allows bitwise operations.
-            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() inout pure nothrow @nogc {
-                return this; }
+            /// Get a view of this `SmartInt` that allows bitwise operations.
+            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() inout pure nothrow @nogc
+            {
+                return this;
+            }
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
                 SmartInt!(int, No.bitOps) n = 1;
                 static assert(!__traits(compiles, n << 2));
                 assert(n.bits << 2 == 4);
             }
-        } else {
-            @property ref inout(N) bscal() inout pure nothrow @nogc {
-                return bits.bscal; }
+        }
+        else
+        {
+            @property ref inout(N) bscal() inout pure nothrow @nogc
+            {
+                return bits.bscal;
+            }
             SmartInt!(N, policy, Yes.bitOps) bits;
         }
 
-        static if(__VERSION__ >= 2067) {
+        static if (__VERSION__ >= 2067)
+        {
             version(GNU) { static assert(false); }
 
-/// The most negative possible value of this `SmartInt` type.
+            /// The most negative possible value of this `SmartInt` type.
             enum SmartInt!(N, policy, bitOps) min = typeof(this)(trueMin!N);
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
                 assert(SmartInt!(int).min == int.min);
                 assert(SmartInt!(uint).min == uint.min);
             }
 
-/// The most positive possible value of this `SmartInt` type.
+            /// The most positive possible value of this `SmartInt` type.
             enum SmartInt!(N, policy, bitOps) max = typeof(this)(trueMax!N);
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.throws : SmartInt; // use IntFlagPolicy.throws;
 
                 assert(SmartInt!(int).max == int.max);
                 assert(SmartInt!(uint).max == uint.max);
             }
-        } else {
-            static @property auto min() pure nothrow @nogc {
-                return typeof(this)(trueMin!N); }
-            static @property auto max() pure nothrow @nogc {
-                return typeof(this)(trueMax!N); }
+        }
+        else
+        {
+            static @property auto min() pure nothrow @nogc
+            {
+                return typeof(this)(trueMin!N);
+            }
+            static @property auto max() pure nothrow @nogc
+            {
+                return typeof(this)(trueMax!N);
+            }
         }
 
         // Construction, assignment, and casting /////////////////////////////////////////////////
-/**
-Assign the value of `that` to this `SmartInt` instance.
-
-`checkedint.to()` is used to verify `that >= N.min && that <= N.max`. If not, an `IntFlag` will be raised.
-*/
+        /// Assign the value of `that` to this `SmartInt` instance.
+        ///
+        /// `checkedint.to()` is used to verify `that >= N.min && that <= N.max`. If not, an `IntFlag` will be raised.
         this(M)(const M that)
-            if(isCheckedInt!M || isScalarType!M)
+            if (isCheckedInt!M || isScalarType!M)
         {
             this.bscal = to!(N, policy)(that);
         }
-/// ditto
+        /// ditto
         ref typeof(this) opAssign(M)(const M that)
-            if(isCheckedInt!M || isScalarType!M)
+            if (isCheckedInt!M || isScalarType!M)
         {
             this.bscal = to!(N, policy)(that);
             return this;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : SmartInt; // use IntFlagPolicy.noex
 
             // Any basic scalar or checkedint *type* is accepted...
@@ -242,12 +259,10 @@ Assign the value of `that` to this `SmartInt` instance.
             IntFlags.local.clear();
         }
 
-/**
-Convert this value to floating-point. This always succeeds, although some loss of precision may
-occur if M.sizeof <= N.sizeof.
-*/
+        /// Convert this value to floating-point. This always succeeds, although some loss of precision may
+        /// occur if M.sizeof <= N.sizeof.
         M opCast(M)() const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return cast(M)bscal;
         }
@@ -261,14 +276,15 @@ occur if M.sizeof <= N.sizeof.
             assert(f == 92.0);
         }
 
-/// `this != 0`
+        /// `this != 0`
         M opCast(M)() const pure nothrow @nogc
-            if(is(M == bool))
+            if (is(M == bool))
         {
             return bscal != 0;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
             SmartInt!int n = -315;
@@ -278,17 +294,16 @@ occur if M.sizeof <= N.sizeof.
             assert(!cast(bool)n);
         }
 
-/**
-Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if `M` cannot
-represent the current value of this `SmartInt`.
-*/
+        /// Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if
+        /// `M` cannot represent the current value of this `SmartInt`.
         M opCast(M)() const
-            if(isCheckedInt!M || isIntegral!M || isSomeChar!M)
+            if (isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
             return to!(M, policy)(bscal);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : SmartInt; // use IntFlagPolicy.noex
 
             SmartInt!ulong n = 52;
@@ -305,163 +320,180 @@ represent the current value of this `SmartInt`.
             IntFlags.local.clear();
         }
 
-/**
-Convert this value to a type suitable for indexing an array:
-$(UL
-    $(LI If `N` is signed, a `ptrdiff_t` is returned.)
-    $(LI If `N` is unsigned, a `size_t` is returned.)
-)
-`checkedint.to()` is used for bounds checking.
-*/
-        @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const {
-            return to!(typeof(return), policy)(bscal); }
+        /// Convert this value to a type suitable for indexing an array:
+        /// $(UL
+        ///     $(LI If `N` is signed, a `ptrdiff_t` is returned.)
+        ///     $(LI If `N` is unsigned, a `size_t` is returned.)
+        /// )
+        /// `checkedint.to()` is used for bounds checking.
+        @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const
+        {
+            return to!(typeof(return), policy)(bscal);
+        }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
             char[3] arr = ['a', 'b', 'c'];
             SmartInt!long n = 1;
 
             // On 32-bit, `long` cannot be used directly for array indexing,
-            static if(size_t.sizeof < long.sizeof)
+            static if (size_t.sizeof < long.sizeof)
                 static assert(!__traits(compiles, arr[n]));
             // but idx can be used to concisely and safely cast to ptrdiff_t:
             assert(arr[n.idx] == 'b');
 
             // The conversion is bounds checked:
-            static if(size_t.sizeof < long.sizeof) {
+            static if (size_t.sizeof < long.sizeof)
+            {
                 n = long.min;
-                try {
+                try
+                {
                     arr[n.idx] = '?';
-                } catch(CheckedIntException e) {
+                }
+                catch(CheckedIntException e)
+                {
                     assert(e.intFlags == IntFlag.negOver);
                 }
             }
         }
 
-/// Get a simple hashcode for this value.
-        size_t toHash() const pure nothrow @nogc {
-            static if(N.sizeof > size_t.sizeof) {
+        /// Get a simple hashcode for this value.
+        size_t toHash() const pure nothrow @nogc
+        {
+            static if (N.sizeof > size_t.sizeof)
+            {
                 static assert(N.sizeof == (2 * size_t.sizeof));
                 return cast(size_t)bscal ^ cast(size_t)(bscal >>> 32);
-            } else
+            }
+            else
                 return cast(size_t)bscal;
         }
 
-/// Get a `string` representation of this value.
-        string toString() const {
-            return to!(string, IntFlagPolicy.noex)(bscal); }
-/// ditto
-        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted {
-            formatValue(sink, bscal, fmt); }
+        /// Get a `string` representation of this value.
+        string toString() const
+        {
+            return to!(string, IntFlagPolicy.noex)(bscal);
+        }
+        /// ditto
+        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted
+        {
+            formatValue(sink, bscal, fmt);
+        }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : smartInt; // use IntFlagPolicy.throws
             assert(smartInt(-753).toString() == "-753");
         }
 
         // Comparison /////////////////////////////////////////////////
-/// Returns `true` if this value is mathematically precisely equal to `right`.
+        /// Returns `true` if this value is mathematically precisely equal to `right`.
         bool opEquals(M)(const M right) const pure nothrow @nogc
-            if(isCheckedInt!M || isScalarType!M)
+            if (isCheckedInt!M || isScalarType!M)
         {
             return smartOp!(policy).cmp!"=="(this.bscal, right.bscal);
         }
-/**
-Perform a mathematically correct comparison to `right`.
-
-Returns: $(UL
-    $(LI `-1` if this value is less than `right`.)
-    $(LI ` 0` if this value is precisely equal to `right`.)
-    $(LI ` 1` if this value is greater than `right`.)
-    $(LI `float.nan` if `right` is a floating-point `nan` value.)
-)
-*/
+        /// Perform a mathematically correct comparison to `right`.
+        ///
+        /// Returns: $(UL
+        ///     $(LI `-1` if this value is less than `right`.)
+        ///     $(LI ` 0` if this value is precisely equal to `right`.)
+        ///     $(LI ` 1` if this value is greater than `right`.)
+        ///     $(LI `float.nan` if `right` is a floating-point `nan` value.)
+        /// )
         auto opCmp(M)(const M right) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return
                 (bscal <  right)? -1 :
                 (bscal >  right)?  1 :
                 (bscal == right)?  0 : float.nan;
         }
-/// ditto
+        /// ditto
         int opCmp(M)(const M right) const pure nothrow @nogc
-            if(isCheckedInt!M || isScalarType!M)
+            if (isCheckedInt!M || isScalarType!M)
         {
             return smartOp!(policy).cmp(this.bscal, right.bscal);
         }
 
         // Unary /////////////////////////////////////////////////
-/// See `smartOp`.
+        /// See `smartOp`.
         typeof(this) opUnary(string op)() const pure nothrow @nogc
-            if(op == "~")
+            if (op == "~")
         {
             static assert(bitOps,
                 "Bitwise operations are disabled.");
 
             return typeof(return)(smartOp!(policy).unary!op(bscal));
         }
-/// ditto
+        /// ditto
         SmartInt!(Signed!N, policy, bitOps) opUnary(string op)() const
-            if(op == "+" || op == "-")
+            if (op == "+" || op == "-")
         {
             return typeof(return)(smartOp!(policy).unary!op(bscal));
         }
-/// ditto
+        /// ditto
         ref typeof(this) opUnary(string op)()
-            if(op.among!("++", "--"))
+            if (op.among!("++", "--"))
         {
             smartOp!(policy).unary!op(bscal);
             return this;
         }
 
-/// ditto
-        SmartInt!(Unsigned!N, policy, bitOps) abs() const pure nothrow @nogc {
+        /// ditto
+        SmartInt!(Unsigned!N, policy, bitOps) abs() const pure nothrow @nogc
+        {
             return typeof(return)(smartOp!(policy).abs(bscal));
         }
 
-/// Count the number of set bits using `core.bitop.popcnt()`.
-        SmartInt!(int, policy, bitOps) popcnt()() const pure nothrow @nogc {
+        /// Count the number of set bits using `core.bitop.popcnt()`.
+        SmartInt!(int, policy, bitOps) popcnt()() const pure nothrow @nogc
+        {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             import future.bitop : stdPC = popcnt;
             return typeof(return)(stdPC(bscal));
         }
 
-/// See `smartOp`.
-        SmartInt!(ubyte, policy, bitOps) bsf()() const {
+        /// See `smartOp`.
+        SmartInt!(ubyte, policy, bitOps) bsf()() const
+        {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             return typeof(return)(smartOp!(policy).bsf(bscal));
         }
-/// ditto
-        SmartInt!(ubyte, policy, bitOps) bsr()() const {
+        /// ditto
+        SmartInt!(ubyte, policy, bitOps) bsr()() const
+        {
             static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
             return typeof(return)(smartOp!(policy).bsr(bscal));
         }
 
-/// ditto
-        SmartInt!(ubyte, policy, bitOps) ilogb() const {
-            return typeof(return)(smartOp!(policy).ilogb(bscal)); }
+        /// ditto
+        SmartInt!(ubyte, policy, bitOps) ilogb() const
+        {
+            return typeof(return)(smartOp!(policy).ilogb(bscal));
+        }
 
         // Binary /////////////////////////////////////////////////
-/// ditto
+        /// ditto
         auto opBinaryRight(string op, M)(const M left) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return smartOp!(policy).binary!op(left, bscal);
         }
-/// ditto
+        /// ditto
         auto opBinary(string op, M)(const M right) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return smartOp!(policy).binary!op(bscal, right);
         }
-/// ditto
+        /// ditto
         auto opBinaryRight(string op, M)(const M left) const
-            if(isSafeInt!M || isFixedPoint!M)
+            if (isSafeInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             enum mixBitOps = bitOps && hasBitOps!M;
@@ -471,9 +503,9 @@ Returns: $(UL
             const wret = smartOp!(mixPolicy).binary!op(left.bscal, this.bscal);
             return SmartInt!(typeof(wret), mixPolicy, mixBitOps)(wret);
         }
-/// ditto
+        /// ditto
         auto opBinary(string op, M)(const M right) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             enum mixBitOps = bitOps && hasBitOps!M;
@@ -483,9 +515,9 @@ Returns: $(UL
             const wret = smartOp!(mixPolicy).binary!op(this.bscal, right.bscal);
             return SmartInt!(typeof(wret), mixPolicy, mixBitOps)(wret);
         }
-/// ditto
+        /// ditto
         ref typeof(this) opOpAssign(string op, M)(const M right)
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
@@ -494,72 +526,73 @@ Returns: $(UL
             return this;
         }
 
-/// ditto
+        /// ditto
         auto mulPow2(M)(const M exp) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return smartOp!(policy).mulPow2(bscal, exp);
         }
-/// ditto
+        /// ditto
         auto mulPow2(M)(const M exp) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             const wret = smartOp!(mixPolicy).mulPow2(this.bscal, exp.bscal);
             return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
-/// ditto
+        /// ditto
         auto divPow2(M)(const M exp) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return smartOp!(policy).divPow2(bscal, exp);
         }
-/// ditto
+        /// ditto
         auto divPow2(M)(const M exp) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             const wret = smartOp!(mixPolicy).divPow2(this.bscal, exp.bscal);
             return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
-/// ditto
+        /// ditto
         auto modPow2(M)(const M exp) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return smartOp!(policy).modPow2(bscal, exp);
         }
-/// ditto
+        /// ditto
         auto modPow2(M)(const M exp) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             const wret = smartOp!(mixPolicy).modPow2(this.bscal, exp.bscal);
             return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
 
-/// Raise `this` to the `exp` power using `std.math.pow()`.
+        /// Raise `this` to the `exp` power using `std.math.pow()`.
         auto pow(M)(const M exp) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return std.math.pow(bscal, exp);
         }
-/// See `smartOp`.
+        /// See `smartOp`.
         auto pow(M)(const M exp) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             const wret = smartOp!(mixPolicy).pow(this.bscal, exp.bscal);
             return SmartInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
     }
-/// ditto
+    /// ditto
     template SmartInt(N, IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps)
-        if((isIntegral!N && !isUnqual!N) || isCheckedInt!N)
+        if ((isIntegral!N && !isUnqual!N) || isCheckedInt!N)
     {
         alias SmartInt = SmartInt!(BasicScalar!N, policy, bitOps);
     }
     ///
-    unittest {
+    unittest
+    {
         // Mixing standard signed and unsigned types is dangerous, but...
         int ba = -1;
         uint bb = 0;
@@ -582,7 +615,8 @@ Returns: $(UL
         assert(mc == -1);
     }
     ///
-    unittest {
+    unittest
+    {
         // When IntFlagPolicy.throws is used, failed SmartInt operations will throw a CheckedIntException.
         import checkedint.throws : SmartInt;
 
@@ -590,21 +624,27 @@ Returns: $(UL
         SmartInt!uint mb = 0;
 
         bool overflow = false;
-        try {
+        try
+        {
             SmartInt!uint mc = mb - ma;
             assert(false);
-        } catch(CheckedIntException e) {
+        }
+        catch(CheckedIntException e)
+        {
             assert(e.intFlags == IntFlag.negOver);
             overflow = true;
         }
         assert(overflow);
 
         bool div0 = false;
-        try {
+        try
+        {
             // With standard integers, this would crash the program with an unrecoverable FPE...
             SmartInt!uint mc = ma / mb;
             assert(false);
-        } catch(CheckedIntException e) {
+        }
+        catch(CheckedIntException e)
+        {
             // ...but with SmartInt, it just throws a normal Exception.
             assert(e.intFlags == IntFlag.div0);
             div0 = true;
@@ -612,7 +652,8 @@ Returns: $(UL
         assert(div0);
     }
     ///
-    unittest {
+    unittest
+    {
         // When IntFlagPolicy.noex is used, failed SmartInt operations set one or more bits in IntFlags.local.
         import checkedint.noex : SmartInt;
 
@@ -635,7 +676,7 @@ Returns: $(UL
     }
 
     private template SmartInt(N, IntFlagPolicy policy, bool bitOps)
-        if(isIntegral!N)
+        if (isIntegral!N)
     {
         alias SmartInt = SmartInt!(
             Unqual!N,
@@ -643,14 +684,15 @@ Returns: $(UL
             cast(Flag!"bitOps")bitOps);
     }
 
-/// Get the value of `num` as a `SmartInt!N`. The integral type `N` can be infered from the argument.
+    /// Get the value of `num` as a `SmartInt!N`. The integral type `N` can be infered from the argument.
     SmartInt!(N, policy, bitOps) smartInt(IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
-        if(isIntegral!N || isCheckedInt!N)
+        if (isIntegral!N || isCheckedInt!N)
     {
         return typeof(return)(num.bscal);
     }
     ///
-    unittest {
+    unittest
+    {
         import checkedint.throws : smartInt, SmartInt; // use IntFlagPolicy.throws
 
         auto a = smartInt(55uL);
@@ -658,20 +700,22 @@ Returns: $(UL
         assert(a == 55);
     }
 
-/**
-Implements various integer math operations with error checking.
-
-`smartOp` strives to give the mathematically correct result, with integer-style rounding, for all inputs. Only if the
-correct result is undefined or not representable by the return type is an error signalled, using `checkedint.flags`.
-
-The error-signalling policy may be selected using the `policy` template parameter.
-*/
-    template smartOp(IntFlagPolicy policy) {
+    /// Implements various integer math operations with error checking.
+    ///
+    /// `smartOp` strives to give the mathematically correct result, with integer-style rounding, for all inputs. Only
+    /// if the correct result is undefined or not representable by the return type is an error signalled, using
+    /// `checkedint.flags`.
+    ///
+    /// The error-signalling policy may be selected using the `policy` template parameter.
+    template smartOp(IntFlagPolicy policy)
+    {
         // NOTE: ddoc only scans the first branch of a static if
-        static if(policy == IntFlagPolicy.none) {
+        static if (policy == IntFlagPolicy.none)
+        {
             // No need to redundantly instantiate members which don't depend on `policy`.
 
-            private void cmpTypeCheck(N, M)() pure nothrow @nogc {
+            private void cmpTypeCheck(N, M)() pure nothrow @nogc
+            {
                 static assert(isBoolean!N == isBoolean!M,
                     "The intent of a direct comparison of " ~
                     N.stringof ~ " with " ~ M.stringof ~
@@ -679,30 +723,35 @@ The error-signalling policy may be selected using the `policy` template paramete
                 );
             }
 
-/**
-Compare `left` and `right` using `op`.
-$(UL
-    $(LI Unlike the standard integer comparison operator, this function correctly handles negative values in
-        signed/unsigned comparisons.)
-    $(LI Like the standard operator, comparisons involving any floating-point `nan` value always return `false`.)
-) $(BR)
-Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
-$(UL
-    $(LI `cast(N)boolean == numeric`)
-    $(LI `boolean == (numeric != 0)`)
-)
-*/
+            /**
+            Compare `left` and `right` using `op`.
+            $(UL
+                $(LI Unlike the standard integer comparison operator, this function correctly handles negative
+                    values in signed/unsigned comparisons.)
+                $(LI Like the standard operator, comparisons involving any floating-point `nan` value always return
+                    `false`.)
+            ) $(BR)
+            Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
+            $(UL
+                $(LI `cast(N)boolean == numeric`)
+                $(LI `boolean == (numeric != 0)`)
+            )
+            **/
             bool cmp(string op, N, M)(const N left, const M right) pure nothrow @nogc
-                if(isScalarType!N && isScalarType!M)
+                if (isScalarType!N && isScalarType!M)
             {
                 cmpTypeCheck!(N, M)();
 
-                static if(isSigned!N != isSigned!M) {
-                    static if(isSigned!N) {
-                        if(left < 0)
+                static if (isSigned!N != isSigned!M)
+                {
+                    static if (isSigned!N)
+                    {
+                        if (left < 0)
                             return mixin("-1 " ~ op ~ " 0");
-                    } else {
-                        if(right < 0)
+                    }
+                    else
+                    {
+                        if (right < 0)
                             return mixin("0 " ~ op ~ " -1");
                     }
                 }
@@ -710,7 +759,8 @@ $(UL
                 return mixin("left " ~ op ~ " right");
             }
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.noex : smartOp; // smartOp.cmp() never throws
 
                 assert(uint.max == -1);
@@ -722,35 +772,44 @@ $(UL
                 assert(!smartOp.cmp!"<"(real.nan, 1));
             }
 
-/**
-Defines a total order on all basic scalar values, using the same rules as `std.math.cmp()`.
+            /**
+            Defines a total order on all basic scalar values, using the same rules as `std.math.cmp()`.
 
-$(UL
-    $(LI Mixed signed/unsigned comparisons return the mathematically correct result.)
-    $(LI If neither `left` nor `right` is floating-point, this function is faster than `std.math.cmp()`.)
-    $(LI If either `left` or `right` $(I is) floating-point, this function forwards to `std.math.cmp()`.)
-) $(BR)
-Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
-$(UL
-    $(LI `cast(N)boolean == numeric`)
-    $(LI `boolean == (numeric != 0)`)
-)
-*/
+            $(UL
+                $(LI Mixed signed/unsigned comparisons return the mathematically correct result.)
+                $(LI If neither `left` nor `right` is floating-point, this function is faster than
+                    `std.math.cmp()`.)
+                $(LI If either `left` or `right` $(I is) floating-point, this function forwards to
+                    `std.math.cmp()`.)
+            ) $(BR)
+            Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
+            $(UL
+                $(LI `cast(N)boolean == numeric`)
+                $(LI `boolean == (numeric != 0)`)
+            )
+            **/
             int cmp(N, M)(const N left, const M right) pure nothrow @nogc
-                if(isScalarType!N && isScalarType!M)
+                if (isScalarType!N && isScalarType!M)
             {
                 cmpTypeCheck!(N, M)();
 
-                static if(isFloatingPoint!N || isFloatingPoint!M) {
+                static if (isFloatingPoint!N || isFloatingPoint!M)
+                {
                     import future.math : stdCmp = cmp;
                     return stdCmp(left, right);
-                } else {
-                    static if(isSigned!N != isSigned!M) {
-                        static if(isSigned!N) {
-                            if(left < 0)
+                }
+                else
+                {
+                    static if (isSigned!N != isSigned!M)
+                    {
+                        static if (isSigned!N)
+                        {
+                            if (left < 0)
                                 return -1;
-                        } else {
-                            if(right < 0)
+                        }
+                        else
+                        {
+                            if (right < 0)
                                 return  1;
                         }
                     }
@@ -759,7 +818,8 @@ $(UL
                 }
             }
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.noex : smartOp; // smartOp.cmp() never throws
 
                 assert(smartOp.cmp(325.0, 325u) == 0);
@@ -767,25 +827,26 @@ $(UL
                 assert(smartOp.cmp(-3156, 300u) == -1);
             }
 
-/// Get the absolute value of `num`. Because the return type is always unsigned, overflow is not possible.
+            /// Get the absolute value of `num`. Because the return type is always unsigned, overflow is not possible.
             Unsigned!N abs(N)(const N num) pure nothrow @nogc
-                if(isIntegral!N)
+                if (isIntegral!N)
             {
-                static if(!isSigned!N)
+                static if (!isSigned!N)
                     return num;
                 else
                     return cast(typeof(return))(num < 0?
                         -num : // -num doesn't need to be checked for overflow
                          num);
             }
-/// ditto
+            /// ditto
             IntFromChar!N abs(N)(const N num) pure nothrow @nogc
-                if(isSomeChar!N)
+                if (isSomeChar!N)
             {
                 return num;
             }
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.noex : smartOp; // smartOp.abs() never throws
 
                 assert(smartOp.abs(int.min) == std.math.pow(2.0, 31));
@@ -794,7 +855,7 @@ $(UL
             }
 
             private template Result(N, string op, M)
-                if(isNumeric!N && isNumeric!M)
+                if (isNumeric!N && isNumeric!M)
             {
             private:
                 enum reqFloat = isFloatingPoint!N || isFloatingPoint!M;
@@ -829,84 +890,99 @@ $(UL
                             Select!(reqPrec <= 32, uint, ulong))));
             }
             private template Result(N, string op, M)
-                if(isScalarType!N && isScalarType!M &&
+                if (isScalarType!N && isScalarType!M &&
                     (!isNumeric!N || !isNumeric!M))
             {
                 alias Result = Result!(NumFromScal!N, op, NumFromScal!M);
             }
-        } else {
+        }
+        else
+        {
             alias cmp = smartOp!(IntFlagPolicy.none).cmp;
             alias abs = smartOp!(IntFlagPolicy.none).abs;
             private alias Result = smartOp!(IntFlagPolicy.none).Result;
         }
 
-/**
-Perform the unary (single-argument) integer operation specified by `op`.
+        /**
+        Perform the unary (single-argument) integer operation specified by `op`.
 
-Key differences from the standard unary operators:
-$(UL
-    $(LI `-` and `+` always return a signed value.)
-    $(LI `-` is checked for overflow, because `-int.min` is greater than `int.max`.)
-    $(LI `++` and `--` are checked for overflow.)
-) $(BR)
-Note that like the standard operators, `++` and `--` take the operand by `ref` and overwrite its value with the result.
-*/
+        Key differences from the standard unary operators:
+        $(UL
+            $(LI `-` and `+` always return a signed value.)
+            $(LI `-` is checked for overflow, because `-int.min` is greater than `int.max`.)
+            $(LI `++` and `--` are checked for overflow.)
+        ) $(BR)
+        Note that like the standard operators, `++` and `--` take the operand by `ref` and overwrite its value with
+        the result.
+        **/
         N unary(string op, N)(const N num) pure nothrow @nogc
-            if(isIntegral!N && op == "~")
+            if (isIntegral!N && op == "~")
         {
             return ~num;
         }
-/// ditto
+        /// ditto
         IntFromChar!N unary(string op, N)(const N num) pure nothrow @nogc
-            if(isSomeChar!N && op == "~")
+            if (isSomeChar!N && op == "~")
         {
             return ~num;
         }
-/// ditto
+        /// ditto
         Signed!(Promoted!N) unary(string op, N)(const N num)
-            if(isFixedPoint!N && op.among!("-", "+"))
+            if (isFixedPoint!N && op.among!("-", "+"))
         {
             alias R = typeof(return);
             alias UR = Unsigned!R;
 
-            static if(op == "-") {
-                static if(isSigned!N) {
-                    if(num < -trueMax!R)
+            static if (op == "-")
+            {
+                static if (isSigned!N)
+                {
+                    if (num < -trueMax!R)
                         IntFlag.posOver.raise!policy();
-                } else {
-                    if(num > cast(UR)trueMin!R)
+                }
+                else
+                {
+                    if (num > cast(UR)trueMin!R)
                         IntFlag.negOver.raise!policy();
                 }
 
                 return -cast(R)num;
-            } else {
-                static if(!isSigned!N) {
-                    if(num > trueMax!R)
+            }
+            else
+            {
+                static if (!isSigned!N)
+                {
+                    if (num > trueMax!R)
                         IntFlag.posOver.raise!policy();
                 }
 
                 return num;
             }
         }
-/// ditto
+        /// ditto
         /+ref+/ N unary(string op, N)(/+return+/ ref N num)
-            if(isIntegral!N && op.among!("++", "--"))
+            if (isIntegral!N && op.among!("++", "--"))
         {
-            static if(op == "++") {
-                if(num >= trueMax!N)
+            static if (op == "++")
+            {
+                if (num >= trueMax!N)
                     IntFlag.posOver.raise!policy();
 
                 return ++num;
-            } else static if(op == "--") {
-                if(num <= trueMin!N)
+            }
+            else static if (op == "--")
+            {
+                if (num <= trueMin!N)
                     IntFlag.negOver.raise!policy();
 
                 return --num;
-            } else
+            }
+            else
                 static assert(false);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.unary!"~"(0u) == uint.max);
@@ -932,14 +1008,15 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
             assert(d == 8);
         }
 
-/// `core.bitop.bsf` without the undefined behaviour. `smartOp.bsf(0)` will raise `IntFlag.undef`.
+        /// `core.bitop.bsf` without the undefined behaviour. `smartOp.bsf(0)` will raise `IntFlag.undef`.
         ubyte bsf(N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
             return cast(ubyte) bsfImpl!policy(num);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp;
 
             assert(smartOp.bsf(20) == 2);
@@ -950,14 +1027,15 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
             IntFlags.local.clear();
         }
 
-/// `core.bitop.bsr` without the undefined behaviour. `smartOp.bsr(0)` will raise `IntFlag.undef`.
+        /// `core.bitop.bsr` without the undefined behaviour. `smartOp.bsr(0)` will raise `IntFlag.undef`.
         ubyte bsr(N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
             return cast(ubyte) bsrImpl!policy(num);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp;
 
             assert(smartOp.bsr( 20) ==  4);
@@ -969,18 +1047,17 @@ Note that like the standard operators, `++` and `--` take the operand by `ref` a
             IntFlags.local.clear();
         }
 
-/**
-Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
-
-`smartOp.ilogb(0)` will raise `IntFlag.undef`.
-*/
+        /// Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
+        ///
+        /// `smartOp.ilogb(0)` will raise `IntFlag.undef`.
         ubyte ilogb(N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
             return cast(ubyte) bsrImpl!policy(abs(num));
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp;
 
             assert(smartOp.ilogb(20) == 4);
@@ -993,7 +1070,7 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
         }
 
         private auto binaryImpl(string op, N, M)(const N left, const M right)
-            if(isIntegral!N && isIntegral!M)
+            if (isIntegral!N && isIntegral!M)
         {
             enum wop = (op[$-1] == '=')? op[0 .. $-1] : op;
             alias
@@ -1002,40 +1079,50 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                  W = Result!(N, wop, M),
                  R = Select!(wop == op, W, N);
 
-            static if(wop.among!("+", "-", "*")) {
+            static if (wop.among!("+", "-", "*"))
+            {
                 enum safePrec = (wop == "*")?
                     precision!N + precision!M :
                     max(precision!N, precision!M) + 1;
                 enum safeR = precision!R >= safePrec;
 
-                static if(safeR)
+                static if (safeR)
                     return mixin("cast(R)left " ~ wop ~ " cast(R)right");
-                else {
+                else
+                {
                     enum safeW = precision!W >= safePrec;
                     enum matched = (isSigned!N == isSigned!M);
                     enum oX = staticIndexOf!(wop, "+", "-", "*") << 1;
                     alias cops = AliasSeq!(addu, adds, subu, subs, mulu, muls);
 
-                    static if(safeW || matched || wop == "*") {
+                    static if (safeW || matched || wop == "*")
+                    {
                         bool over;
-                        static if(safeW)
+                        static if (safeW)
                             const wR = mixin("cast(W)left " ~ wop ~ " cast(W)right");
-                        else {
-                            static if(matched) {
+                        else
+                        {
+                            static if (matched)
+                            {
                                 alias cop = cops[oX + isSigned!W];
                                 const wR = cop(left, right, over);
-                            } else {
+                            }
+                            else
+                            {
                                 // integer multiplication is commutative
-                                static if(isSigned!N)
+                                static if (isSigned!N)
                                     W sa = left, ub = right;
                                 else
                                     W ub = left, sa = right;
 
-                                static if(isSigned!R) {
+                                static if (isSigned!R)
+                                {
                                     W wR = muls(sa, ub, over);
-                                    if(ub < 0)
+                                    if (ub < 0)
                                         over = (sa != 0) && (ub != trueMin!W || sa != -1);
-                                } else {
+                                }
+                                else
+                                {
                                     over = (sa < 0) && (ub != 0);
                                     const wR = mulu(sa, ub, over);
                                 }
@@ -1043,15 +1130,19 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                         }
 
                         alias WR = typeof(wR);
-                        static if(isSigned!WR && trueMin!WR < trueMin!R) {
-                            if(wR < trueMin!R)
+                        static if (isSigned!WR && trueMin!WR < trueMin!R)
+                        {
+                            if (wR < trueMin!R)
                                 over = true;
                         }
-                        static if(trueMax!WR > trueMax!R) {
-                            if(wR > trueMax!R)
+                        static if (trueMax!WR > trueMax!R)
+                        {
+                            if (wR > trueMax!R)
                                 over = true;
                         }
-                    } else {
+                    }
+                    else
+                    {
                         alias UW = Unsigned!W;
                         alias WR = Select!(isSigned!R, W, UW);
                         alias cop = cops[oX];
@@ -1060,124 +1151,157 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                         const wR = cast(WR) cop(cast(UW)left, cast(UW)right, hiBit);
                         const bool wSign = (Select!(isSigned!N, left, right) < 0) ^ hiBit;
 
-                        static if(isSigned!WR) {
-                            static if(trueMax!WR > trueMax!R) {
+                        static if (isSigned!WR)
+                        {
+                            static if (trueMax!WR > trueMax!R)
+                            {
                                 const over = (wR < 0)?
                                     !wSign || (wR < trueMin!R) :
                                      wSign || (wR > trueMax!R);
-                            } else
+                            }
+                            else
                                 const over = (wR < 0) != wSign;
-                        } else {
-                            static if(trueMax!WR > trueMax!R)
+                        }
+                        else
+                        {
+                            static if (trueMax!WR > trueMax!R)
                                 const over = wSign || (wR > trueMax!R);
                             else
                                 alias over = wSign;
                         }
                     }
 
-                    if(over)
+                    if (over)
                         IntFlag.over.raise!policy();
                     return cast(R) wR;
                 }
-            } else
-            static if(wop == "/") {
-                static if(!isSigned!N && !isSigned!M) {
+            }
+            else static if (wop == "/")
+            {
+                static if (!isSigned!N && !isSigned!M)
+                {
                     R ret = void;
-                    if(right == 0) {
+                    if (right == 0)
+                    {
                         IntFlag.div0.raise!policy();
                         ret = 0;
-                    } else
+                    }
+                    else
                         ret = cast(R)(left / right);
 
                     return ret;
-                } else {
+                }
+                else
+                {
                     alias P = Select!(precision!N <= 32 && precision!M <= 32, uint, ulong);
 
                     IntFlag flag;
                     R ret = void;
-                    if(right == 0) {
+                    if (right == 0)
+                    {
                         flag = IntFlag.div0;
                         ret = 0;
-                    } else {
-                        static if(isSigned!N && isSigned!M) {
-                            if(left == trueMin!R && right == -1) {
+                    }
+                    else
+                    {
+                        static if (isSigned!N && isSigned!M)
+                        {
+                            if (left == trueMin!R && right == -1)
+                            {
                                 flag = IntFlag.posOver;
                                 ret = 0;
-                            } else
+                            }
+                            else
                                 ret = cast(R)(left / right);
-                        } else {
+                        }
+                        else
+                        {
                             alias UR = Unsigned!R;
 
                             P wL = void;
                             P wG = void;
-                            static if(isSigned!N) {
+                            static if (isSigned!N)
+                            {
                                 const negR = left < 0;
                                 alias side = left;
                                 alias wS = wL;
                                 wG = cast(P)right;
-                            } else {
+                            }
+                            else
+                            {
                                 const negR = right < 0;
                                 wL = cast(P)left;
                                 alias side = right;
                                 alias wS = wG;
                             }
 
-                            if(negR) {
+                            if (negR)
+                            {
                                 wS = -cast(P)side;
                                 const P wR = wL / wG;
 
-                                if(wR > cast(UR)trueMin!R)
+                                if (wR > cast(UR)trueMin!R)
                                     flag = IntFlag.negOver;
                                 ret = -cast(R)wR;
-                            } else {
+                            }
+                            else
+                            {
                                 wS =  cast(P)side;
                                 const P wR = wL / wG;
 
-                                if(wR > cast(UR)trueMax!R)
+                                if (wR > cast(UR)trueMax!R)
                                     flag = IntFlag.posOver;
                                 ret =  cast(R)wR;
                             }
                         }
                     }
 
-                    if(!flag.isNull)
+                    if (!flag.isNull)
                         flag.raise!policy();
                     return ret;
                 }
-            } else
-            static if(wop == "%") {
+            }
+            else static if (wop == "%")
+            {
                 R ret = void;
-                static if(isSigned!M)
+                static if (isSigned!M)
                     const wG = cast(UM)((right < 0)? -right : right);
                 else
                     const wG = right;
 
-                if(wG <= trueMax!N) {
-                    if(wG)
+                if (wG <= trueMax!N)
+                {
+                    if (wG)
                         ret = cast(R)(left % cast(N)wG);
-                    else {
+                    else
+                    {
                         IntFlag.div0.raise!policy();
                         ret = 0;
                     }
-                } else {
-                    static if(isSigned!N)
+                }
+                else
+                {
+                    static if (isSigned!N)
+                    {
                         ret = (wG != cast(UN)trueMin!N || left != trueMin!N)?
                             cast(R)left :
                             cast(R)0;
+                    }
                     else
                         ret = cast(R)left;
                 }
 
                 return ret;
-            } else
-            static if(wop.among!("<<", ">>", ">>>")) {
+            }
+            else static if (wop.among!("<<", ">>", ">>>"))
+            {
                 const negG = right < 0;
                 const shR = (wop == "<<")?
                      negG :
                     !negG;
 
                 R ret = void;
-                static if(wop == ">>>")
+                static if (wop == ">>>")
                     const wL = cast(UN)left;
                 else
                     alias wL = left;
@@ -1186,59 +1310,64 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
                      cast(UM)right;
 
                 enum maxSh = precision!UN - 1;
-                if(absG <= maxSh) {
+                if (absG <= maxSh)
+                {
                     const wG = cast(int)absG;
                     ret = cast(R)(shR?
                         wL >> wG :
                         wL << wG);
-                } else {
+                }
+                else
+                {
                     ret = cast(R)((isSigned!N && (wop != ">>>") && shR)?
                         (wL >> maxSh) :
                         0);
                 }
 
                 return ret;
-            } else
-            static if(wop.among!("&", "|", "^"))
+            }
+            else static if (wop.among!("&", "|", "^"))
                 return cast(R)mixin("left " ~ wop ~ " right");
             else
                 static assert(false);
         }
 
-/**
-Perform the binary (two-argument) integer operation specified by `op`.
+        /**
+        Perform the binary (two-argument) integer operation specified by `op`.
 
-Key differences from the standard binary operators:
-$(UL
-    $(LI `+`, `-`, `*`, `/`, and `%` return a signed type if the result could be negative, unless $(B both) inputs are
-        unsigned.)
-    $(LI `+`, `-`, `*`, and `/` are checked for overflow.)
-    $(LI `/` and `%` are checked for divide-by-zero, and will never generate an FPE.)
-    $(LI `<<`, `>>`, and `>>>` are well-defined for all possible values of `right`. Large shifts return the same result
-        as shifting by `1` `right` times in a row. (But, much faster because no actual loop is used.))
-) $(BR)
-Note also:
-$(UL
-    $(LI The shift operators are $(B $(RED not)) checked for overflow and should not be used for multiplication,
-        division, or exponentiation. Instead, use `mulPow2()` and `divPow2()`, which internally use the bitshifts for speed,
-        but check for overflow and correctly handle negative values.)
-    $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)
-    $(LI `^^` and `^^=` will remain disabled in favour of `pow` until DMD issues 15288 and 15412 are fixed.)
-) $(BR)
-Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will overwrite
-it with the result of the operation.
-*/
+        Key differences from the standard binary operators:
+        $(UL
+            $(LI `+`, `-`, `*`, `/`, and `%` return a signed type if the result could be negative, unless $(B both)
+                inputs are unsigned.)
+            $(LI `+`, `-`, `*`, and `/` are checked for overflow.)
+            $(LI `/` and `%` are checked for divide-by-zero, and will never generate an FPE.)
+            $(LI `<<`, `>>`, and `>>>` are well-defined for all possible values of `right`. Large shifts return the
+                same result as shifting by `1` `right` times in a row. (But, much faster because no actual loop is
+                used.))
+        ) $(BR)
+        Note also:
+        $(UL
+            $(LI The shift operators are $(B not) checked for overflow and should not be used for
+                multiplication, division, or exponentiation. Instead, use `mulPow2()` and `divPow2()`, which internally
+                use the bitshifts for speed, but check for overflow and correctly handle negative values.)
+            $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)
+            $(LI `^^` and `^^=` will remain disabled in favour of `pow` until DMD issues 15288 and 15412 are fixed.)
+        ) $(BR)
+        Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will
+        overwrite it with the result of the operation.
+        **/
         auto binary(string op, N, M)(const N left, const M right)
-            if(isFixedPoint!N && isFixedPoint!M && op.among!("+", "-", "*", "/", "%", "^^", "<<", ">>", ">>>", "&", "|", "^"))
+            if (isFixedPoint!N && isFixedPoint!M &&
+                op.among!("+", "-", "*", "/", "%", "^^", "<<", ">>", ">>>", "&", "|", "^"))
         {
             static assert(op != "^^",
                 "pow() should be used instead of operator ^^ because of issue 15288.");
 
             return binaryImpl!(op, NumFromScal!N, NumFromScal!M)(left, right);
         }
-/// ditto
+        /// ditto
         /+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right)
-            if(isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
+            if (isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
         {
             static assert(op != "^^=",
                 "pow() should be used instead of operator ^^= because of issue 15412.");
@@ -1247,7 +1376,8 @@ it with the result of the operation.
             return left;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             ulong a = 18_446_744_073_709_551_615uL;
@@ -1301,7 +1431,8 @@ it with the result of the operation.
             IntFlags.local.clear();
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.binary!"<<"(-0x80, -2) == -0x20);
@@ -1362,26 +1493,25 @@ it with the result of the operation.
             assert(!IntFlags.local);
         }
 
-/**
-Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-`left << exp` that is still very fast.
-
-Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is equivalent to
-`divPow2(left, exp)`.
-*/
+        /// Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
+        /// alternative to `left << exp` that is still very fast.
+        ///
+        /// Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is
+        /// equivalent to `divPow2(left, exp)`.
         auto mulPow2(N, M)(const N left, const M exp) pure nothrow @nogc
-            if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+            if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("*", NumFromScal!N, NumFromScal!M)(left, exp);
         }
-/// ditto
+        /// ditto
         auto mulPow2(N, M)(const N left, const M exp)
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("*", policy, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.mulPow2(-23, 5) == -736);
@@ -1394,26 +1524,25 @@ Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPo
             IntFlags.local.clear();
         }
 
-/**
-Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-`left >> exp` that is still very fast.
-
-Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is equivalent to
-`mulPow2(left, exp)`.
-*/
+        /// Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
+        /// alternative to `left >> exp` that is still very fast.
+        ///
+        /// Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is
+        /// equivalent to `mulPow2(left, exp)`.
         auto divPow2(N, M)(const N left, const M exp) pure nothrow @nogc
-            if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+            if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("/", NumFromScal!N, NumFromScal!M)(left, exp);
         }
-/// ditto
+        /// ditto
         auto divPow2(N, M)(const N left, const M exp)
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("/", policy, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.divPow2(65536, 8) == 256);
@@ -1426,23 +1555,22 @@ Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPo
             IntFlags.local.clear();
         }
 
-/**
-Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-`left & ((1 << exp) - 1)` that is still very fast.
-*/
+        /// Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer
+        /// alternative to `left & ((1 << exp) - 1)` that is still very fast.
         auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
-            if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+            if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("%", NumFromScal!N, NumFromScal!M)(left, exp);
         }
-/// ditto
+        /// ditto
         auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("%", IntFlagPolicy.noex, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.modPow2( 101,  1) ==  1);
@@ -1453,38 +1581,37 @@ Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of i
             assert(smartOp.modPow2(101, 1_000) == 101);
         }
 
-/**
-Raise `base` to the `exp` power.
-
-Errors that may be signalled if neither input is floating-point:
-$(UL
-    $(LI `IntFlag.posOver` or `IntFlag.negOver` if the absolute value of the result is too large to
-        represent with the return type.)
-    $(LI `IntFlag.div0` if `base == 0` and `exp < 0`.)
-)
-*/
+        /// Raise `base` to the `exp` power.
+        ///
+        /// Errors that may be signalled if neither input is floating-point:
+        /// $(UL
+        ///     $(LI `IntFlag.posOver` or `IntFlag.negOver` if the absolute value of the result is too large to
+        ///         represent with the return type.)
+        ///     $(LI `IntFlag.div0` if `base == 0` and `exp < 0`.)
+        /// )
         auto pow(N, M)(const N base, const M exp) pure nothrow @nogc
-            if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+            if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             alias R = Result!(N, "^^", M);
             static assert(is(typeof(return) == R));
             return std.math.pow(cast(R)base, exp);
         }
-/// ditto
+        /// ditto
         auto pow(N, M)(const N base, const M exp)
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             alias R = Result!(N, "^^", M);
 
             const po = powImpl!(R, Select!(isSigned!M, long, ulong))(base, exp);
             static assert(is(typeof(po.num) == const(R)));
 
-            if(!po.flag.isNull)
+            if (!po.flag.isNull)
                 po.flag.raise!policy();
             return po.num;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : smartOp; // use IntFlagPolicy.noex
 
             assert(smartOp.pow(-10, 3) == -1_000);
@@ -1502,21 +1629,21 @@ $(UL
     private alias smartOp(bool throws) = smartOp!(cast(Flag!"throws")throws);
 
 // debug /////////////////////////////////////////////////
-/**
-`template` `alias` that evaluates to `SafeInt!(N, policy, bitOps)` in debug mode, and `N` in release mode. This way, you
-can use `SafeInt!N` to debug your integer logic in testing, but switch to basic `N` in release mode for maximum speed
-and the smallest binaries.
+    /**
+    `template` `alias` that evaluates to `SafeInt!(N, policy, bitOps)` in debug mode, and `N` in release mode. This
+    way, you can use `SafeInt!N` to debug your integer logic in testing, but switch to basic `N` in release mode for
+    maximum speed and the smallest binaries.
 
-While this may be very helpful for debuggin your algorithms, note that `DebugInt` is $(B $(RED not)) a substitute for
-input validation in release mode. Unrecoverable FPEs or silent data-corrupting overflow can still occur in release
-mode if you get your algorithm wrong, or fail to add manual bounds checks in the right places.
+    While this may be very helpful for debuggin your algorithms, note that `DebugInt` is $(B $(RED not)) a substitute
+    for input validation in release mode. Unrecoverable FPEs or silent data-corrupting overflow can still occur in
+    release mode if you get your algorithm wrong, or fail to add manual bounds checks in the right places.
 
-If performance is your only motivation for using `DebugInt` rather than `SmartInt`, consider limiting `DebugInt` to
-only the hotest code paths - inner loops and the like. For most programs, this should provide nearly the same
-performance boost as using it everywhere, with far less loss of safety.
-*/
+    If performance is your only motivation for using `DebugInt` rather than `SmartInt`, consider limiting `DebugInt`
+    to only the hotest code paths - inner loops and the like. For most programs, this should provide nearly the same
+    performance boost as using it everywhere, with far less loss of safety.
+    **/
     template DebugInt(N, IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps)
-        if(isIntegral!N || isCheckedInt!N)
+        if (isIntegral!N || isCheckedInt!N)
     {
         version (Debug)
             alias DebugInt = SafeInt!(N, policy, bitOps);
@@ -1525,41 +1652,41 @@ performance boost as using it everywhere, with far less loss of safety.
     }
 
 // safe /////////////////////////////////////////////////
-/**
-Wrapper for any basic integral type `N` that uses the checked operations from `safeOp` and rejects attempts to directly
-assign values that cannot be proven to be within the range representable by `N`. (`checkedint.to()` can be used to safely
-assign values of incompatible types, with runtime bounds checking.)
+    /**
+    Wrapper for any basic integral type `N` that uses the checked operations from `safeOp` and rejects attempts to
+    directly assign values that cannot be proven to be within the range representable by `N`. (`checkedint.to()` can be
+    used to safely assign values of incompatible types, with runtime bounds checking.)
 
-`SafeInt` is designed to be as interchangeable with `N` as possible, without compromising safety. The `DebugInt`
-`template` allows a variable to use `SafeInt` in debug mode to find bugs, and `N` directly in release mode for greater
-speed and a smaller binary.
+    `SafeInt` is designed to be as interchangeable with `N` as possible, without compromising safety. The `DebugInt`
+    `template` allows a variable to use `SafeInt` in debug mode to find bugs, and `N` directly in release mode for
+    greater speed and a smaller binary.
 
-If you're not trying to write generic code that works with both `SafeInt!N` and `N`, you should probably be using
-`SmartInt` instead. It generates far fewer error messages; mostly it "just works".
+    If you're not trying to write generic code that works with both `SafeInt!N` and `N`, you should probably be using
+    `SmartInt` instead. It generates far fewer error messages; mostly it "just works".
 
-$(UL
-    $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
-    $(LI `bitOps` may be set to `No.bitOps` if desired, to turn bitwise operations on this type into a compile-time
-        error.)
-)
-*/
+    $(UL
+        $(LI `policy` controls the error signalling policy (see `checkedint.flags`).)
+        $(LI `bitOps` may be set to `No.bitOps` if desired, to turn bitwise operations on this type into a compile-time
+            error.)
+    )
+    **/
     struct SafeInt(N, IntFlagPolicy _policy, Flag!"bitOps" bitOps = Yes.bitOps)
-        if(isIntegral!N && isUnqual!N)
+        if (isIntegral!N && isUnqual!N)
     {
-/// The error signalling policy used by this `SafeInt` type.
+        /// The error signalling policy used by this `SafeInt` type.
         enum IntFlagPolicy policy = _policy;
 
-        static if(bitOps) {
-/**
-The basic integral value of this `SafeInt`. Accessing this directly may be useful for:
-$(UL
-    $(LI Intentionally doing modular (unchecked) arithmetic, or)
-    $(LI Interacting with APIs that are not `checkedint` aware.)
-)
-*/
+        static if (bitOps)
+        {
+            /// The basic integral value of this `SafeInt`. Accessing this directly may be useful for:
+            /// $(UL
+            ///     $(LI Intentionally doing modular (unchecked) arithmetic, or)
+            ///     $(LI Interacting with APIs that are not `checkedint` aware.)
+            /// )
             N bscal;
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
                 SafeInt!uint n;
@@ -1572,55 +1699,71 @@ $(UL
                 assert(n == uint.max);
             }
 
-/// Get a view of this `SafeInt` that allows bitwise operations.
-            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() inout pure nothrow @nogc {
-                return this; }
+            /// Get a view of this `SafeInt` that allows bitwise operations.
+            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() inout pure nothrow @nogc
+            {
+                return this;
+            }
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
                 SafeInt!(int, No.bitOps) n = 1;
                 static assert(!__traits(compiles, n << 2));
                 assert(n.bits << 2 == 4);
             }
-        } else {
-            @property ref inout(N) bscal() inout pure nothrow @nogc {
-                return bits.bscal; }
+        }
+        else
+        {
+            @property ref inout(N) bscal() inout pure nothrow @nogc
+            {
+                return bits.bscal;
+            }
             SafeInt!(N, policy, Yes.bitOps) bits;
         }
 
-        static if(__VERSION__ >= 2067) {
+        static if (__VERSION__ >= 2067)
+        {
             version(GNU) { static assert(false); }
 
-/// The most negative possible value of this `SafeInt` type.
+            /// The most negative possible value of this `SafeInt` type.
             enum SafeInt!(N, policy, bitOps) min = typeof(this)(trueMin!N);
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
                 assert(SafeInt!(int).min == int.min);
                 assert(SafeInt!(uint).min == uint.min);
             }
 
-/// The most positive possible value of this `SafeInt` type.
+            /// The most positive possible value of this `SafeInt` type.
             enum SafeInt!(N, policy, bitOps) max = typeof(this)(trueMax!N);
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.throws : SafeInt; // use IntFlagPolicy.throws;
 
                 assert(SafeInt!(int).max == int.max);
                 assert(SafeInt!(uint).max == uint.max);
             }
-        } else {
-            static @property auto min() pure nothrow @nogc {
-                return typeof(this)(trueMin!N); }
-            static @property auto max() pure nothrow @nogc {
-                return typeof(this)(trueMax!N); }
+        }
+        else
+        {
+            static @property auto min() pure nothrow @nogc
+            {
+                return typeof(this)(trueMin!N);
+            }
+            static @property auto max() pure nothrow @nogc
+            {
+                return typeof(this)(trueMax!N);
+            }
         }
 
         // Construction, assignment, and casting /////////////////////////////////////////////////
         private void checkImplicit(M)() const
-            if(isCheckedInt!M || isScalarType!M)
+            if (isCheckedInt!M || isScalarType!M)
         {
             alias MB = BasicScalar!M;
             static assert(trueMin!MB >= cast(real)N.min && MB.max <= cast(real)N.max,
@@ -1630,28 +1773,27 @@ $(UL
             );
         }
 
-/**
-Assign the value of `that` to this `SafeInt` instance.
-
-Trying to assign a value that cannot be proven at compile time to be representable by `N` is an error. Use
-`checkedint.to()` to safely convert `that` with runtime bounds checking, instead.
-*/
+        /// Assign the value of `that` to this `SafeInt` instance.
+        ///
+        /// Trying to assign a value that cannot be proven at compile time to be representable by `N` is an error. Use
+        /// `checkedint.to()` to safely convert `that` with runtime bounds checking, instead.
         this(M)(const M that) pure nothrow @nogc
-            if(isCheckedInt!M || isScalarType!M)
+            if (isCheckedInt!M || isScalarType!M)
         {
             checkImplicit!M();
             this.bscal = that.bscal;
         }
-/// ditto
+        /// ditto
         ref typeof(this) opAssign(M)(const M that) pure nothrow @nogc
-            if(isCheckedInt!M || isScalarType!M)
+            if (isCheckedInt!M || isScalarType!M)
         {
             checkImplicit!M();
             this.bscal = that.bscal;
             return this;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : SafeInt, to; // use IntFlagPolicy.noex
 
             // Only types that for which N can represent all values are accepted directly:
@@ -1674,17 +1816,16 @@ Trying to assign a value that cannot be proven at compile time to be representab
             IntFlags.local.clear();
         }
 
-/**
-Convert this value to floating-point. This always succeeds, although some loss of precision may
-occur if M.sizeof <= N.sizeof.
-*/
+        /// Convert this value to floating-point. This always succeeds, although some loss of precision may
+        /// occur if M.sizeof <= N.sizeof.
         M opCast(M)() const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return cast(M)bscal;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
             SafeInt!int n = 92;
@@ -1693,14 +1834,15 @@ occur if M.sizeof <= N.sizeof.
             assert(f == 92.0);
         }
 
-/// `this != 0`
+        /// `this != 0`
         M opCast(M)() const pure nothrow @nogc
-            if(is(M == bool))
+            if (is(M == bool))
         {
             return bscal != 0;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
             SafeInt!int n = -315;
@@ -1710,17 +1852,16 @@ occur if M.sizeof <= N.sizeof.
             assert(!cast(bool)n);
         }
 
-/**
-Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if `M` cannot
-represent the current value of this `SafeInt`.
-*/
+        /// Convert this value to type `M` using `checkedint.to()` for bounds checking. An `IntFlag` will be raised if
+        /// `M` cannot represent the current value of this `SafeInt`.
         M opCast(M)() const
-            if(isCheckedInt!M || isIntegral!M || isSomeChar!M)
+            if (isCheckedInt!M || isIntegral!M || isSomeChar!M)
         {
             return to!(M, policy)(bscal);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : SafeInt; // use IntFlagPolicy.noex
 
             SafeInt!ulong n = 52uL;
@@ -1737,89 +1878,100 @@ represent the current value of this `SafeInt`.
             IntFlags.local.clear();
         }
 
-/**
-Convert this value to a type suitable for indexing an array:
-$(UL
-    $(LI If `N` is signed, a `ptrdiff_t` is returned.)
-    $(LI If `N` is unsigned, a `size_t` is returned.)
-)
-`checkedint.to()` is used for bounds checking.
-*/
-        @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const {
+        /// Convert this value to a type suitable for indexing an array:
+        /// $(UL
+        ///     $(LI If `N` is signed, a `ptrdiff_t` is returned.)
+        ///     $(LI If `N` is unsigned, a `size_t` is returned.)
+        /// )
+        /// `checkedint.to()` is used for bounds checking.
+        @property Select!(isSigned!N, ptrdiff_t, size_t) idx() const
+        {
             return to!(typeof(return), policy)(bscal);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
             char[3] arr = ['a', 'b', 'c'];
             SafeInt!long n = 1;
 
             // On 32-bit, `long` cannot be used directly for array indexing,
-            static if(size_t.sizeof < long.sizeof)
+            static if (size_t.sizeof < long.sizeof)
                 static assert(!__traits(compiles, arr[n]));
             // but idx can be used to concisely and safely cast to ptrdiff_t:
             assert(arr[n.idx] == 'b');
 
             // The conversion is bounds checked:
-            static if(size_t.sizeof < long.sizeof) {
+            static if (size_t.sizeof < long.sizeof)
+            {
                 n = long.min;
-                try {
+                try
+                {
                     arr[n.idx] = '?';
-                } catch(CheckedIntException e) {
+                }
+                catch(CheckedIntException e)
+                {
                     assert(e.intFlags == IntFlag.negOver);
                 }
             }
         }
 
-/// Get a simple hashcode for this value.
-        size_t toHash() const pure nothrow @nogc {
-            static if(N.sizeof > size_t.sizeof) {
+        /// Get a simple hashcode for this value.
+        size_t toHash() const pure nothrow @nogc
+        {
+            static if (N.sizeof > size_t.sizeof)
+            {
                 static assert(N.sizeof == (2 * size_t.sizeof));
                 return cast(size_t)bscal ^ cast(size_t)(bscal >>> 32);
-            } else
+            }
+            else
                 return cast(size_t)bscal;
         }
 
-/// Get a `string` representation of this value.
-        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted {
-            formatValue(sink, bscal, fmt); }
-/// ditto
-        string toString() const {
-            return to!(string, IntFlagPolicy.noex)(bscal); }
+        /// Get a `string` representation of this value.
+        void toString(Writer, Char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const @trusted
+        {
+            formatValue(sink, bscal, fmt);
+        }
+        /// ditto
+        string toString() const
+        {
+            return to!(string, IntFlagPolicy.noex)(bscal);
+        }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : safeInt; // use IntFlagPolicy.throws
             assert(safeInt(-753).toString() == "-753");
         }
 
         // Comparison /////////////////////////////////////////////////
-/// See `safeOp`.
+        /// See `safeOp`.
         bool opEquals(M)(const M right) const pure nothrow @nogc
-            if(isSafeInt!M || isScalarType!M)
+            if (isSafeInt!M || isScalarType!M)
         {
             return safeOp!(policy).cmp!"=="(this.bscal, right.bscal);
         }
-/**
-Perform a floating-point comparison to `right`.
 
-Returns: $(UL
-    $(LI `-1` if this value is less than `right`.)
-    $(LI ` 0` if this value is equal to `right`.)
-    $(LI ` 1` if this value is greater than `right`.)
-    $(LI `float.nan` if `right` is a floating-point `nan` value.))
-*/
+        /// Perform a floating-point comparison to `right`.
+        ///
+        /// Returns: $(UL
+        ///     $(LI `-1` if this value is less than `right`.)
+        ///     $(LI ` 0` if this value is equal to `right`.)
+        ///     $(LI ` 1` if this value is greater than `right`.)
+        ///     $(LI `float.nan` if `right` is a floating-point `nan` value.))
         auto opCmp(M)(const M right) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return
                 (left <  right)? -1 :
                 (left >  right)?  1 :
                 (left == right)?  0 : float.nan;
         }
-/// See `safeOp`.
+        /// See `safeOp`.
         int opCmp(M)(const M right) const pure nothrow @nogc
-            if(isSafeInt!M || isFixedPoint!M)
+            if (isSafeInt!M || isFixedPoint!M)
         {
             return
                 safeOp!(policy).cmp!"<"(this.bscal, right.bscal)? -1 :
@@ -1827,86 +1979,93 @@ Returns: $(UL
         }
 
         // Unary /////////////////////////////////////////////////
-/// ditto
+        /// ditto
         typeof(this) opUnary(string op)() const
-            if(op.among!("-", "+", "~"))
+            if (op.among!("-", "+", "~"))
         {
             static assert(bitOps || (op != "~"),
                 "Bitwise operations are disabled.");
 
             return typeof(return)(safeOp!(policy).unary!op(bscal));
         }
-/// ditto
+        /// ditto
         ref typeof(this) opUnary(string op)()
-            if(op.among!("++", "--"))
+            if (op.among!("++", "--"))
         {
             safeOp!(policy).unary!op(bscal);
             return this;
         }
 
-/// ditto
-        typeof(this) abs() const {
-            return typeof(return)(safeOp!(policy).abs(bscal)); }
+        /// ditto
+        typeof(this) abs() const
+        {
+            return typeof(return)(safeOp!(policy).abs(bscal));
+        }
 
-/// Count the number of set bits using `core.bitop.popcnt()`.
-        SafeInt!(int, policy, bitOps) popcnt()() const pure nothrow @nogc {
+        /// Count the number of set bits using `core.bitop.popcnt()`.
+        SafeInt!(int, policy, bitOps) popcnt()() const pure nothrow @nogc
+        {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             import future.bitop : stdPC = popcnt;
             return typeof(return)(stdPC(bscal));
         }
 
-/// See `safeOp`.
-        SafeInt!(int, policy, bitOps) bsf()() const {
+        /// See `safeOp`.
+        SafeInt!(int, policy, bitOps) bsf()() const
+        {
             static assert(bitOps, "Bitwise operations are disabled.");
 
             return typeof(return)(safeOp!(policy).bsf(bscal));
         }
-/// ditto
-        SafeInt!(int, policy, bitOps) bsr()() const {
+        /// ditto
+        SafeInt!(int, policy, bitOps) bsr()() const
+        {
             static assert(bitOps, "Bitwise operations are disabled. Consider using ilogb() instead?");
 
             return typeof(return)(safeOp!(policy).bsr(bscal));
         }
 
-/// ditto
-        SafeInt!(int, policy, bitOps) ilogb() const {
-            return typeof(return)(safeOp!(policy).ilogb(bscal)); }
+        /// ditto
+        SafeInt!(int, policy, bitOps) ilogb() const
+        {
+            return typeof(return)(safeOp!(policy).ilogb(bscal));
+        }
 
         // Binary /////////////////////////////////////////////////
-/// Perform a floating-point math operation.
+        /// Perform a floating-point math operation.
         M opBinaryRight(string op, M)(const M left) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return mixin("left " ~ op ~ " bscal");
         }
-/// ditto
+        /// ditto
         M opBinary(string op, M)(const M right) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return mixin("bscal " ~ op ~ " right");
         }
-/// See `safeOp`.
+        /// See `safeOp`.
         SafeInt!(OpType!(M, op, N), policy, bitOps) opBinaryRight(string op, M)(const M left) const
-            if(isFixedPoint!M)
+            if (isFixedPoint!M)
         {
             static assert(bitOps || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
             return typeof(return)(safeOp!(policy).binary!op(left, bscal));
         }
-/// ditto
+        /// ditto
         SafeInt!(OpType!(N, op, BasicScalar!M), .max(policy, intFlagPolicyOf!M), bitOps && hasBitOps!M) opBinary(string op, M)(const M right) const
-            if(isSafeInt!M || isFixedPoint!M)
+            if (isSafeInt!M || isFixedPoint!M)
         {
             static assert(bitOps && hasBitOps!M || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
 
             return typeof(return)(safeOp!(.max(policy, intFlagPolicyOf!M)).binary!op(this.bscal, right.bscal));
         }
-/// ditto
+        /// ditto
         ref typeof(this) opOpAssign(string op, M)(const M right)
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
                 "Bitwise operations are disabled. Consider using mulPow2(), divPow2(), or modPow2() instead?");
@@ -1916,70 +2075,71 @@ Returns: $(UL
             return this;
         }
 
-/// ditto
+        /// ditto
         auto mulPow2(M)(const M exp) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return safeOp!(policy).mulPow2(bscal, exp);
         }
-/// ditto
+        /// ditto
         auto mulPow2(M)(const M exp) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             const wret = safeOp!(mixPolicy).mulPow2(this.bscal, exp.bscal);
             return SafeInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
-/// ditto
+        /// ditto
         auto divPow2(M)(const M exp) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return safeOp!(policy).divPow2(bscal, exp);
         }
-/// ditto
+        /// ditto
         auto divPow2(M)(const M exp) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             const wret = safeOp!(mixPolicy).divPow2(this.bscal, exp.bscal);
             return SafeInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
-/// ditto
+        /// ditto
         auto modPow2(M)(const M exp) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return safeOp!(policy).modPow2(bscal, exp);
         }
-/// ditto
+        /// ditto
         auto modPow2(M)(const M exp) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             enum mixPolicy = .max(policy, intFlagPolicyOf!M);
             const wret = safeOp!(mixPolicy).modPow2(this.bscal, exp.bscal);
             return SafeInt!(typeof(wret), mixPolicy, bitOps && hasBitOps!M)(wret);
         }
 
-/// Raise `this` to the `exp` power using `std.math.pow()`.
+        /// Raise `this` to the `exp` power using `std.math.pow()`.
         M pow(M)(const M exp) const pure nothrow @nogc
-            if(isFloatingPoint!M)
+            if (isFloatingPoint!M)
         {
             return std.math.pow(bscal, exp);
         }
-/// See `safeOp`.
+        /// See `safeOp`.
         SafeInt!(CallType!(std.math.pow, N, BasicScalar!M), .max(policy, intFlagPolicyOf!M), bitOps && hasBitOps!M) pow(M)(const M exp) const
-            if(isCheckedInt!M || isFixedPoint!M)
+            if (isCheckedInt!M || isFixedPoint!M)
         {
             return typeof(return)(safeOp!(.max(policy, intFlagPolicyOf!M)).pow(this.bscal, exp.bscal));
         }
     }
-/// ditto
+    /// ditto
     template SafeInt(N, IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps)
-        if((isIntegral!N && !isUnqual!N) || isCheckedInt!N)
+        if ((isIntegral!N && !isUnqual!N) || isCheckedInt!N)
     {
         alias SafeInt = SafeInt!(BasicScalar!N, policy, bitOps);
     }
     ///
-    unittest {
+    unittest
+    {
         // Mixing standard signed and unsigned types is dangerous...
         int ba = -1;
         uint bb = 0;
@@ -2005,7 +2165,8 @@ Returns: $(UL
         // (...or just switch to SmartInt.)
     }
     ///
-    unittest {
+    unittest
+    {
         // When IntFlagPolicy.throws is set, SafeInt operations that fail at runtime will throw a CheckedIntException.
         import checkedint.throws : SafeInt;
 
@@ -2013,21 +2174,27 @@ Returns: $(UL
         SafeInt!uint sb = 0u;
 
         bool overflow = false;
-        try {
+        try
+        {
             SafeInt!uint sc = sb - sa;
             assert(false);
-        } catch(CheckedIntException e) {
+        }
+        catch(CheckedIntException e)
+        {
             assert(e.intFlags == IntFlag.negOver);
             overflow = true;
         }
         assert(overflow);
 
         bool div0 = false;
-        try {
+        try
+        {
             // With standard integers, this would crash the program with an unrecoverable FPE...
             SafeInt!uint sc = sa / sb;
             assert(false);
-        } catch(CheckedIntException e) {
+        }
+        catch(CheckedIntException e)
+        {
             // ...but with SafeInt, it just throws a normal Exception.
             assert(e.intFlags == IntFlag.div0);
             div0 = true;
@@ -2035,7 +2202,8 @@ Returns: $(UL
         assert(div0);
     }
     ///
-    unittest {
+    unittest
+    {
         // When IntFlagPolicy.noex is set, SafeInt operations that fail at runtime set one or more bits in IntFlags.local.
         import checkedint.noex : SafeInt;
 
@@ -2060,7 +2228,7 @@ Returns: $(UL
     }
 
     private template SafeInt(N, IntFlagPolicy policy, bool bitOps)
-        if(isIntegral!N)
+        if (isIntegral!N)
     {
         alias SafeInt = SafeInt!(
             Unqual!N,
@@ -2068,14 +2236,15 @@ Returns: $(UL
             cast(Flag!"bitOps")bitOps);
     }
 
-/// Get the value of `num` as a `SafeInt!N`. The integral type `N` can be infered from the argument.
+    /// Get the value of `num` as a `SafeInt!N`. The integral type `N` can be infered from the argument.
     SafeInt!(N, policy, bitOps) safeInt(IntFlagPolicy policy, Flag!"bitOps" bitOps = Yes.bitOps, N)(N num)
-        if(isIntegral!N || isCheckedInt!N)
+        if (isIntegral!N || isCheckedInt!N)
     {
         return typeof(return)(num.bscal);
     }
     ///
-    unittest {
+    unittest
+    {
         import checkedint.throws : safeInt, SafeInt; // use IntFlagPolicy.throws
 
         auto a = safeInt(55uL);
@@ -2083,23 +2252,24 @@ Returns: $(UL
         assert(a == 55u);
     }
 
-/**
-Implements various integer math operations with error checking.
-
-`safeOp` strives to mimic the standard integer math operations in every way, except:
-$(UL
-    $(LI If the operation is generally untrustworthy - for example, signed/unsigned comparisons - a compile-time error
-        is generated. The message will usually suggest a workaround.)
-    $(LI At runtime, if the result is mathematically incorrect an appropriate `IntFlag` will be raised.)
-)
-The runtime error-signalling policy may be selected using the `policy` template parameter.
-*/
-    template safeOp(IntFlagPolicy policy) {
+    /// Implements various integer math operations with error checking.
+    ///
+    /// `safeOp` strives to mimic the standard integer math operations in every way, except:
+    /// $(UL
+    ///     $(LI If the operation is generally untrustworthy - for example, signed/unsigned comparisons - a compile-time error
+    ///         is generated. The message will usually suggest a workaround.)
+    ///     $(LI At runtime, if the result is mathematically incorrect an appropriate `IntFlag` will be raised.)
+    /// )
+    /// The runtime error-signalling policy may be selected using the `policy` template parameter.
+    template safeOp(IntFlagPolicy policy)
+    {
         // NOTE: ddoc only scans the first branch of a static if
-        static if(policy == IntFlagPolicy.none) {
+        static if (policy == IntFlagPolicy.none)
+        {
         // No need to redundantly instantiate members which don't depend on `policy`.
 
-            private void cmpTypeCheck(N, M)() pure nothrow @nogc {
+            private void cmpTypeCheck(N, M)() pure nothrow @nogc
+            {
                 static assert(isBoolean!N == isBoolean!M,
                     "The intent of a direct comparison of " ~
                     N.stringof ~ " with " ~ M.stringof ~
@@ -2113,31 +2283,32 @@ The runtime error-signalling policy may be selected using the `policy` template 
                 );
             }
 
-/**
-Compare `left` and `right` using `op`.
+            /**
+            Compare `left` and `right` using `op`.
 
-Unsafe signed/unsigned comparisons will trigger a compile-time error. Possible solutions include:
-$(UL
-    $(LI Should the inputs really have different signedness? Changing the type of one to match the other is the simplest
-        solution.)
-    $(LI Consider using `smartOp.cmp()`, instead, as it can safely do signed/unsigned comparisons.)
-    $(LI Alternately, `checkedint.to()` can be used to safely convert the type of one input, with runtime bounds
-        checking.)
-) $(BR)
-Direct comparisons between boolean values and numeric ones are also forbidden. Make your intention explicit:
-$(UL
-    $(LI `cast(N)boolean == numeric`)
-    $(LI `boolean == (numeric != 0)`)
-)
-*/
+            Unsafe signed/unsigned comparisons will trigger a compile-time error. Possible solutions include:
+            $(UL
+                $(LI Should the inputs really have different signedness? Changing the type of one to match the other is the simplest
+                    solution.)
+                $(LI Consider using `smartOp.cmp()`, instead, as it can safely do signed/unsigned comparisons.)
+                $(LI Alternately, `checkedint.to()` can be used to safely convert the type of one input, with runtime bounds
+                    checking.)
+            ) $(BR)
+            Direct comparisons between boolean values and numeric ones are also forbidden. Make your intention explicit:
+            $(UL
+                $(LI `cast(N)boolean == numeric`)
+                $(LI `boolean == (numeric != 0)`)
+            )
+            **/
             bool cmp(string op, N, M)(const N left, const M right) pure nothrow @nogc
-                if(isScalarType!N && isScalarType!M)
+                if (isScalarType!N && isScalarType!M)
             {
                 cmpTypeCheck!(N, M)();
                 return mixin("left " ~ op ~ " right");
             }
             ///
-            unittest {
+            unittest
+            {
                 import checkedint.noex : safeOp; // safeOp.cmp() never throws
 
                 assert(safeOp.cmp!"=="(int.max, 0x7FFF_FFFF));
@@ -2147,58 +2318,65 @@ $(UL
                 static assert(!__traits(compiles, safeOp.cmp!"=="(uint.max, -1)));
                 static assert(!__traits(compiles, safeOp.cmp!">"(-1, 1u)));
             }
-        } else
+        }
+        else
             alias cmp = safeOp!(IntFlagPolicy.none).cmp;
 
-/**
-Perform the unary (single-argument) integer operation specified by `op`.
-
-Trying to negate `-` an unsigned value will generate a compile-time error, because mathematically, the result should
-always be negative (except for -0), but the unsigned return type cannot represent this.
-
-`++` and `--` are checked for overflow at runtime, and will raise `IntFlag.posOver` or `IntFlag.negOver` if needed.
-*/
+        /// Perform the unary (single-argument) integer operation specified by `op`.
+        ///
+        /// Trying to negate `-` an unsigned value will generate a compile-time error, because mathematically, the result should
+        /// always be negative (except for -0), but the unsigned return type cannot represent this.
+        ///
+        /// `++` and `--` are checked for overflow at runtime, and will raise `IntFlag.posOver` or `IntFlag.negOver` if needed.
         N unary(string op, N)(const N num)
-            if((isIntegral!N) && op.among!("-", "+", "~"))
+            if ((isIntegral!N) && op.among!("-", "+", "~"))
         {
             static assert(isSigned!N || op != "-",
                 "The standard unary - operation for " ~ N.stringof ~
                 " is unsafe. Use an explicit cast to a signed type, or switch to smartOp/SmartInt."
             );
 
-            static if(op == "-") {
-                static if(is(N == int) || is(N == long)) {
+            static if (op == "-")
+            {
+                static if (is(N == int) || is(N == long))
+                {
                     bool over = false;
                     const N ret = negs(num, over);
-                } else {
+                }
+                else
+                {
                     const over = (num <= trueMin!N);
                     const N ret = -num;
                 }
 
-                if(over)
+                if (over)
                     IntFlag.posOver.raise!policy();
 
                 return ret;
-            } else
+            }
+            else
                 return mixin(op ~ "num");
         }
-/// ditto
+        /// ditto
         /+ref+/ N unary(string op, N)(/+return+/ ref N num)
-            if((isIntegral!N) && op.among!("++", "--"))
+            if ((isIntegral!N) && op.among!("++", "--"))
         {
-            static if(op == "++") {
-                if(num >= trueMax!N)
+            static if (op == "++")
+            {
+                if (num >= trueMax!N)
                     IntFlag.posOver.raise!policy();
-            } else
-            static if(op == "--") {
-                if(num <= trueMin!N)
+            }
+            else static if (op == "--")
+            {
+                if (num <= trueMin!N)
                     IntFlag.negOver.raise!policy();
             }
 
             return mixin(op ~ "num");
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.unary!"~"(0u) == uint.max);
@@ -2225,22 +2403,22 @@ always be negative (except for -0), but the unsigned return type cannot represen
             assert(c == 8);
         }
 
-/**
-Get the absolute value of `num`.
-
-`IntFlag.posOver` is raised if `N` is signed and `num == N.min`.
-*/
+        /// Get the absolute value of `num`.
+        ///
+        /// `IntFlag.posOver` is raised if `N` is signed and `num == N.min`.
         N abs(N)(const N num)
-            if(isIntegral!N || isBoolean!N)
+            if (isIntegral!N || isBoolean!N)
         {
-            static if(isSigned!N) {
-                if(num < 0)
+            static if (isSigned!N)
+            {
+                if (num < 0)
                     return unary!"-"(num);
             }
             return num;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.abs(-25) == 25);
@@ -2252,14 +2430,15 @@ Get the absolute value of `num`.
             IntFlags.local.clear();
         }
 
-/// `core.bitop.bsf` without the undefined behaviour. `safeOp.bsf(0)` will raise `IntFlag.undef`.
+        /// `core.bitop.bsf` without the undefined behaviour. `safeOp.bsf(0)` will raise `IntFlag.undef`.
         int bsf(N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
             return bsfImpl!policy(num);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.bsf(20) == 2);
@@ -2270,14 +2449,15 @@ Get the absolute value of `num`.
             IntFlags.local.clear();
         }
 
-/// `core.bitop.bsr` without the undefined behaviour. `safeOp.bsr(0)` will raise `IntFlag.undef`.
+        /// `core.bitop.bsr` without the undefined behaviour. `safeOp.bsr(0)` will raise `IntFlag.undef`.
         int bsr(N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
             return bsrImpl!policy(num);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.bsr( 20) ==  4);
@@ -2289,15 +2469,13 @@ Get the absolute value of `num`.
             IntFlags.local.clear();
         }
 
-/**
-Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
-
-`safeOp.ilogb(0)` will raise `IntFlag.undef`.
-*/
+        /// Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
+        ///
+        /// `safeOp.ilogb(0)` will raise `IntFlag.undef`.
         int ilogb(N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
-            static if(isSigned!N)
+            static if (isSigned!N)
                 const absN = cast(Unsigned!N) (num < 0? -num : num);
             else
                 alias absN = num;
@@ -2305,7 +2483,8 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
             return bsrImpl!policy(absN);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.ilogb( 20) == 4);
@@ -2318,73 +2497,84 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
         }
 
         private auto binaryImpl(string op, N, M)(const N left, const M right)
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             enum wop = (op[$-1] == '=')? op[0 .. $-1] : op;
             alias P = OpType!(N, wop, M);
             alias R = Select!(wop == op, P, N);
 
-            static if(wop.among!("+", "-", "*")) {
+            static if (wop.among!("+", "-", "*"))
+            {
                 enum isPromSafe = !(isSigned!N || isSigned!M) || (isSigned!P && isSigned!R);
                 enum needCOp = (wop == "*")?
                     (precision!N + precision!M) > precision!P :
                     (max(precision!N, precision!M) + 1) > precision!P;
 
                 bool over = false;
-                static if(needCOp) {
+                static if (needCOp)
+                {
                     enum cx = (staticIndexOf!(wop, "+", "-", "*") << 1) + isSigned!P;
                     alias cop = AliasSeq!(addu, adds, subu, subs, mulu, muls)[cx];
 
                     const pR = cop(cast(P)left, cast(P)right, over);
-                } else
+                }
+                else
                     const pR = mixin("left " ~ wop ~ " right");
 
-                static if(isSigned!P && trueMin!P < trueMin!R) {
-                    if(pR < trueMin!R)
+                static if (isSigned!P && trueMin!P < trueMin!R)
+                {
+                    if (pR < trueMin!R)
                         over = true;
                 }
-                static if(trueMax!P > trueMax!R) {
-                    if(pR > trueMax!R)
+                static if (trueMax!P > trueMax!R)
+                {
+                    if (pR > trueMax!R)
                         over = true;
                 }
 
-                if(over)
+                if (over)
                     IntFlag.over.raise!policy();
                 return cast(R)pR;
-            } else
-            static if(wop.among!("/", "%")) {
+            }
+            else static if (wop.among!("/", "%"))
+            {
                 enum isPromSafe = !(isSigned!N || isSigned!M) ||
                     (isSigned!P && (wop == "%"? (isSigned!R || !isSigned!N) : isSigned!R));
 
                 const div0 = (right == 0);
-                static if(isSigned!N && isSigned!M)
+                static if (isSigned!N && isSigned!M)
                     const posOver = (left == trueMin!R) && (right == -1);
                 else
                     enum posOver = false;
 
                 R ret = void;
-                if(div0 || posOver) {
+                if (div0 || posOver)
+                {
                     (posOver? IntFlag.posOver : IntFlag.div0).raise!policy();
                     ret = 0; // Prevent unrecoverable FPE
-                } else
+                }
+                else
                     ret = cast(R)mixin("left " ~ wop ~ " right");
 
                 return ret;
-            } else
-            static if(wop.among!("<<", ">>", ">>>")) {
+            }
+            else static if (wop.among!("<<", ">>", ">>>"))
+            {
                 enum isPromSafe = !isSigned!N || isSigned!R || (op == ">>>");
 
                 enum invalidSh = ~cast(M)(8 * P.sizeof - 1);
-                if(right & invalidSh)
+                if (right & invalidSh)
                     IntFlag.undef.raise!policy();
 
                 return cast(R) mixin("cast(P)left " ~ wop ~ " right");
-            } else
-            static if(wop.among!("&", "|", "^")) {
+            }
+            else static if (wop.among!("&", "|", "^"))
+            {
                 enum isPromSafe = true;
 
                 return cast(R)mixin("left " ~ wop ~ " right");
-            } else
+            }
+            else
                 static assert(false);
 
             static assert(isPromSafe,
@@ -2394,28 +2584,28 @@ Get the base 2 logarithm of `abs(num)`, rounded down to the nearest integer.
             );
         }
 
-/**
-Perform the binary (two-argument) integer operation specified by `op`.
-$(UL
-    $(LI Unsafe signed/unsigned operations will generate a compile-time error.)
-    $(LI `+`, `-`, `*`, `/`, and `%` are checked for overflow at runtime.)
-    $(LI `/` and `%` are also checked for divide-by-zero.)
-    $(LI `<<`, `>>`, and `>>>` are checked to verify that `right >= 0` and `right < (8 * typeof(left).sizeof)`.
-        Otherwise, `IntFlag.undef` is raised.)
-) $(BR)
-Note also:
-$(UL
-    $(LI The shift operators are $(B $(RED not)) checked for overflow and should not be used for multiplication,
-        division, or exponentiation. Instead, use `mulPow2()` and `divPow2()`, which internally use the bitshifts for speed,
-        but check for overflow and correctly handle negative values.)
-    $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)
-    $(LI `^^` and `^^=` will remain disabled in favour of `pow` until DMD issues 15288 and 15412 are fixed.)
-) $(BR)
-Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will overwrite
-it with the result of the operation.
-*/
+        /**
+        Perform the binary (two-argument) integer operation specified by `op`.
+        $(UL
+            $(LI Unsafe signed/unsigned operations will generate a compile-time error.)
+            $(LI `+`, `-`, `*`, `/`, and `%` are checked for overflow at runtime.)
+            $(LI `/` and `%` are also checked for divide-by-zero.)
+            $(LI `<<`, `>>`, and `>>>` are checked to verify that `right >= 0` and `right < (8 * typeof(left).sizeof)`.
+                Otherwise, `IntFlag.undef` is raised.)
+        ) $(BR)
+        Note also:
+        $(UL
+            $(LI The shift operators are $(B $(RED not)) checked for overflow and should not be used for multiplication,
+                division, or exponentiation. Instead, use `mulPow2()` and `divPow2()`, which internally use the bitshifts for speed,
+                but check for overflow and correctly handle negative values.)
+            $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)
+            $(LI `^^` and `^^=` will remain disabled in favour of `pow` until DMD issues 15288 and 15412 are fixed.)
+        ) $(BR)
+        Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will overwrite
+        it with the result of the operation.
+        **/
         OpType!(N, op, M) binary(string op, N, M)(const N left, const M right)
-            if(isFixedPoint!N && isFixedPoint!M &&
+            if (isFixedPoint!N && isFixedPoint!M &&
                 op.among!("+", "-", "*", "/", "%", "^^", "<<", ">>", ">>>", "&", "|", "^"))
         {
             static assert(op != "^^",
@@ -2423,9 +2613,9 @@ it with the result of the operation.
 
             return binaryImpl!op(left, right);
         }
-/// ditto
+        /// ditto
         /+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right)
-            if(isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
+            if (isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
         {
             static assert(op != "^^=",
                 "pow() should be used instead of operator ^^= because of issue 15412.");
@@ -2434,7 +2624,8 @@ it with the result of the operation.
             return left;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.binary!"+"(17, -5) == 12);
@@ -2486,7 +2677,8 @@ it with the result of the operation.
             assert(n == 5);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.binary!"<<"(-0x80,  2) == -0x200);
@@ -2537,26 +2729,25 @@ it with the result of the operation.
             assert(!IntFlags.local);
         }
 
-/**
-Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-`left << exp` that is still very fast.
-
-Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is equivalent to
-`divPow2(left, exp)`.
-*/
+        /// Equivalent to `left * pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
+        /// `left << exp` that is still very fast.
+        ///
+        /// Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPow2(left, -exp)` is equivalent to
+        /// `divPow2(left, exp)`.
         auto mulPow2(N, M)(const N left, const M exp) pure nothrow @nogc
-            if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+            if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("*", NumFromScal!N, NumFromScal!M)(left, exp);
         }
-/// ditto
+        /// ditto
         auto mulPow2(N, M)(const N left, const M exp)
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("*", policy, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.mulPow2(-23, 5) == -736);
@@ -2569,26 +2760,25 @@ Note that (conceptually) rounding occurs $(I after) the `*`, meaning that `mulPo
             IntFlags.local.clear();
         }
 
-/**
-Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-`left >> exp` that is still very fast.
-
-Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is equivalent to
-`mulPow2(left, exp)`.
-*/
+        /// Equivalent to `left / pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
+        /// `left >> exp` that is still very fast.
+        ///
+        /// Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPow2(left, -exp)` is equivalent to
+        /// `mulPow2(left, exp)`.
         auto divPow2(N, M)(const N left, const M exp) pure nothrow @nogc
-            if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+            if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("/", NumFromScal!N, NumFromScal!M)(left, exp);
         }
-/// ditto
+        /// ditto
         auto divPow2(N, M)(const N left, const M exp)
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("/", policy, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.divPow2(65536, 8) == 256);
@@ -2601,23 +2791,22 @@ Note that (conceptually) rounding occurs $(I after) the `/`, meaning that `divPo
             IntFlags.local.clear();
         }
 
-/**
-Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
-`left & ((1 << exp) - 1)` that is still very fast.
-*/
+        /// Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of inputs. This is a safer alternative to
+        /// `left & ((1 << exp) - 1)` that is still very fast.
         auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
-            if((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
+            if ((isFloatingPoint!N && isScalarType!M) || (isScalarType!N && isFloatingPoint!M))
         {
             return byPow2Impl!("%", NumFromScal!N, NumFromScal!M)(left, exp);
         }
-/// ditto
+        /// ditto
         auto modPow2(N, M)(const N left, const M exp) pure nothrow @nogc
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             return byPow2Impl!("%", IntFlagPolicy.noex, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.modPow2( 101,  1) ==  1);
@@ -2628,18 +2817,16 @@ Equivalent to `left % pow(2, exp)`, but faster and works with a wider range of i
             assert(safeOp.modPow2(101, 1_000) == 101);
         }
 
-/**
-Raise `base` to the `exp` power.
-
-Errors that may be signalled if neither input is floating-point:
-$(UL
-    $(LI `IntFlag.posOver` or `IntFlag.negOver` if the absolute value of the result is too large to
-        represent with the return type.)
-    $(LI `exp < 0`, `IntFlag.undef` is raised because `std.math.pow` would trigger an FPE given the same input.)
-)
-*/
+        /// Raise `base` to the `exp` power.
+        ///
+        /// Errors that may be signalled if neither input is floating-point:
+        /// $(UL
+        ///     $(LI `IntFlag.posOver` or `IntFlag.negOver` if the absolute value of the result is too large to
+        ///         represent with the return type.)
+        ///     $(LI `exp < 0`, `IntFlag.undef` is raised because `std.math.pow` would trigger an FPE given the same input.)
+        /// )
         CallType!(std.math.pow, N, M) pow(N, M)(const N base, const M exp)
-            if(isFixedPoint!N && isFixedPoint!M)
+            if (isFixedPoint!N && isFixedPoint!M)
         {
             alias R = typeof(return);
             static assert(!isSigned!N || isSigned!R,
@@ -2649,15 +2836,16 @@ $(UL
 
             auto po = powImpl!(R, Select!(isSigned!M, long, ulong))(base, exp);
             static assert(is(typeof(po.num) == R));
-            if(exp < 0)
+            if (exp < 0)
                 po.flag = IntFlag.undef;
 
-            if(!po.flag.isNull)
+            if (!po.flag.isNull)
                 po.flag.raise!policy();
             return po.num;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : safeOp; // use IntFlagPolicy.noex
 
             assert(safeOp.pow(-10, 3) == -1_000);
@@ -2678,13 +2866,11 @@ $(UL
 
 // conv /////////////////////////////////////////////////
 
-/**
-A wrapper for `std.conv.to()` which uses `checkedint.flags` for error signaling when converting between any combination
-of basic scalar types and `checkedint` types. With an appropriate `policy`, this allows `checkedint.to()` to be used
-for numeric conversions in `pure nothrow` code, unlike `std.conv.to()`.
-
-Conversions involving any other type are simply forwarded to `std.conv.to()`, with no runtime overhead.
-*/
+    /// A wrapper for `std.conv.to()` which uses `checkedint.flags` for error signaling when converting between any combination
+    /// of basic scalar types and `checkedint` types. With an appropriate `policy`, this allows `checkedint.to()` to be used
+    /// for numeric conversions in `pure nothrow` code, unlike `std.conv.to()`.
+    ///
+    /// Conversions involving any other type are simply forwarded to `std.conv.to()`, with no runtime overhead.
     template to(T, IntFlagPolicy policy)
     {
         private enum useFlags(S) = (isCheckedInt!T || isScalarType!T) && (isCheckedInt!S || isScalarType!S);
@@ -2693,25 +2879,34 @@ Conversions involving any other type are simply forwarded to `std.conv.to()`, wi
             ((policy == IntFlagPolicy.asserts || policy == IntFlagPolicy.throws)? " pure" : "");
 
         T to(S)(const S value)
-            if(useFlags!S)
+            if (useFlags!S)
         {
-            static if(isCheckedInt!T || isCheckedInt!S)
+            static if (isCheckedInt!T || isCheckedInt!S)
                 return T(checkedint.to!(BasicScalar!T, policy)(value.bscal));
-            else {
-                static if(policy != IntFlagPolicy.none && !isFloatingPoint!T) {
-                    static if(isFloatingPoint!S) {
-                        if(value >= trueMin!T) {
-                            if(value > trueMax!T)
+            else
+            {
+                static if (policy != IntFlagPolicy.none && !isFloatingPoint!T)
+                {
+                    static if (isFloatingPoint!S)
+                    {
+                        if (value >= trueMin!T)
+                        {
+                            if (value > trueMax!T)
                                 IntFlag.posOver.raise!policy();
-                        } else
+                        }
+                        else
                             (std.math.isNaN(value)? IntFlag.undef : IntFlag.negOver).raise!policy();
-                    } else {
-                        static if(cast(long)trueMin!S < cast(long)trueMin!T) {
-                            if(value < cast(S)trueMin!T)
+                    }
+                    else
+                    {
+                        static if (cast(long)trueMin!S < cast(long)trueMin!T)
+                        {
+                            if (value < cast(S)trueMin!T)
                                 IntFlag.negOver.raise!policy();
                         }
-                        static if(cast(ulong)trueMax!S > cast(ulong)trueMax!T) {
-                            if(value > cast(S)trueMax!T)
+                        static if (cast(ulong)trueMax!S > cast(ulong)trueMax!T)
+                        {
+                            if (value > cast(S)trueMax!T)
                                 IntFlag.posOver.raise!policy();
                         }
                     }
@@ -2722,14 +2917,15 @@ Conversions involving any other type are simply forwarded to `std.conv.to()`, wi
 
         mixin(`
         T to(S)(S value)` ~ reqAttrs ~ `
-            if(!useFlags!S)
+            if (!useFlags!S)
         {
             import std.conv : impl = to;
             return impl!T(value);
         }`);
     }
     ///
-    unittest {
+    unittest
+    {
         // Conversions involving only basic scalars or checkedint types use IntFlags for error signalling.
         import checkedint.noex : smartInt, SmartInt, smartOp, to; // use IntFlagPolicy.noex
 
@@ -2748,7 +2944,8 @@ Conversions involving any other type are simply forwarded to `std.conv.to()`, wi
         IntFlags.local.clear();
     }
     ///
-    unittest {
+    unittest
+    {
         // Everything else forwards to std.conv.to().
         assert(to!(string, IntFlagPolicy.throws)(55) == "55");
         assert(to!(real, IntFlagPolicy.throws)("3.141519e0") == 3.141519L);
@@ -2759,36 +2956,35 @@ Conversions involving any other type are simply forwarded to `std.conv.to()`, wi
     }
 
     @property {
-/**
-Get a view or copy of `num` as a basic scalar.
-
-Useful in generic code that handles both basic types, and `checkedint` types.
-*/
+        /// Get a view or copy of `num` as a basic scalar.
+        ///
+        /// Useful in generic code that handles both basic types, and `checkedint` types.
       /+ref inout(N) bscal(N)(return ref inout(N) num)
-            if(isScalarType!N)
+            if (isScalarType!N)
         {
             return num;
         }
-/// ditto
+        /// ditto
         ref inout(N) bscal(N)(return ref inout(N) num)
-            if(isCheckedInt!N)
+            if (isCheckedInt!N)
         {
             return num.bscal;
         }
-/// ditto +/
+        /// ditto +/
         N bscal(N)(const N num)
-            if(isScalarType!N)
+            if (isScalarType!N)
         {
             return num;
         }
-/// ditto
+        /// ditto
         BasicScalar!N bscal(N)(const N num)
-            if(isCheckedInt!N)
+            if (isCheckedInt!N)
         {
             return num.bscal;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : smartInt, SmartInt; // use IntFlagPolicy.throws
 
             assert(is(typeof(bscal(2u)) == uint));
@@ -2798,42 +2994,41 @@ Useful in generic code that handles both basic types, and `checkedint` types.
             assert(bscal(smartInt(75_000)) == 75_000);
         }
 
-/**
-Get a view or copy of `num` that supports bitwise operations.
-
-Useful in generic code that handles both basic types and `checkedint` types.
-*/
+        /// Get a view or copy of `num` that supports bitwise operations.
+        ///
+        /// Useful in generic code that handles both basic types and `checkedint` types.
       /+ref inout(N) bits(N)(return ref inout(N) num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
             return num;
         }
-/// ditto
+        /// ditto
         ref inout(N) bits(N)(return ref inout(N) num)
-            if(isCheckedInt!N)
+            if (isCheckedInt!N)
         {
             return num.bits;
         }
-/// ditto +/
+        /// ditto +/
         N bits(N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
             return num;
         }
-/// ditto
+        /// ditto
         SmartInt!(BasicScalar!N, N.policy, Yes.bitOps) bits(N)(const N num)
-            if(isSmartInt!N)
+            if (isSmartInt!N)
         {
             return num.bits;
         }
-/// ditto
+        /// ditto
         SafeInt!(BasicScalar!N, N.policy, Yes.bitOps) bits(N)(const N num)
-            if(isSafeInt!N)
+            if (isSafeInt!N)
         {
             return num.bits;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
             assert(is(typeof(bits(5)) == int));
@@ -2845,24 +3040,23 @@ Useful in generic code that handles both basic types and `checkedint` types.
             assert((bits(noBits) << 2) == 20);
         }
 
-/**
-Cast `num` to a basic type suitable for indexing an array.
-
-For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is returned.
-*/
+        /// Cast `num` to a basic type suitable for indexing an array.
+        ///
+        /// For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is returned.
         Select!(isSigned!N, ptrdiff_t, size_t) idx(IntFlagPolicy policy, N)(const N num)
-            if(isScalarType!N || isCheckedInt!N)
+            if (isScalarType!N || isCheckedInt!N)
         {
             return to!(typeof(return), policy)(num.bscal);
         }
-/// ditto
+        /// ditto
         Select!(isSigned!(BasicScalar!N), ptrdiff_t, size_t) idx(N)(const N num)
-            if(isCheckedInt!N)
+            if (isCheckedInt!N)
         {
             return num.idx;
         }
         ///
-        unittest {
+        unittest
+        {
             import checkedint.noex : idx, SmartInt, safeInt; // use IntFlagPolicy.noex
 
             assert(is(typeof(idx(cast(long)1)) == ptrdiff_t));
@@ -2873,7 +3067,8 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
             assert(idx(-3) == -3);
             assert(idx(safeInt(cast(byte)100)) == 100);
 
-            static if(size_t.sizeof == 4) {
+            static if (size_t.sizeof == 4)
+            {
                 idx(ulong.max);
                 assert(IntFlags.local == IntFlag.posOver);
                 IntFlags.local.clear();
@@ -2891,7 +3086,8 @@ For signed types, `ptrdiff_t` is returned. For unsigned types, `size_t` is retur
 /// Evaluates to `true` if `T` is an instance of `SafeInt`.
 enum isSafeInt(T) = isInstanceOf!(SafeInt, T);
 ///
-unittest {
+unittest
+{
     import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert( isSafeInt!(SafeInt!int));
@@ -2903,7 +3099,8 @@ unittest {
 /// Evaluates to `true` if `T` is an instance of `SmartInt`.
 enum isSmartInt(T) = isInstanceOf!(SmartInt, T);
 ///
-unittest {
+unittest
+{
     import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert( isSmartInt!(SmartInt!int));
@@ -2915,7 +3112,8 @@ unittest {
 /// Evaluates to `true` if `T` is an instance of `SafeInt` or `SmartInt`.
 enum isCheckedInt(T) = isSafeInt!T || isSmartInt!T;
 ///
-unittest {
+unittest
+{
     import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert( isCheckedInt!(SafeInt!int));
@@ -2924,22 +3122,22 @@ unittest {
     assert(!isCheckedInt!int);
 }
 
-/**
-Evaluates to `true` if either:
-$(UL
-    $(LI `isScalarType!T`, or)
-    $(LI `isCheckedInt!T`)
-)
-$(B And) bitwise operators such as `<<` and `~` are available for `T`.
-*/
-template hasBitOps(T) {
-    static if(isCheckedInt!T)
+/// Evaluates to `true` if either:
+/// $(UL
+///     $(LI `isScalarType!T`, or)
+///     $(LI `isCheckedInt!T`)
+/// )
+/// $(B And) bitwise operators such as `<<` and `~` are available for `T`.
+template hasBitOps(T)
+{
+    static if (isCheckedInt!T)
         enum hasBitOps = TemplateArgsOf!T[2];
     else
         enum hasBitOps = isFixedPoint!T;
 }
 ///
-unittest {
+unittest
+{
     import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert( hasBitOps!(SafeInt!(int, Yes.bitOps)));
@@ -2953,25 +3151,24 @@ unittest {
     assert(!hasBitOps!float);
 }
 
-/**
-Aliases to the basic scalar type associated with `T`, assuming either:
-$(UL
-    $(LI `isScalarType!T`, or)
-    $(LI `isCheckedInt!T`)
-)
-Otherwise, `BasicScalar` aliases to `void`.
-*/
-template BasicScalar(T) {
-    static if(isScalarType!T)
+/// Aliases to the basic scalar type associated with `T`, assuming either:
+/// $(UL
+///     $(LI `isScalarType!T`, or)
+///     $(LI `isCheckedInt!T`)
+/// )
+/// Otherwise, `BasicScalar` aliases to `void`.
+template BasicScalar(T)
+{
+    static if (isScalarType!T)
         alias BasicScalar = Unqual!T;
-    else
-    static if(isCheckedInt!T)
+    else static if (isCheckedInt!T)
         alias BasicScalar = TemplateArgsOf!T[0];
     else
         alias BasicScalar = void;
 }
 ///
-unittest {
+unittest
+{
     import checkedint.throws : SmartInt, SafeInt; // use IntFlagPolicy.throws
 
     assert(is(BasicScalar!(SafeInt!int) == int));
@@ -2982,61 +3179,68 @@ unittest {
 }
 
 // internal /////////////////////////////////////////////////
-private {
+private
+{
     enum N trueMin(N) = mostNegative!N;
     template trueMax(N)
-        if(isScalarType!N)
+        if (isScalarType!N)
     {
-        static if(is(Unqual!N == dchar))
+        static if (is(Unqual!N == dchar))
             enum N trueMax = ~cast(N)0;
         else
             enum N trueMax = N.max;
     }
 
     template NumFromScal(N)
-        if(isScalarType!N)
+        if (isScalarType!N)
     {
-        static if(isNumeric!N)
+        static if (isNumeric!N)
             alias NumFromScal = N;
-        else
-        static if(isSomeChar!N)
+        else static if (isSomeChar!N)
             alias NumFromScal = IntFromChar!N;
-        else //if(isBoolean!N)
+        else //if (isBoolean!N)
             alias NumFromScal = ubyte;
     }
 
-    /+pragma(inline, true) {+/
+    /+pragma(inline, true)
+    {+/
         int bsfImpl(IntFlagPolicy policy, N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
-            static if(isSigned!N)
+            static if (isSigned!N)
                 return bsfImpl!(policy, Unsigned!N)(num);
-            else {
+            else
+            {
                 static assert(N.sizeof <= ulong.sizeof);
 
                 int ret = void;
-                if(num == 0) {
+                if (num == 0)
+                {
                     IntFlag.undef.raise!policy();
                     ret = int.min;
-                } else
+                }
+                else
                     ret = bsf(num);
 
                 return ret;
             }
         }
         int bsrImpl(IntFlagPolicy policy, N)(const N num)
-            if(isFixedPoint!N)
+            if (isFixedPoint!N)
         {
-            static if(isSigned!N)
+            static if (isSigned!N)
                 return bsrImpl!(policy, Unsigned!N)(num);
-            else {
+            else
+            {
                 static assert(N.sizeof <= ulong.sizeof);
 
                 int ret = void;
-                if(num == 0) {
+                if (num == 0)
+                {
                     IntFlag.undef.raise!policy();
                     ret = int.min;
-                } else
+                }
+                else
                     ret = bsr(num);
 
                 return ret;
@@ -3044,7 +3248,7 @@ private {
         }
 
         auto byPow2Impl(string op, N, M)(const N left, const M exp) pure nothrow @nogc
-            if(op.among!("*", "/", "%") && ((isFloatingPoint!N && isNumeric!M) || (isNumeric!N && isFloatingPoint!M)))
+            if (op.among!("*", "/", "%") && ((isFloatingPoint!N && isNumeric!M) || (isNumeric!N && isFloatingPoint!M)))
         {
             import std.math : exp2, isFinite, frexp, ldexp;
 
@@ -3053,20 +3257,25 @@ private {
                 Select!(wantPrec <= precision!float, float,
                 Select!(wantPrec <= precision!double, double, real));
 
-            static if(isFloatingPoint!M) {
+            static if (isFloatingPoint!M)
+            {
                 R ret = void;
 
-                static if(op.among!("*", "/")) {
-                    if(left == 0 && exp.isFinite)
+                static if (op.among!("*", "/"))
+                {
+                    if (left == 0 && exp.isFinite)
                         ret = 0;
-                    else {
+                    else
+                    {
                         R wexp = cast(R)exp;
-                        static if(op == "/")
+                        static if (op == "/")
                             wexp = -wexp;
 
                         ret = cast(R)left * exp2(wexp);
                     }
-                } else {
+                }
+                else
+                {
                     const p2 = exp2(cast(R)exp);
                     ret =
                         p2.isFinite? cast(R)left % p2 :
@@ -3076,28 +3285,34 @@ private {
                 }
 
                 return ret;
-            } else {
-                static if(op.among!("*", "/")) {
+            }
+            else
+            {
+                static if (op.among!("*", "/"))
+                {
                     int wexp =
                         (exp > int.max)? int.max :
                         (cast(long)exp < -int.max)? -int.max : cast(int)exp;
-                    static if(op == "/")
+                    static if (op == "/")
                         wexp = -wexp;
 
                     return ldexp(cast(R)left, wexp);
-                } else {
+                }
+                else
+                {
                     int expL;
                     real mantL = frexp(left, expL);
 
-                    static if(!isSigned!M)
+                    static if (!isSigned!M)
                         const retL = expL <= exp;
                     else
                         const retL = (expL < 0) || (expL <= exp);
 
                     R ret = void;
-                    if(retL)
+                    if (retL)
                         ret = left;
-                    else {
+                    else
+                    {
                         const expDiff = expL - exp;
                         ret = (expDiff > N.mant_dig)?
                             cast(R)0 :
@@ -3109,13 +3324,14 @@ private {
             }
         }
         auto byPow2Impl(string op, IntFlagPolicy policy, N, M)(const N left, const M exp)
-            if(op.among!("*", "/", "%") && isIntegral!N && isIntegral!M)
+            if (op.among!("*", "/", "%") && isIntegral!N && isIntegral!M)
         {
             alias R = Select!(op.among!("*", "/") != 0, Promoted!N, N);
             enum Unsigned!M maxSh = 8 * N.sizeof - 1;
 
             R ret = void;
-            static if(op.among!("*", "/")) {
+            static if (op.among!("*", "/"))
+            {
                 const rc = cast(R)left;
                 const negE = exp < 0;
                 const absE = cast(Unsigned!M)(negE?
@@ -3124,31 +3340,41 @@ private {
                 const bigSh = (absE > maxSh);
 
                 R back = void;
-                if((op == "*")? negE : !negE) {
-                    if(bigSh)
+                if ((op == "*")? negE : !negE)
+                {
+                    if (bigSh)
                         ret = 0;
-                    else {
+                    else
+                    {
                         // ">>" rounds as floor(), but we want trunc() like "/"
                         ret = (rc < 0)?
                             -(-rc >>> absE) :
                             rc >>> absE;
                     }
-                } else {
-                    if(bigSh) {
+                }
+                else
+                {
+                    if (bigSh)
+                    {
                         ret = 0;
                         back = 0;
-                    } else {
+                    }
+                    else
+                    {
                         ret  = rc  << absE;
                         back = ret >> absE;
                     }
 
-                    if(back != rc)
+                    if (back != rc)
                         IntFlag.over.raise!policy();
                 }
-            } else {
-                if(exp & ~maxSh)
+            }
+            else
+            {
+                if (exp & ~maxSh)
                     ret = (exp < 0)? 0 : left;
-                else {
+                else
+                {
                     const mask = ~(~cast(N)0 << exp);
                     ret = cast(R)(left < 0?
                         -(-left & mask) :
@@ -3160,63 +3386,74 @@ private {
         }
     /+}+/
 
-    struct PowOut(B) {
+    struct PowOut(B)
+    {
         B num;
         IntFlag flag;
     }
 
     // Minimize template bloat by using a common pow() implementation
     PowOut!B powImpl(B, E)(const B base, const E exp)
-        if((is(B == int) || is(B == uint) || is(B == long) || is(B == ulong)) &&
+        if ((is(B == int) || is(B == uint) || is(B == long) || is(B == ulong)) &&
             (is(E == long) || is(E == ulong)))
     {
-        static if(__VERSION__ >= 2068) pragma(inline, false);
+        static if (__VERSION__ >= 2068) pragma(inline, false);
         PowOut!B ret;
 
-        static if(isSigned!B) {
+        static if (isSigned!B)
+        {
             alias cmul = muls;
             const smallB = (1 >= base && base >= -1);
-        } else {
+        }
+        else
+        {
             alias cmul = mulu;
             const smallB = (base <= 1);
         }
 
-        if(smallB) {
-            if(base == 0) {
-                static if(isSigned!E) {
-                    if(exp < 0)
+        if (smallB)
+        {
+            if (base == 0)
+            {
+                static if (isSigned!E)
+                {
+                    if (exp < 0)
                         ret.flag = IntFlag.div0;
                 }
 
                 ret.num = (exp == 0);
-            } else
+            }
+            else
                 ret.num = (exp & 0x1)? base : 1;
 
             return ret;
         }
-        if(exp <= 0) {
+        if (exp <= 0)
+        {
             ret.num = (exp == 0);
             return ret;
         }
 
         ret.num = 1;
-        if(exp <= precision!B) {
+        if (exp <= precision!B)
+        {
             B b = base;
             int e = cast(int)exp;
-            if(e & 0x1)
+            if (e & 0x1)
                 ret.num = b;
             e >>>= 1;
 
             bool over = false;
-            while(e != 0) {
+            while (e != 0)
+            {
                 b = cmul(b, b, over);
-                if(e & 0x1)
+                if (e & 0x1)
                     ret.num = cmul(ret.num, b, over);
 
                 e >>>= 1;
             }
 
-            if(!over)
+            if (!over)
                 return ret;
         }
 

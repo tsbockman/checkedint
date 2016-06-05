@@ -15,55 +15,61 @@ conflict with some from `std.traits`.
 module checkedint.traits;
 import checkedint.asserts : SmartInt;
 
-static if(__VERSION__ >= 2068) {
+static if (__VERSION__ >= 2068)
+{
     version(GNU) { static assert(false); }
     import std.meta : AliasSeq;
-} else
+}
+else
     import std.typetuple : AliasSeq = TypeTuple;
 
 // checkedint.flags //////////////////////////////////////
 static import checkedint.flags;
 
-/// See $(LINK2 ./flags.html#intFlagPolicyOf, `checkedint.flags.intFlagPolicyOf`)
+    /// See $(LINK2 ./flags.html#intFlagPolicyOf, `checkedint.flags.intFlagPolicyOf`)
     alias intFlagPolicyOf = checkedint.flags.intFlagPolicyOf;
 
 
 // checkedint ////////////////////////////////////////////
 static import chkd = checkedint;
 
-/// See $(LINK2 ./package.html#isSafeInt, `checkedint.isSafeInt`)
+    /// See $(LINK2 ./package.html#isSafeInt, `checkedint.isSafeInt`)
     alias isSafeInt = chkd.isSafeInt;
 
-/// See $(LINK2 ./package.html#isSmartInt, `checkedint.isSmartInt`)
+    /// See $(LINK2 ./package.html#isSmartInt, `checkedint.isSmartInt`)
     alias isSmartInt = chkd.isSmartInt;
 
-/// See $(LINK2 ./package.html#isCheckedInt, `checkedint.isCheckedInt`)
+    /// See $(LINK2 ./package.html#isCheckedInt, `checkedint.isCheckedInt`)
     alias isCheckedInt = chkd.isCheckedInt;
 
-/// See $(LINK2 ./package.html#hasBitOps, `checkedint.hasBitOps`)
+    /// See $(LINK2 ./package.html#hasBitOps, `checkedint.hasBitOps`)
     alias hasBitOps = chkd.hasBitOps;
 
-/// See $(LINK2 ./package.html#BasicScalar, `checkedint.BasicScalar`)
+    /// See $(LINK2 ./package.html#BasicScalar, `checkedint.BasicScalar`)
     alias BasicScalar = chkd.BasicScalar;
 
 
 // std.traits ////////////////////////////////////////////
 static import bsct = future.traits0;
 
-    private template isEx(alias Predicate, T) {
-        static if(isCheckedInt!T)
+    private template isEx(alias Predicate, T)
+    {
+        static if (isCheckedInt!T)
             enum isEx = Predicate!(BasicScalar!T);
         else
             enum isEx = Predicate!T;
     }
 
-/// See `std.traits.isScalarType`
+    /// See `std.traits.isScalarType`
     alias isBasicScalar = bsct.isScalarType;
-/// `checkedint`-aware wrapper for `std.traits.isScalarType`
-    template isScalarType(T) {
-        alias isScalarType = isEx!(isBasicScalar, T); }
+    /// `checkedint`-aware wrapper for `std.traits.isScalarType`
+    template isScalarType(T)
+    {
+        alias isScalarType = isEx!(isBasicScalar, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         foreach(T; AliasSeq!(int, ushort, double, bool))
             assert(isBasicScalar!T && isScalarType!T);
 
@@ -74,13 +80,16 @@ static import bsct = future.traits0;
             assert(!(isBasicScalar!T || isScalarType!T));
     }
 
-/// See `std.traits.isNumeric`
+    /// See `std.traits.isNumeric`
     alias isBasicNum = bsct.isNumeric;
-/// `checkedint`-aware wrapper for `std.traits.isNumeric`
-    template isNumeric(T) {
-        alias isNumeric = isEx!(isBasicNum, T); }
+    /// `checkedint`-aware wrapper for `std.traits.isNumeric`
+    template isNumeric(T)
+    {
+        alias isNumeric = isEx!(isBasicNum, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         foreach(T; AliasSeq!(int, ushort, double))
             assert(isBasicNum!T && isNumeric!T);
 
@@ -91,16 +100,19 @@ static import bsct = future.traits0;
             assert(!(isBasicNum!T || isNumeric!T));
     }
 
-/// See `std.traits.isFloatingPoint`
+    /// See `std.traits.isFloatingPoint`
     alias isFloatingPoint = bsct.isFloatingPoint;
 
-/// See `future.traits.isFixedPoint`
+    /// See `future.traits.isFixedPoint`
     alias isBasicFixed = bsct.isFixedPoint;
-/// `checkedint`-aware wrapper for `future.traits.isFixedPoint`
-    template isFixedPoint(T) {
-        alias isFixedPoint = isEx!(isBasicFixed, T); }
+    /// `checkedint`-aware wrapper for `future.traits.isFixedPoint`
+    template isFixedPoint(T)
+    {
+        alias isFixedPoint = isEx!(isBasicFixed, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         foreach(T; AliasSeq!(int, ushort, bool))
             assert(isBasicFixed!T && isFixedPoint!T);
 
@@ -111,13 +123,16 @@ static import bsct = future.traits0;
             assert(!(isBasicFixed!T || isFixedPoint!T));
     }
 
-/// See `std.traits.isIntegral`
+    /// See `std.traits.isIntegral`
     alias isBasicInt = bsct.isIntegral;
-/// `checkedint`-aware wrapper for `std.traits.isIntegral`
-    template isIntegral(T) {
-        alias isIntegral = isEx!(isBasicInt, T); }
+    /// `checkedint`-aware wrapper for `std.traits.isIntegral`
+    template isIntegral(T)
+    {
+        alias isIntegral = isEx!(isBasicInt, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         foreach(T; AliasSeq!(int, ushort))
             assert(isBasicInt!T && isIntegral!T);
 
@@ -128,18 +143,21 @@ static import bsct = future.traits0;
             assert(!(isBasicInt!T || isIntegral!T));
     }
 
-/// See `std.traits.isSomeChar`
+    /// See `std.traits.isSomeChar`
     alias isSomeChar = bsct.isSomeChar;
-/// See `std.traits.isBoolean`
+    /// See `std.traits.isBoolean`
     alias isBoolean = bsct.isBoolean;
 
-/// See `std.traits.isSigned`
+    /// See `std.traits.isSigned`
     alias isBasicSigned = bsct.isSigned;
-/// `checkedint`-aware wrapper for `std.traits.isSigned`
-    template isSigned(T) {
-        alias isSigned = isEx!(isBasicSigned, T); }
+    /// `checkedint`-aware wrapper for `std.traits.isSigned`
+    template isSigned(T)
+    {
+        alias isSigned = isEx!(isBasicSigned, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         foreach(T; AliasSeq!(int, double))
             assert(isBasicSigned!T && isSigned!T);
 
@@ -150,13 +168,16 @@ static import bsct = future.traits0;
             assert(!(isBasicSigned!T || isSigned!T));
     }
 
-/// See `std.traits.isUnsigned`
+    /// See `std.traits.isUnsigned`
     alias isBasicUnsigned = bsct.isUnsigned;
-/// `checkedint`-aware wrapper for `isUnsigned`
-    template isUnsigned(T) {
-        alias isUnsigned = isEx!(isBasicUnsigned, T); }
+    /// `checkedint`-aware wrapper for `isUnsigned`
+    template isUnsigned(T)
+    {
+        alias isUnsigned = isEx!(isBasicUnsigned, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         foreach(T; AliasSeq!(ushort))
             assert(isBasicUnsigned!T && isUnsigned!T);
 
@@ -167,25 +188,28 @@ static import bsct = future.traits0;
             assert(!(isBasicUnsigned!T || isUnsigned!T));
     }
 
-/// `checkedint`-aware version of `std.traits.mostNegative`
+    /// `checkedint`-aware version of `std.traits.mostNegative`
     template mostNegative(T)
-        if(isFixedPoint!T)
+        if (isFixedPoint!T)
     {
-        static if(isFloatingPoint!T)
+        static if (isFloatingPoint!T)
             enum mostNegative = -T.max;
         else
             enum mostNegative =  T.min;
     }
     ///
-    unittest {
+    unittest
+    {
         assert(mostNegative!int == int.min);
         static assert(is(typeof(mostNegative!int) == int));
         assert(mostNegative!(SmartInt!int) == SmartInt!(int).min);
         static assert(is(typeof(mostNegative!(SmartInt!int)) == SmartInt!int));
     }
 
-    private template TransEx(alias TypeTransform, T) {
-        static if(isCheckedInt!T) {
+    private template TransEx(alias TypeTransform, T)
+    {
+        static if (isCheckedInt!T)
+        {
             import checkedint : SmartInt, SafeInt;
             import future.traits0 : CopyTypeQualifiers, Select;
 
@@ -196,33 +220,42 @@ static import bsct = future.traits0;
             alias TransEx = TypeTransform!T;
     }
 
-/// `checkedint`-aware wrapper for `std.traits.Signed`
-    template Signed(T) {
-        alias Signed = TransEx!(bsct.Signed, T); }
+    /// `checkedint`-aware wrapper for `std.traits.Signed`
+    template Signed(T)
+    {
+        alias Signed = TransEx!(bsct.Signed, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         static assert(is(Signed!int == int));
         static assert(is(Signed!(SmartInt!int) == SmartInt!int));
         static assert(is(Signed!ulong == long));
         static assert(is(Signed!(SmartInt!ulong) == SmartInt!long));
     }
 
-/// `checkedint`-aware wrapper for `std.traits.Unsigned`
-    template Unsigned(T) {
-        alias Unsigned = TransEx!(bsct.Unsigned, T); }
+    /// `checkedint`-aware wrapper for `std.traits.Unsigned`
+    template Unsigned(T)
+    {
+        alias Unsigned = TransEx!(bsct.Unsigned, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         static assert(is(Unsigned!int == uint));
         static assert(is(Unsigned!(SmartInt!int) == SmartInt!uint));
         static assert(is(Unsigned!ulong == ulong));
         static assert(is(Unsigned!(SmartInt!ulong) == SmartInt!ulong));
     }
 
-/// `checkedint`-aware wrapper for `future.traits.Promoted`
-    template Promoted(T) {
-        alias Promoted = TransEx!(bsct.Promoted, T); }
+    /// `checkedint`-aware wrapper for `future.traits.Promoted`
+    template Promoted(T)
+    {
+        alias Promoted = TransEx!(bsct.Promoted, T);
+    }
     ///
-    unittest {
+    unittest
+    {
         static assert(is(Promoted!byte == int));
         static assert(is(Promoted!(SmartInt!byte) == SmartInt!int));
         static assert(is(Promoted!int == int));

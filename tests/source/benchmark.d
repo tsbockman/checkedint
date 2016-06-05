@@ -10,22 +10,26 @@ import checkedint, checkedint.flags, checkedint.traits;
 alias IFP = IntFlagPolicy;
 
 import std.algorithm, std.stdio;
-static if(__VERSION__ >= 2068) {
+static if (__VERSION__ >= 2068)
+{
     version(GNU) { static assert(false); }
     import std.meta : AliasSeq;
-} else
+}
+else
     import std.typetuple : AliasSeq = TypeTuple;
 
 /+@safe:+/
 
-void benchMacro() {
+void benchMacro()
+{
     benchMacro!"trialPrimes"();
     benchMacro!"collatzSort"();
 }
 
 ulong checkSum;
 bool invalid;
-void benchMacro(string testStr)() {
+void benchMacro(string testStr)()
+{
     import std.conv : to;
     import std.datetime : benchmark, Duration;
 
@@ -40,8 +44,9 @@ void benchMacro(string testStr)() {
     enum laps = 3;
     const compSum = checkSum * laps * trials;
 
-    foreach(Vstr; AliasSeq!("int", "uint", "long", "ulong")) {
-        foreach(Nstr; AliasSeq!(
+    foreach (Vstr; AliasSeq!("int", "uint", "long", "ulong"))
+    {
+        foreach (Nstr; AliasSeq!(
             Vstr,
             "SafeInt!(" ~ Vstr ~ ", IFP.noex)",
             "SafeInt!(" ~ Vstr ~ ", IFP.asserts)",
@@ -57,15 +62,16 @@ void benchMacro(string testStr)() {
             writef("%40s: ", Nstr);
 
             auto best = Duration.max;
-            foreach(i; 0 .. trials) {
+            foreach (i; 0 .. trials)
+            {
                 const r = to!Duration(benchmark!(test!N)(laps)[0]) / laps;
-                if(r < best)
+                if (r < best)
                     best = r;
             }
 
-            if(checkSum != compSum)
+            if (checkSum != compSum)
                 write("!CHECKSUM ");
-            if(invalid)
+            if (invalid)
                 write("!INVALID ");
             writeln(to!Duration(best));
         }
@@ -74,8 +80,10 @@ void benchMacro(string testStr)() {
     writeln("DONE");
 }
 
-template SafeFold(N) {
-    template SafeFold(real folded) {
+template SafeFold(N)
+{
+    template SafeFold(real folded)
+    {
         alias BN = BasicScalar!N;
         static assert(BN.min <= folded && folded <= BN.max);
         enum SafeFold = cast(BN)folded;
@@ -83,29 +91,38 @@ template SafeFold(N) {
 }
 
 // Unsafe high-speed shims:
-private /+pragma(inline, true)+/ {
-    auto mulPow2(N, M)(const N left, const M exp) {
-        return left << exp; }
-    auto divPow2(N, M)(const N left, const M exp) {
-        return left >> exp; }
-    auto modPow2(N, M)(const N left, const M exp) {
-        return left & ~(~cast(N)0 << exp); }
+private /+pragma(inline, true)+/
+{
+    auto mulPow2(N, M)(const N left, const M exp)
+    {
+        return left << exp;
+    }
+    auto divPow2(N, M)(const N left, const M exp)
+    {
+        return left >> exp;
+    }
+    auto modPow2(N, M)(const N left, const M exp)
+    {
+        return left & ~(~cast(N)0 << exp);
+    }
 
-    auto idx(N)(const N num) {
-        static if(isCheckedInt!N)
+    auto idx(N)(const N num)
+    {
+        static if (isCheckedInt!N)
             return num.idx;
-        else
-        static if(isSigned!N)
+        else static if (isSigned!N)
             return cast(ptrdiff_t)num;
         else
             return cast(size_t)num;
     }
 }
 
-void trialPrimes(N)() {
+void trialPrimes(N)()
+{
     alias V = SafeFold!N;
 
-    static auto floorSqrt(N n) {
+    static auto floorSqrt(N n)
+    {
         assert(n >= V!0);
 
         enum N maxT = isSigned!N?
@@ -116,22 +133,29 @@ void trialPrimes(N)() {
         N sq0 = r0 * r0;
         assert(n <= sq0);
 
-        while(t >= V!1) {
-            if(sq0 < n) {
+        while (t >= V!1)
+        {
+            if (sq0 < n)
+            {
                 const r1 = r0 + t;
                 const sq1 = r1 * r1;
 
-                if(sq1 <= n) {
+                if (sq1 <= n)
+                {
                     r0 = r1;
                     sq0 = sq1;
-                } else
+                }
+                else
                     t /= V!2;
-            } else if(sq0 > n) {
+            }
+            else if (sq0 > n)
+            {
                 r0 = r0 - t;
                 sq0 = r0 * r0;
 
                 t /= V!2;
-            } else
+            }
+            else
                 break;
         }
 
@@ -145,23 +169,27 @@ void trialPrimes(N)() {
     N p = V!0;
     primes[idx(p)] = N.max;
     N n = V!2;
-    while(true) {
+    while (true)
+    {
         const N rootN = floorSqrt(n);
 
         bool pass = true;
-        for(N dP = V!0; primes[idx(dP)] <= rootN; ++dP) {
-            if(n % primes[idx(dP)] == V!0) {
+        for (N dP = V!0; primes[idx(dP)] <= rootN; ++dP)
+        {
+            if (n % primes[idx(dP)] == V!0)
+            {
                 pass = false;
                 break;
             }
         }
 
-        if(pass) {
+        if (pass)
+        {
             primes[idx(p)] = n;
             primeRoots[idx(p)] = rootN;
 
             ++p;
-            if(p < PrimeCount)
+            if (p < PrimeCount)
                 primes[idx(p)] = N.max;
             else
                 break;
@@ -171,17 +199,17 @@ void trialPrimes(N)() {
     }
 
     N subSum = V!0;
-    for(N pu = V!0; pu < PrimeCount; ++pu)
+    for (N pu = V!0; pu < PrimeCount; ++pu)
         subSum += primeRoots[idx(pu)];
     checkSum += subSum.bscal;
     invalid = invalid || IntFlags.local;
     IntFlags.local.clear();
 
-  /+for(N q = 0; q < p; ++q) {
+  /+for (N q = 0; q < p; ++q) {
         write(primes[idx(q)]);
         write(" : ");
         write(primeRoots[idx(q)]);
-        if(q % 8 != 7)
+        if (q % 8 != 7)
             write(", ");
         else
             writeln();
@@ -190,11 +218,13 @@ void trialPrimes(N)() {
     stdin.readln();+/
 }
 
-void collatzSort(N)() {
+void collatzSort(N)()
+{
     alias V = SafeFold!N;
 
-    static void quickSort(N[] array, N lowX, N highX) {
-        if(lowX >= highX)
+    static void quickSort(N[] array, N lowX, N highX)
+    {
+        if (lowX >= highX)
             return;
 
         N pivotX = (lowX + highX).divPow2(1u);
@@ -204,9 +234,11 @@ void collatzSort(N)() {
 
         N storeX = lowX;
         N iX = lowX;
-        while(iX < highX) {
+        while (iX < highX)
+        {
             const iV = array[idx(iX)];
-            if(iV < pivotV) {
+            if (iV < pivotV)
+            {
                 array[idx(iX)] = array[idx(storeX)];
                 array[idx(storeX)] = iV;
                 ++storeX;
@@ -226,11 +258,13 @@ void collatzSort(N)() {
     enum N maxN = V!113_382;
     N[idx(maxN)] finalIs;
 
-    for(N n = V!0; n < maxN; ++n) {
+    for (N n = V!0; n < maxN; ++n)
+    {
         N i = V!0;
         N ai = n + V!1;
-        while(ai != V!1) {
-            if(ai.modPow2(1u) ==  V!0)
+        while (ai != V!1)
+        {
+            if (ai.modPow2(1u) ==  V!0)
                 ai = ai.divPow2(1u);
             else
                 ai = V!3*ai + V!1;
@@ -244,9 +278,10 @@ void collatzSort(N)() {
     quickSort(finalIs, N(V!0), maxN - V!1);
 
     N subSum = finalIs[0];
-    for(N x = V!1; x < maxN; ++x) {
+    for (N x = V!1; x < maxN; ++x)
+    {
         subSum += finalIs[idx(x)];
-        if(finalIs[idx(x)] < finalIs[idx(x - V!1)])
+        if (finalIs[idx(x)] < finalIs[idx(x - V!1)])
             invalid = true;
     }
     checkSum += subSum.bscal;

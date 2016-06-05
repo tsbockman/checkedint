@@ -10,10 +10,12 @@ Authors: Thomas Stuart Bockman
 module checkedint.tests.values;
 
 import std.math, future.traits0;
-static if(__VERSION__ >= 2068) {
+static if (__VERSION__ >= 2068)
+{
     version(GNU) { static assert(false); }
     import std.meta : AliasSeq;
-} else
+}
+else
     import std.typetuple : AliasSeq = TypeTuple;
 
 pure: nothrow: @nogc: @safe:
@@ -27,41 +29,54 @@ alias
     ScalarTypes = AliasSeq!(FixedTypes, FloatingTypes);
 
 struct TestValues(N)
-    if(is(N == void*))
+    if (is(N == void*))
 {
     bool empty = false;
-    void* front() const {
-        return null; }
-    void popFront() {
-        empty = true; }
+    void* front() const
+    {
+        return null;
+    }
+    void popFront()
+    {
+        empty = true;
+    }
 }
 
 struct TestValues(N)
-    if(is(N == bool))
+    if (is(N == bool))
 {
 private:
     int idx = 0;
 
 public:
-    @property bool empty() const {
-        return idx <= 1; }
-    @property bool front() const {
-        return idx != 0; }
-    @property void popFront() {
-        ++idx; }
+    @property bool empty() const
+    {
+        return idx <= 1;
+    }
+    @property bool front() const
+    {
+        return idx != 0;
+    }
+    @property void popFront()
+    {
+        ++idx;
+    }
 }
 
-private enum ulong[] naturals = function() {
+private enum ulong[] naturals = function()
+{
     ulong[34 + 3*(64 - 5) - 2] nats;
 
     size_t n = 0;
-    while(n <= 33) {
+    while (n <= 33)
+    {
         nats[n] = n;
         ++n;
     }
 
     int sh = 6;
-    while(sh < 64) {
+    while (sh < 64)
+    {
         nats[n++] = (1uL << sh) -1;
         nats[n++] = (1uL << sh);
         nats[n++] = (1uL << sh) + 1;
@@ -72,15 +87,16 @@ private enum ulong[] naturals = function() {
     return nats;
 }();
 struct TestValues(N)
-    if(isIntegral!N || isSomeChar!N)
+    if (isIntegral!N || isSomeChar!N)
 {
 private:
-    enum maxIdx = function() {
+    enum maxIdx = function()
+    {
         // Test dchar values greater than dchar.max, also:
         enum ulong trueNmax = isSomeChar!N? ~cast(N)0 : N.max;
 
         auto x = cast(ptrdiff_t)(naturals.length - 1);
-        while(naturals[x] > trueNmax)
+        while (naturals[x] > trueNmax)
             --x;
         return x;
     }();
@@ -89,18 +105,24 @@ private:
     ptrdiff_t index = minIdx;
 
 public:
-    @property bool empty() const {
-        return index > maxIdx; }
-    @property N front() const {
-        static if(isSigned!N) {
-            if(index < 0)
+    @property bool empty() const
+    {
+        return index > maxIdx;
+    }
+    @property N front() const
+    {
+        static if (isSigned!N)
+        {
+            if (index < 0)
                 return -cast(N)naturals[-index];
         }
 
         return cast(N)naturals[index];
     }
-    @property void popFront() {
-        ++index; }
+    @property void popFront()
+    {
+        ++index;
+    }
 }
 
 private enum real[] normal_exps = [
@@ -182,18 +204,20 @@ private enum real[] normal_exps = [
     real.max_exp > double.max_exp? pow(2.0L, real.max_exp - 1) : real.infinity
 ];
 struct TestValues(N)
-    if(isFloatingPoint!N)
+    if (isFloatingPoint!N)
 {
 private:
-    enum minExpIdx = function() {
+    enum minExpIdx = function()
+    {
         ptrdiff_t expX = 0;
-        while(!(normal_exps[expX] >= N.min_normal))
+        while (!(normal_exps[expX] >= N.min_normal))
             ++expX;
         return expX;
     }();
-    enum maxExpIdx = function() {
+    enum maxExpIdx = function()
+    {
         ptrdiff_t expX = normal_exps.length - 1;
-        while(!(normal_exps[expX] <= N.max))
+        while (!(normal_exps[expX] <= N.max))
             --expX;
         return expX;
     }();
@@ -215,26 +239,33 @@ private:
     N _front = -N.infinity;
 
 public:
-    @property bool empty() const {
-        return index > maxIdx; }
-    @property N front() const {
-        return _front; }
-    @property void popFront() {
+    @property bool empty() const
+    {
+        return index > maxIdx;
+    }
+    @property N front() const
+    {
+        return _front;
+    }
+    @property void popFront()
+    {
         ++index;
 
         const negIdx = index < 0;
         const absIdx = negIdx? -index : index;
 
-        if(absIdx <= 1)
+        if (absIdx <= 1)
             _front = (absIdx == 0)? N.nan : 0;
-        else if(absIdx < maxIdx) {
+        else if (absIdx < maxIdx)
+        {
             const mant = normal_mants[(absIdx - 2) % normal_mants.length];
             const expC = normal_exps[minExpIdx + (absIdx - 2) / normal_mants.length];
             _front = mant * expC;
-        } else
+        }
+        else
             _front = N.infinity;
 
-        if(negIdx)
+        if (negIdx)
             _front = -_front;
     }
 }
