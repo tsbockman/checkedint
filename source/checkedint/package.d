@@ -45,15 +45,15 @@ the basic integral types. The $(LINK2 ./package.html#DebugInt, `DebugInt`) `temp
 of `SafeInt` in debug builds, and raw basic types in release builds.
 
 $(TABLE
-    $(TR $(TD)                $(TH `int` (basic type)) $(TH `SafeInt!int`)          $(TH `SmartInt!int`))
-    $(TR $(TH `int.max + 1`)  $(TD `0`)              $(TD `raise(IntFlag.over)`)    $(TD `raise(IntFlag.over)`))
-    $(TR $(TH `-1 > 1u`)      $(TD `true`)           $(TD compile-time error)       $(TD `false`))
-    $(TR $(TH `-1 - 2u`)      $(TD `4294967293`)     $(TD compile-time error)       $(TD `-3`))
-    $(TR $(TH `1 / 0`)        $(TD crash by FPE)     $(TD `raise(IntFlag.div0)`)    $(TD `raise(IntFlag.div0)`))
-    $(TR $(TH `int.min % -1`) $(TD crash by FPE)     $(TD `raise(IntFlag.posOver)`) $(TD `0`))
-    $(TR $(TH `-1 ^^ -7`)     $(TD crash by FPE)     $(TD `raise(IntFlag.undef)`)   $(TD `-1`))
-    $(TR $(TH `cast(uint)-1`) $(TD `4294967295`)     $(TD compile-time error)       $(TD `raise(IntFlag.negOver)`))
-    $(TR $(TH `-1 >> 100`)    $(TD undefined) $(TD `raise(IntFlag.undef)`)    $(TD `-1`))
+    $(TR $(TD)                $(TH `int` (basic type)) $(TH `SafeInt!int`)            $(TH `SmartInt!int`))
+    $(TR $(TH `int.max + 1`)  $(TD `int.min`)          $(TD `raise(IntFlag.over)`)    $(TD `raise(IntFlag.over)`))
+    $(TR $(TH `-1 > 1u`)      $(TD `true`)             $(TD compile-time error)       $(TD `false`))
+    $(TR $(TH `-1 - 2u`)      $(TD `4294967293`)       $(TD compile-time error)       $(TD `-3`))
+    $(TR $(TH `1 / 0`)        $(TD crash by FPE)       $(TD `raise(IntFlag.div0)`)    $(TD `raise(IntFlag.div0)`))
+    $(TR $(TH `int.min % -1`) $(TD crash by FPE)       $(TD `raise(IntFlag.posOver)`) $(TD `0`))
+    $(TR $(TH `-1 ^^ -7`)     $(TD crash by FPE)       $(TD `raise(IntFlag.undef)`)   $(TD `-1`))
+    $(TR $(TH `cast(uint)-1`) $(TD `4294967295`)       $(TD compile-time error)       $(TD `raise(IntFlag.negOver)`))
+    $(TR $(TH `-1 >> 100`)    $(TD undefined)          $(TD `raise(IntFlag.undef)`)   $(TD `-1`))
 )
 
 $(BIG $(B Error Signaling)) $(BR)
