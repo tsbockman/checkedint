@@ -6,10 +6,6 @@ $(B Note:) Normally this module should not be imported directly. Instead, import
 $(LINK2 ./throws.html, `checkedint.throws`), $(LINK2 ./asserts.html, `checkedint.asserts`), or
 $(LINK2 ./noex.html, `checkedint.noex`), depending on which error signalling policy you want to use. (See below.)
 
-Copyright: Copyright Thomas Stuart Bockman 2015
-License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
-Authors: Thomas Stuart Bockman
-
 $(BIG $(B Problems solved by `checkedint`)) $(BR)
 As in many other programming languages (C, C++, Java, etc.) D's basic integral types (such as `int` or `ulong`) are
 surprisingly difficult to use correctly in the general case, due to variuos departures from the behaviour of ideal
@@ -45,15 +41,15 @@ the basic integral types. The $(LINK2 ./package.html#DebugInt, `DebugInt`) `temp
 of `SafeInt` in debug builds, and raw basic types in release builds.
 
 $(TABLE
-    $(TR $(TD)                $(TH `int` (basic type)) $(TH `SafeInt!int`)          $(TH `SmartInt!int`))
-    $(TR $(TH `int.max + 1`)  $(TD `0`)              $(TD `raise(IntFlag.over)`)    $(TD `raise(IntFlag.over)`))
-    $(TR $(TH `-1 > 1u`)      $(TD `true`)           $(TD compile-time error)       $(TD `false`))
-    $(TR $(TH `-1 - 2u`)      $(TD `4294967293`)     $(TD compile-time error)       $(TD `-3`))
-    $(TR $(TH `1 / 0`)        $(TD crash by FPE)     $(TD `raise(IntFlag.div0)`)    $(TD `raise(IntFlag.div0)`))
-    $(TR $(TH `int.min % -1`) $(TD crash by FPE)     $(TD `raise(IntFlag.posOver)`) $(TD `0`))
-    $(TR $(TH `-1 ^^ -7`)     $(TD crash by FPE)     $(TD `raise(IntFlag.undef)`)   $(TD `-1`))
-    $(TR $(TH `cast(uint)-1`) $(TD `4294967295`)     $(TD compile-time error)       $(TD `raise(IntFlag.negOver)`))
-    $(TR $(TH `-1 >> 100`)    $(TD undefined) $(TD `raise(IntFlag.undef)`)    $(TD `-1`))
+    $(TR $(TD)                $(TH `int` (basic type)) $(TH `SafeInt!int`)            $(TH `SmartInt!int`))
+    $(TR $(TH `int.max + 1`)  $(TD `int.min`)          $(TD `raise(IntFlag.over)`)    $(TD `raise(IntFlag.over)`))
+    $(TR $(TH `-1 > 1u`)      $(TD `true`)             $(TD compile-time error)       $(TD `false`))
+    $(TR $(TH `-1 - 2u`)      $(TD `4294967293`)       $(TD compile-time error)       $(TD `-3`))
+    $(TR $(TH `1 / 0`)        $(TD crash by FPE)       $(TD `raise(IntFlag.div0)`)    $(TD `raise(IntFlag.div0)`))
+    $(TR $(TH `int.min % -1`) $(TD crash by FPE)       $(TD `raise(IntFlag.posOver)`) $(TD `0`))
+    $(TR $(TH `-1 ^^ -7`)     $(TD crash by FPE)       $(TD `raise(IntFlag.undef)`)   $(TD `-1`))
+    $(TR $(TH `cast(uint)-1`) $(TD `4294967295`)       $(TD compile-time error)       $(TD `raise(IntFlag.negOver)`))
+    $(TR $(TH `-1 >> 100`)    $(TD undefined)          $(TD `raise(IntFlag.undef)`)   $(TD `-1`))
 )
 
 $(BIG $(B Error Signaling)) $(BR)
@@ -103,6 +99,10 @@ $(UL
     $(LI The assignment operators (`++` or `+=`, for example) should never be slower than the equivalent two operation
         sequence, and are sometimes a little bit faster.)
 )
+
+Copyright: Copyright Thomas Stuart Bockman 2015
+License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+Authors: Thomas Stuart Bockman
 **/
 module checkedint;
 import checkedint.flags;
