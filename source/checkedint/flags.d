@@ -1,10 +1,6 @@
 /**
 Common error signaling facilities for the $(LINK2 ./package.html, `checkedint`) package.
 
-Copyright: Copyright Thomas Stuart Bockman 2015
-License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
-Authors: Thomas Stuart Bockman
-
 $(BIG $(B `IntFlagPolicy.throws`)) $(BR)
 When the `throws` policy is set, errors are signalled by simply throwing a new
 $(LINK2 ./_flags.html#CheckedIntException, `CheckedIntException`). This is the recommended policy because:
@@ -26,8 +22,8 @@ $(UL
     $(LI With `version(assert)` - enabled by default in debug and unittest builds - a `core.exception.AssertError` will
         be thrown. Its `msg` property will be set to the description of an `IntFlag` that was raised.)
     $(LI Otherwise (in release mode), `assert(0);` will be used to halt the program immediately. Unfortunately, no
-        message or stack trace can be provided in this case. Use one of the other two error signalling policies if you
-        need detailed information in release mode.)
+        message or stack trace can be provided in this case. Use one of the other two error signalling policies if
+        detailed information is needed in release mode.)
 )
 The `asserts` policy is the only one that is compatible with `pure nothrow @nogc` code.
 
@@ -48,6 +44,10 @@ or clearing flags that were set by the caller.
 
 Care must be taken when using the `noex` policy to insert sufficient `if (IntFlags.local)` checks; otherwise
 `checkedint` will not provide much protection from integer math related bugs.
+
+Copyright: Copyright Thomas Stuart Bockman 2015
+License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+Authors: Thomas Stuart Bockman
 **/
 module checkedint.flags;
 
@@ -366,16 +366,23 @@ public:
     {
         return strs[index];
     }
-    /// ditto
-    void toString(Writer, Char = char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
-    {
-        formatValue(sink, strs[index], fmt);
-    }
     ///
     unittest
     {
         assert(IntFlag.over.toString() == "{overflow}");
         assert(IntFlag.over.toString() == IntFlag.over.mask.toString());
+    }
+    /**
+    Puts a `string` representation of this `IntFlag` into `w`. This overload will not allocate, unless
+    `std.range.primitives.put(w, ...)` allocates.
+
+    Params:
+        w = An output range that will receive the `string`
+        fmt = An optional format specifier
+    */
+    void toString(Writer, Char = char)(Writer w, FormatSpec!Char fmt = (FormatSpec!Char).init) const
+    {
+        formatValue(w, strs[index], fmt);
     }
 }
 
@@ -384,7 +391,7 @@ A bitset that can be used to track integer math failures.
 
 `IntFlags` is also a forward range which can be used to iterate over the set (raised)
 $(LINK2 ./_flags.html#IntFlag, `IntFlag`) values. Fully consuming the range is equivalent to calling `clear()`;
-iterate over a copy made with `save()`, instead, if this is not your intention.
+iterate over a copy made with `save()`, instead, if the clearing is undesired.
 **/
 struct IntFlags
 {
@@ -549,7 +556,7 @@ public:
     beginning of a scope, and restore the previous one at the end.
 
     Any flags raised during the scope must be manually checked, handled, and cleared before the end, otherwise a
-    debugging `assert` will be triggered to warn you that restoring the old `IntFlags.local` value would cause a
+    debugging `assert` will be triggered to warn that restoring the old `IntFlags.local` value would cause a
     loss of information.
     **/
     enum string pushPop = r"
@@ -604,23 +611,6 @@ scope(exit)
             return cast(immutable)(buff.data);
         }
     }
-    /// ditto
-    void toString(Writer, Char = char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
-    {
-        put(sink, '{');
-
-        bool first = true;
-        foreach (fd; this.save())
-        {
-            if (first)
-                first = false;
-            else
-                put(sink, ", ");
-            put(sink, fd.desc);
-        }
-
-        put(sink, '}');
-    }
     ///
     unittest
     {
@@ -632,6 +622,30 @@ scope(exit)
 
         flags |= IntFlag.imag;
         assert(flags.toString() == "{undefined result, imaginary component}", flags.toString());
+    }
+    /**
+    Puts a `string` representation of the list of set flags into `w`. This overload will not allocate, unless
+    `std.range.primitives.put(w, ...)` allocates.
+
+    Params:
+        w = An output range that will receive the `string`
+        fmt = An optional format specifier
+    */
+    void toString(Writer, Char = char)(Writer w, FormatSpec!Char fmt = (FormatSpec!Char).init) const
+    {
+        put(w, '{');
+
+        bool first = true;
+        foreach (fd; this.save())
+        {
+            if (first)
+                first = false;
+            else
+                put(w, ", ");
+            put(w, fd.desc);
+        }
+
+        put(w, '}');
     }
 
     /// An IntFlags value with all possible flags raised.

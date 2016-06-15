@@ -4,7 +4,7 @@ to the basic integral types.
 
 $(B Note:) Normally this module should not be imported directly. Instead, import one of
 $(LINK2 ./throws.html, `checkedint.throws`), $(LINK2 ./asserts.html, `checkedint.asserts`), or
-$(LINK2 ./noex.html, `checkedint.noex`), depending on which error signalling policy you want to use. (See below.)
+$(LINK2 ./noex.html, `checkedint.noex`), depending on which error signalling policy is needed. (See below.)
 
 $(BIG $(B Problems solved by `checkedint`)) $(BR)
 As in many other programming languages (C, C++, Java, etc.) D's basic integral types (such as `int` or `ulong`) are
@@ -33,8 +33,8 @@ $(UL
         behaviour of the basic integral types exactly, $(B except) that where the behaviour of the basic type is
         wrong, or very unintuitive, an error is signaled instead.)
 )
-There is no meaningful performance difference between `SafeInt` and `SmartInt`. For general use, choose `SmartInt` to
-simplify your code and maximize the range of inputs it accepts.
+There is no meaningful performance difference between `SafeInt` and `SmartInt`. For general use, choosing `SmartInt`
+simplifies code and maximizes the range of inputs accepted.
 
 `SafeInt` is intended mainly as a debugging tool, to help identify problems in code that must also work correctly with
 the basic integral types. The $(LINK2 ./package.html#DebugInt, `DebugInt`) `template` `alias` makes it simple to use
@@ -79,20 +79,21 @@ $(BIG $(B Performance)) $(BR)
 Replacing all basic integer types with `SmartInt` or `SafeInt` will slow down exectuion somewhat. How much depends on
 many factors, but for most code following a few simple rules should keep the penalty low:
 $(OL
-    $(LI Build with $(B $(RED `--inline`)) and $(B `-O`) (DMD) or $(B `-O3`) (GDC and LDC). This by itself can improve
-        the performance of `checkedint` by around $(B 1,000%).)
+    $(LI Build with $(LINK2 http://dlang.org/dmd-windows.html#switch-inline, $(B $(RED `-inline`))) and
+        $(LINK2 http://dlang.org/dmd-windows.html#switch-O, $(B `-O`)) (DMD) or $(B `-O3`) (GDC and LDC). This by
+        itself can improve the performance of `checkedint` by around $(B 1,000%).)
     $(LI With GDC or LDC, the performance hit in code that is bottlenecked by integer math will probably be between 30%
         and 100%. The performance hit may be considerably larger with DMD, due to the weakness of the inliner.)
-    $(LI `checkedint` can't slow down code where it's not used! If you really need more speed, try switching to
-        $(LINK2 ./package.html#DebugInt, `DebugInt`) for the hottest code in your program (like inner loops) before
+    $(LI `checkedint` can't slow down code where it's not used! For more speed, switch to
+        $(LINK2 ./package.html#DebugInt, `DebugInt`) for the hottest code in the program (like inner loops) before
         giving up on `checkedint` entirely.)
 )
-The above guidelines should be more than sufficient for most programs. But, here are some micro-optimization tips as
-well, if you need them:
+The above guidelines should be more than sufficient for most programs. But, some micro-optimization are possible as
+well, if needed:
 $(UL
     $(LI Always use $(LINK2 ./package.html#smartOp.mulPow2, `mulPow2()`),
         $(LINK2 ./package.html#smartOp.divPow2, `divPow2()`), and $(LINK2 ./package.html#smartOp.modPow2, `modPow2()`)
-        whenever they can naturally express your intent - they're faster than a regular `/`, `%`, or `pow()`.)
+        whenever they can naturally express the intent - they're faster than a regular `/`, `%`, or `pow()`.)
     $(LI Unsigned types are a little bit faster than signed types, assuming negative values aren't needed.)
     $(LI Although they are perfectly safe with `checkedint`, mixed signed/unsigned operations are a little bit slower
         than same-signedness ones.)
@@ -388,16 +389,23 @@ else
         {
             return to!(string, IntFlagPolicy.noex)(bscal);
         }
-        /// ditto
-        void toString(Writer, Char = char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
-        {
-            formatValue(sink, bscal, fmt);
-        }
         ///
         unittest
         {
             import checkedint.throws : smartInt; // use IntFlagPolicy.throws
             assert(smartInt(-753).toString() == "-753");
+        }
+        /**
+        Puts a `string` representation of this value into `w`. This overload will not allocate, unless
+        `std.range.primitives.put(w, ...)` allocates.
+
+        Params:
+            w = An output range that will receive the `string`
+            fmt = An optional format specifier
+        */
+        void toString(Writer, Char = char)(Writer w, FormatSpec!Char fmt = (FormatSpec!Char).init) const
+        {
+            formatValue(w, bscal, fmt);
         }
 
         // Comparison /////////////////////////////////////////////////
@@ -746,7 +754,7 @@ else
                 $(LI Like the standard operator, comparisons involving any floating-point `nan` value always return
                     `false`.)
             ) $(BR)
-            Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
+            Direct comparisons between boolean values and numeric ones are forbidden. Make the intent explicit:
             $(UL
                 $(LI `numeric == cast(N)boolean`)
                 $(LI `(numeric != 0) == boolean`)
@@ -797,7 +805,7 @@ else
                 $(LI If either `left` or `right` $(I is) floating-point, this function forwards to
                     `std.math.cmp()`.)
             ) $(BR)
-            Direct comparisons between boolean values and numeric ones are forbidden. Make your intention explicit:
+            Direct comparisons between boolean values and numeric ones are forbidden. Make the intent explicit:
             $(UL
                 $(LI `numeric == cast(N)boolean`)
                 $(LI `(numeric != 0) == boolean`)
@@ -1637,14 +1645,14 @@ else
 // debug /////////////////////////////////////////////////
     /**
     `template` `alias` that evaluates to `SafeInt!(N, policy, bitOps)` in debug mode, and `N` in release mode. This
-    way, you can use `SafeInt!N` to debug your integer logic in testing, but switch to basic `N` in release mode for
+    way, `SafeInt!N` is used to debug integer logic while testing, but the basic `N` is used in release mode for
     maximum speed and the smallest binaries.
 
-    While this may be very helpful for debuggin your algorithms, note that `DebugInt` is $(B not) a substitute
+    While this may be very helpful for debugging algorithms, note that `DebugInt` is $(B not) a substitute
     for input validation in release mode. Unrecoverable FPEs or silent data-corrupting overflow can still occur in
-    release mode if you get your algorithm wrong, or fail to add manual bounds checks in the right places.
+    release mode in algorithms that are faulty, or missing the appropriate manual bounds checks.
 
-    If performance is your only motivation for using `DebugInt` rather than
+    If performance is the only motivation for using `DebugInt` rather than
     $(LINK2 ./package.html#SmartInt, `SmartInt`), consider limiting `DebugInt` to only the hotest code paths - inner
     loops and the like. For most programs, this should provide nearly the same performance boost as using it
     everywhere, with far less loss of safety.
@@ -1669,8 +1677,8 @@ else
     $(LINK2 ./package.html#DebugInt, `DebugInt`) `template` allows a variable to use `SafeInt` in debug mode to find
     bugs, and `N` directly in release mode for greater speed and a smaller binary.
 
-    If you're not trying to write generic code that works with both `SafeInt!N` and `N`, you should probably be using
-    $(LINK2 ./package.html#SmartInt, `SmartInt`) instead. It generates far fewer error messages; mostly it
+    Outside of generic code that needs to work with both `SafeInt!N` and `N`, it is generally preferable to use
+    $(LINK2 ./package.html#SmartInt, `SmartInt`) instead. It generates far fewer error messages: mostly it
     "just works".
 
     $(UL
@@ -1949,16 +1957,23 @@ else
         {
             return to!(string, IntFlagPolicy.noex)(bscal);
         }
-        /// ditto
-        void toString(Writer, Char = char)(Writer sink, FormatSpec!Char fmt = (FormatSpec!Char).init) const
-        {
-            formatValue(sink, bscal, fmt);
-        }
         ///
         unittest
         {
             import checkedint.throws : safeInt; // use IntFlagPolicy.throws
             assert(safeInt(-753).toString() == "-753");
+        }
+        /**
+        Puts a `string` representation of this value into `w`. This overload will not allocate, unless
+        `std.range.primitives.put(w, ...)` allocates.
+
+        Params:
+            w = An output range that will receive the `string`
+            fmt = An optional format specifier
+        */
+        void toString(Writer, Char = char)(Writer w, FormatSpec!Char fmt = (FormatSpec!Char).init) const
+        {
+            formatValue(w, bscal, fmt);
         }
 
         // Comparison /////////////////////////////////////////////////
@@ -2166,7 +2181,7 @@ else
         assert(is(typeof(bc) == uint));
         assert(bc == 4294967295u);
 
-        // ...that's why SafeInt won't let you do it.
+        // ...that's why SafeInt doesn't allow it.
         import checkedint.throws : SafeInt, to; // use IntFlagPolicy.throws
 
         SafeInt!int sa = -1;
@@ -2311,7 +2326,7 @@ else
                 $(LI Alternately, $(LINK2 ./package.html#to, `checkedint.to()`) can be used to safely convert the
                     type of one input, with runtime bounds checking.)
             ) $(BR)
-            Direct comparisons between boolean values and numeric ones are also forbidden. Make your intention explicit:
+            Direct comparisons between boolean values and numeric ones are also forbidden. Make the intent explicit:
             $(UL
                 $(LI `numeric == cast(N)boolean`)
                 $(LI `(numeric != 0) == boolean`)
