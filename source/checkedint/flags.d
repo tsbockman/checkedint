@@ -391,7 +391,7 @@ A bitset that can be used to track integer math failures.
 
 `IntFlags` is also a forward range which can be used to iterate over the set (raised)
 $(LINK2 ./_flags.html#IntFlag, `IntFlag`) values. Fully consuming the range is equivalent to calling `clear()`;
-iterate over a copy made with `save()`, instead, if the clearing is undesired.
+iterate over a copy made with `save()`, instead, if this clearing is undesired.
 **/
 struct IntFlags
 {
