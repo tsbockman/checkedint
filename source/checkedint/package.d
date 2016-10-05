@@ -4,7 +4,7 @@ to the basic integral types.
 
 $(B Note:) Normally this module should not be imported directly. Instead, import one of
 $(LINK2 ./throws.html, `checkedint.throws`), $(LINK2 ./asserts.html, `checkedint.asserts`), or
-$(LINK2 ./noex.html, `checkedint.noex`), depending on which error signalling policy is needed. (See below.)
+$(LINK2 ./sticky.html, `checkedint.sticky`), depending on which error signalling policy is needed. (See below.)
 
 $(BIG $(B Problems solved by `checkedint`)) $(BR)
 As in many other programming languages (C, C++, Java, etc.) D's basic integral types (such as `int` or `ulong`) are
@@ -60,9 +60,9 @@ $(UL
         These are normal exceptions; not FPEs. As such, they can be caught and include a stack trace.)
     $(LI With `IntFlagPolicy.asserts`, an assertion failure will be triggered. This policy is compatible with
         `pure nothrow @nogc` code, but will crash the program in the event of a runtime integer math error.)
-    $(LI Alternatively, `IntFlagPolicy.noex` can be selected so that a thread-local flag is set when an operation fails.
-        This allows `checkedint` to be used from `nothrow` and `@nogc` (but not `pure`) code without crashing the
-        program, but requires the API user to manually insert checks of `IntFlags.local`.)
+    $(LI Alternatively, `IntFlagPolicy.sticky` can be selected so that a thread-local sticky flag is set when an
+        operation fails. This allows `checkedint` to be used from `nothrow` and `@nogc` (but not `pure`) code without
+        crashing the program, but requires the API user to manually insert checks of `IntFlags.local`.)
 )
 In normal code, there is no performance penalty for allowing `checkedint` to `throw`. Doing so is highly recommended
 because this makes it easier to use correctly, and yields more precise error messages when something goes wrong.
@@ -100,6 +100,8 @@ $(UL
     $(LI The assignment operators (`++` or `+=`, for example) should never be slower than the equivalent two operation
         sequence, and are sometimes a little bit faster.)
 )
+
+References: $(LINK2 https://dlang.org/phobos/core_checkedint.html, core._checkedint)
 
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
@@ -144,7 +146,7 @@ else
         static if (bitOps)
         {
             /**
-            The basic integral value of this `SmartInt`. Accessing this directly may be useful for:
+            The basic scalar value of this `SmartInt`. Accessing this directly may be useful for:
             $(UL
                 $(LI Intentionally doing modular (unchecked) arithmetic, or)
                 $(LI Interacting with APIs that are not `checkedint` aware.)
@@ -250,7 +252,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : SmartInt; // use IntFlagPolicy.noex
+            import checkedint.sticky : SmartInt; // use IntFlagPolicy.sticky
 
             // Any basic scalar or checkedint *type* is accepted...
             SmartInt!int n = 0;
@@ -317,7 +319,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : SmartInt; // use IntFlagPolicy.noex
+            import checkedint.sticky : SmartInt; // use IntFlagPolicy.sticky
 
             SmartInt!ulong n = 52;
             auto a = cast(int)n;
@@ -387,7 +389,7 @@ else
         /// Get a `string` representation of this value.
         string toString() const @safe
         {
-            return to!(string, IntFlagPolicy.noex)(bscal);
+            return to!(string, IntFlagPolicy.sticky)(bscal);
         }
         ///
         unittest
@@ -676,8 +678,8 @@ else
     ///
     unittest
     {
-        // When IntFlagPolicy.noex is used, failed SmartInt operations set one or more bits in IntFlags.local.
-        import checkedint.noex : SmartInt;
+        // When IntFlagPolicy.sticky is used, failed SmartInt operations set one or more bits in IntFlags.local.
+        import checkedint.sticky : SmartInt;
 
         SmartInt!uint ma = 1;
         SmartInt!uint mb = 0;
@@ -784,7 +786,7 @@ else
             ///
             unittest
             {
-                import checkedint.noex : smartOp; // smartOp.cmp() never throws
+                import checkedint.sticky : smartOp; // smartOp.cmp() never throws
 
                 assert(uint.max == -1);
                 assert( smartOp.cmp!"!="(uint.max, -1));
@@ -843,7 +845,7 @@ else
             ///
             unittest
             {
-                import checkedint.noex : smartOp; // smartOp.cmp() never throws
+                import checkedint.sticky : smartOp; // smartOp.cmp() never throws
 
                 assert(smartOp.cmp(325.0, 325u) == 0);
                 assert(smartOp.cmp(uint.max, -1) == 1);
@@ -870,7 +872,7 @@ else
             ///
             unittest
             {
-                import checkedint.noex : smartOp; // smartOp.abs() never throws
+                import checkedint.sticky : smartOp; // smartOp.abs() never throws
 
                 assert(smartOp.abs(int.min) == std.math.pow(2.0, 31));
                 assert(smartOp.abs(-25) == 25u);
@@ -1006,7 +1008,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : smartOp; // use IntFlagPolicy.sticky
 
             assert(smartOp.unary!"~"(0u) == uint.max);
 
@@ -1038,7 +1040,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp;
+            import checkedint.sticky : smartOp;
 
             assert(smartOp.bsf(20) == 2);
 
@@ -1055,7 +1057,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp;
+            import checkedint.sticky : smartOp;
 
             assert(smartOp.bsr( 20) ==  4);
             assert(smartOp.bsr(-20) == 31);
@@ -1077,7 +1079,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp;
+            import checkedint.sticky : smartOp;
 
             assert(smartOp.ilogb(20) == 4);
             assert(smartOp.ilogb(-20) == 4);
@@ -1370,7 +1372,7 @@ else
             $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)
             $(LI `^^` and `^^=` will remain disabled in favour of `pow` until DMD issues 15288 and 15412 are fixed.)
         ) $(BR)
-        Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will
+        Like the standard equivalents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will
         overwrite it with the result of the operation.
         **/
         auto binary(string op, N, M)(const N left, const M right) @safe
@@ -1395,7 +1397,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : smartOp; // use IntFlagPolicy.sticky
 
             ulong a = 18_446_744_073_709_551_615uL;
             long b =      -6_744_073_709_551_615L;
@@ -1445,7 +1447,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : smartOp; // use IntFlagPolicy.sticky
 
             assert(smartOp.binary!"<<"(-0x80, -2) == -0x20);
             ubyte a = 0x3u;
@@ -1526,7 +1528,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : smartOp; // use IntFlagPolicy.sticky
 
             assert(smartOp.mulPow2(-23, 5) == -736);
             smartOp.mulPow2(10_000_000, 10);
@@ -1557,7 +1559,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : smartOp; // use IntFlagPolicy.sticky
 
             assert(smartOp.divPow2(65536, 8) == 256);
             assert(smartOp.divPow2(-100, 100) == 0);
@@ -1580,12 +1582,12 @@ else
         auto modPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if (isFixedPoint!N && isFixedPoint!M)
         {
-            return byPow2Impl!("%", IntFlagPolicy.noex, NumFromScal!N, NumFromScal!M)(left, exp);
+            return byPow2Impl!("%", IntFlagPolicy.sticky, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
         unittest
         {
-            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : smartOp; // use IntFlagPolicy.sticky
 
             assert(smartOp.modPow2( 101,  1) ==  1);
             assert(smartOp.modPow2( 101,  3) ==  5);
@@ -1628,7 +1630,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : smartOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : smartOp; // use IntFlagPolicy.sticky
 
             assert(smartOp.pow(-10, 3) == -1_000);
             assert(smartOp.pow(16, 4uL) == 65536);
@@ -1815,7 +1817,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : SafeInt, to; // use IntFlagPolicy.noex
+            import checkedint.sticky : SafeInt, to; // use IntFlagPolicy.sticky
 
             // Only types that for which N can represent all values are accepted directly:
             SafeInt!int n = int.max;
@@ -1885,7 +1887,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : SafeInt; // use IntFlagPolicy.noex
+            import checkedint.sticky : SafeInt; // use IntFlagPolicy.sticky
 
             SafeInt!ulong n = 52uL;
             auto a = cast(int)n;
@@ -1955,7 +1957,7 @@ else
         /// Get a `string` representation of this value.
         string toString() const @safe
         {
-            return to!(string, IntFlagPolicy.noex)(bscal);
+            return to!(string, IntFlagPolicy.sticky)(bscal);
         }
         ///
         unittest
@@ -2236,8 +2238,8 @@ else
     ///
     unittest
     {
-        // When IntFlagPolicy.noex is set, SafeInt operations that fail at runtime set one or more bits in IntFlags.local.
-        import checkedint.noex : SafeInt;
+        // When IntFlagPolicy.sticky is set, SafeInt operations that fail at runtime set one or more bits in IntFlags.local.
+        import checkedint.sticky : SafeInt;
 
         SafeInt!uint sa = 1u;
         SafeInt!uint sb = 0u;
@@ -2341,7 +2343,7 @@ else
             ///
             unittest
             {
-                import checkedint.noex : safeOp; // safeOp.cmp() never throws
+                import checkedint.sticky : safeOp; // safeOp.cmp() never throws
 
                 assert(safeOp.cmp!"=="(int.max, 0x7FFF_FFFF));
                 assert(safeOp.cmp!"!="(uint.min, 5u));
@@ -2411,7 +2413,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.unary!"~"(0u) == uint.max);
 
@@ -2453,7 +2455,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.abs(-25) == 25);
             assert(safeOp.abs(745u) == 745u);
@@ -2471,7 +2473,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.bsf(20) == 2);
 
@@ -2488,7 +2490,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.bsr( 20) ==  4);
             assert(safeOp.bsr(-20) == 31);
@@ -2515,7 +2517,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.ilogb( 20) == 4);
             assert(safeOp.ilogb(-20) == 4);
@@ -2629,7 +2631,7 @@ else
             $(LI Likewise, `modPow2()` should be used for remainders instead of `&`.)
             $(LI `^^` and `^^=` will remain disabled in favour of `pow` until DMD issues 15288 and 15412 are fixed.)
         ) $(BR)
-        Like the standard equiavlents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will overwrite
+        Like the standard equivalents, the assignment operators (`+=`, `-=`, `*=`, etc.) take `left` by `ref` and will overwrite
         it with the result of the operation.
         **/
         OpType!(N, op, M) binary(string op, N, M)(const N left, const M right) @safe
@@ -2654,7 +2656,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.binary!"+"(17, -5) == 12);
             static assert(!__traits(compiles, safeOp.binary!"+"(-1, 1u)));
@@ -2701,7 +2703,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.binary!"<<"(-0x80,  2) == -0x200);
             safeOp.binary!"<<"(-0x80, -2);
@@ -2769,7 +2771,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.mulPow2(-23, 5) == -736);
             safeOp.mulPow2(10_000_000, 10);
@@ -2800,7 +2802,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.divPow2(65536, 8) == 256);
             assert(safeOp.divPow2(-100, 100) == 0);
@@ -2823,12 +2825,12 @@ else
         auto modPow2(N, M)(const N left, const M exp) pure @safe nothrow @nogc
             if (isFixedPoint!N && isFixedPoint!M)
         {
-            return byPow2Impl!("%", IntFlagPolicy.noex, NumFromScal!N, NumFromScal!M)(left, exp);
+            return byPow2Impl!("%", IntFlagPolicy.sticky, NumFromScal!N, NumFromScal!M)(left, exp);
         }
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.modPow2( 101,  1) ==  1);
             assert(safeOp.modPow2( 101,  3) ==  5);
@@ -2869,7 +2871,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : safeOp; // use IntFlagPolicy.noex
+            import checkedint.sticky : safeOp; // use IntFlagPolicy.sticky
 
             assert(safeOp.pow(-10, 3) == -1_000);
             static assert(!__traits(compiles, safeOp.pow(16, 4uL)));
@@ -2897,7 +2899,7 @@ else
     {
         private enum useFlags(S) = (isCheckedInt!T || isScalarType!T) && (isCheckedInt!S || isScalarType!S);
         private enum reqAttrs =
-            ((policy == IntFlagPolicy.noex || policy == IntFlagPolicy.asserts)? " nothrow" : "") ~
+            ((policy == IntFlagPolicy.sticky || policy == IntFlagPolicy.asserts)? " nothrow" : "") ~
             ((policy == IntFlagPolicy.asserts || policy == IntFlagPolicy.throws)? " pure" : "");
 
         T to(S)(const S value) @safe
@@ -2949,7 +2951,7 @@ else
     unittest
     {
         // Conversions involving only basic scalars or checkedint types use IntFlags for error signalling.
-        import checkedint.noex : smartInt, SmartInt, smartOp, to; // use IntFlagPolicy.noex
+        import checkedint.sticky : smartInt, SmartInt, smartOp, to; // use IntFlagPolicy.sticky
 
         assert(to!int(smartInt(-421751L)) == -421751);
         assert(to!(SmartInt!ubyte)(100) == 100u);
@@ -2958,7 +2960,7 @@ else
         assert(to!int(50u) == 50);
         assert(!IntFlags.local);
 
-        // If IntFlagPolicy.noex is set, failed conversions return garbage, but...
+        // If IntFlagPolicy.sticky is set, failed conversions return garbage, but...
         assert(smartOp.cmp!"!="(to!int(uint.max), uint.max));
         // ...IntFlags.local can be checked to see if anything went wrong.
         assert(IntFlags.local.clear() == IntFlag.posOver);
@@ -2970,9 +2972,9 @@ else
         assert(to!(string, IntFlagPolicy.throws)(55) == "55");
         assert(to!(real, IntFlagPolicy.throws)("3.141519e0") == 3.141519L);
 
-        // Setting IntFlagPolicy.noex or .asserts will block std.conv.to(), unless the instantiation is nothrow.
+        // Setting IntFlagPolicy.sticky or .asserts will block std.conv.to(), unless the instantiation is nothrow.
         // Setting IntFlagPolicy.asserts or .throws will block std.conv.to(), unless the instantiation is pure.
-        static assert(!__traits(compiles, to!(real, IntFlagPolicy.noex)("3.141519e0")));
+        static assert(!__traits(compiles, to!(real, IntFlagPolicy.sticky)("3.141519e0")));
     }
 
     @property {
@@ -3083,7 +3085,7 @@ else
         ///
         unittest
         {
-            import checkedint.noex : idx, SmartInt, safeInt; // use IntFlagPolicy.noex
+            import checkedint.sticky : idx, SmartInt, safeInt; // use IntFlagPolicy.sticky
 
             assert(is(typeof(idx(cast(long)1)) == ptrdiff_t));
             assert(is(typeof(idx(cast(ubyte)1)) == size_t));

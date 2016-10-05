@@ -48,10 +48,10 @@ void benchMacro(string testStr)()
     {
         foreach (Nstr; AliasSeq!(
             Vstr,
-            "SafeInt!(" ~ Vstr ~ ", IFP.noex)",
+            "SafeInt!(" ~ Vstr ~ ", IFP.sticky)",
             "SafeInt!(" ~ Vstr ~ ", IFP.asserts)",
             "SafeInt!(" ~ Vstr ~ ", IFP.throws)",
-            "SmartInt!(" ~ Vstr ~ ", IFP.noex)",
+            "SmartInt!(" ~ Vstr ~ ", IFP.sticky)",
             "SmartInt!(" ~ Vstr ~ ", IFP.asserts)",
             "SmartInt!(" ~ Vstr ~ ", IFP.throws)"))
         {

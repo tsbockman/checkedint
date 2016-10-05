@@ -9,7 +9,7 @@ Authors: Thomas Stuart Bockman
 module checkedint.tests.contract.internal;
 public import checkedint.tests.values;
 
-import checkedint.noex;
+import checkedint.sticky;
 
 public import std.algorithm, future.format, std.stdio, future.traits0;
 public static import stdm = future.math;

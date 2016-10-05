@@ -27,10 +27,10 @@ $(UL
 )
 The `asserts` policy is the only one that is compatible with `pure nothrow @nogc` code.
 
-$(BIG $(B `IntFlagPolicy.noex`)) $(BR)
-An alternative error signalling method may be selected using the `noex` policy:
+$(BIG $(B `IntFlagPolicy.sticky`)) $(BR)
+An alternative error signalling method may be selected using the `sticky` policy:
 $(OL
-    $(LI Whenever an integer math error occurs, a bit flag is raised in
+    $(LI Whenever an integer math error occurs, a sticky bit flag is raised in
         $(LINK2 ./_flags.html#IntFlags.local, `IntFlags.local`), which is a TLS variable.)
     $(LI The integer math operations in `checkedint` only set bit flags; they never clear them. Thus, any flag that is
         raised because of an error will remain set until handled by the API user.)
@@ -42,7 +42,7 @@ $(OL
 The $(LINK2 ./_flags.html#IntFlags.pushPop, `IntFlags.pushPop`) mixin can be used to prevent a function from handling
 or clearing flags that were set by the caller.
 
-Care must be taken when using the `noex` policy to insert sufficient `if (IntFlags.local)` checks; otherwise
+Care must be taken when using the `sticky` policy to insert sufficient `if (IntFlags.local)` checks; otherwise
 `checkedint` will not provide much protection from integer math related bugs.
 
 Copyright: Copyright Thomas Stuart Bockman 2015
@@ -53,11 +53,11 @@ module checkedint.flags;
 
 import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/;
 
-///
+/// The module description, $(LINK2 ./_flags.html, above), explains the different policies.
 enum IntFlagPolicy
 {
     none = 0,
-    noex = 1,
+    sticky = 1,
     asserts = 2,
     throws = 3
 }
@@ -65,8 +65,8 @@ enum IntFlagPolicy
 unittest
 {
     assert(!IntFlagPolicy.none); // none == 0
-    assert(IntFlagPolicy.noex > IntFlagPolicy.none);
-    assert(IntFlagPolicy.asserts > IntFlagPolicy.noex);
+    assert(IntFlagPolicy.sticky > IntFlagPolicy.none);
+    assert(IntFlagPolicy.asserts > IntFlagPolicy.sticky);
     assert(IntFlagPolicy.throws > IntFlagPolicy.asserts);
 }
 
@@ -86,7 +86,7 @@ unittest
     alias IFP = IntFlagPolicy;
     assert(intFlagPolicyOf!(SmartInt!(long, IFP.throws)) == IFP.throws);
     assert(intFlagPolicyOf!(SafeInt!(uint, IFP.asserts)) == IFP.asserts);
-    assert(intFlagPolicyOf!(SmartInt!(ushort, IFP.noex)) == IFP.noex);
+    assert(intFlagPolicyOf!(SmartInt!(ushort, IFP.sticky)) == IFP.sticky);
 
     // basic types implicitly have the `none` policy
     assert(intFlagPolicyOf!(wchar) == IFP.none);
@@ -164,7 +164,7 @@ template raise(IntFlagPolicy policy)
             }
         }
     }
-    else static if (policy == IntFlagPolicy.noex)
+    else static if (policy == IntFlagPolicy.sticky)
     {
         void raise(IntFlags flags) @safe nothrow @nogc
         {
@@ -219,7 +219,7 @@ unittest
 ///
 unittest
 {
-    import checkedint.noex : raise; // set IntFlagPolicy.noex
+    import checkedint.sticky : raise; // set IntFlagPolicy.sticky
 
     raise(IntFlag.div0);
     raise(IntFlag.posOver);
@@ -234,8 +234,8 @@ unittest
 
     static void fails() @safe nothrow
     {
-        raise!(IFP.noex)(IntFlag.negOver);
-        raise!(IFP.noex)(IntFlag.imag);
+        raise!(IFP.sticky)(IntFlag.negOver);
+        raise!(IFP.sticky)(IntFlag.imag);
     }
 
     bool caught = false;
@@ -548,7 +548,7 @@ public:
         static assert(hasLength!IntFlags);
     }
 
-    /// The standard `IntFlags` set for the current thread. `raise!(IntFlagPolicy.noex)()` mutates this variable.
+    /// The standard `IntFlags` set for the current thread. `raise!(IntFlagPolicy.sticky)()` mutates this variable.
     static IntFlags local;
 
     /**
@@ -569,7 +569,7 @@ scope(exit)
     ///
     unittest
     {
-        import checkedint.noex : raise; // set IntFlagPolicy.noex
+        import checkedint.sticky : raise; // set IntFlagPolicy.sticky
 
         string[] log;
 

@@ -1,11 +1,11 @@
 /**
-Aliases for the $(LINK2 ./package.html, `checkedint`) module using `IntFlagPolicy.noex`.
+Aliases for the $(LINK2 ./package.html, `checkedint`) module using `IntFlagPolicy.sticky`.
 
 Copyright: Copyright Thomas Stuart Bockman 2015
 License: $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
 Authors: Thomas Stuart Bockman
 **/
-module checkedint.noex;
+module checkedint.sticky;
 
 import future.traits0, std.typecons;
 
@@ -19,34 +19,34 @@ public import checkedint.flags :
     CheckedIntException;
 private alias IFP = IntFlagPolicy;
 
-alias raise = checkedint.flags.raise!(IFP.noex);
+alias raise = checkedint.flags.raise!(IFP.sticky);
 
 static import checkedint;
 
-alias SmartInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SmartInt!(N, IFP.noex, bitOps);
+alias SmartInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SmartInt!(N, IFP.sticky, bitOps);
 SmartInt!(N, bitOps) smartInt(Flag!"bitOps" bitOps = Yes.bitOps, N)(N num) nothrow @nogc
     if (isIntegral!N || isCheckedInt!N)
 {
     return typeof(return)(num.bscal);
 }
-alias smartOp = checkedint.smartOp!(IFP.noex);
+alias smartOp = checkedint.smartOp!(IFP.sticky);
 
-alias DebugInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.DebugInt!(N, IFP.noex, bitOps);
+alias DebugInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.DebugInt!(N, IFP.sticky, bitOps);
 
-alias SafeInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SafeInt!(N, IFP.noex, bitOps);
+alias SafeInt(N, Flag!"bitOps" bitOps = Yes.bitOps) = checkedint.SafeInt!(N, IFP.sticky, bitOps);
 SafeInt!(N, bitOps) safeInt(Flag!"bitOps" bitOps = Yes.bitOps, N)(N num) nothrow @nogc
     if (isIntegral!N || isCheckedInt!N)
 {
     return typeof(return)(num.bscal);
 }
-alias safeOp = checkedint.safeOp!(IFP.noex);
+alias safeOp = checkedint.safeOp!(IFP.sticky);
 
-alias to(T) = checkedint.to!(T, IFP.noex);
+alias to(T) = checkedint.to!(T, IFP.sticky);
 
 Select!(isSigned!(BasicScalar!N), ptrdiff_t, size_t) idx(N)(const N num) nothrow @nogc
     if (isScalarType!N || isCheckedInt!N)
 {
-    return checkedint.to!(typeof(return), IFP.noex)(num.bscal);
+    return checkedint.to!(typeof(return), IFP.sticky)(num.bscal);
 }
 
 public import checkedint :
