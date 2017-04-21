@@ -12,12 +12,6 @@ Authors: Thomas Stuart Bockman
 module future.traits0; 
 
 public import std.traits;
-static if (__VERSION__ < 2068)
-    alias CopyTypeQualifiers(From, To) = To; // HACK!
-else
-{
-    version(GNU) { static assert(false); }
-}
 
 enum isUnqual(T) = is(T == Unqual!T);
 enum isFixedPoint(T) = isIntegral!T || isSomeChar!T || isBoolean!T;

@@ -33,7 +33,7 @@ void all()()
     writeln("DONE");
 }
 
-/+@safe:+/
+@safe:
 
 void cmp(string op = null, N = void, M = void)()
 {

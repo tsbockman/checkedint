@@ -9,7 +9,7 @@ Authors: Thomas Stuart Bockman
 module future.math;
 public import std.math;
 
-static if (__VERSION__ >= 2067)
+static if (__VERSION__ >= 2069)
 {
     version(GNU) { static assert(false); }
 }

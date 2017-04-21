@@ -11,20 +11,11 @@ public import checkedint.tests.values;
 
 import checkedint.sticky;
 
-public import std.algorithm, future.format, std.stdio, future.traits0;
+public import std.algorithm, std.format, std.stdio, future.traits0;
 public static import stdm = future.math;
-static if (__VERSION__ >= 2068)
-{
-    version(GNU) { static assert(false); }
-    public import std.meta;
-}
-else
-{
-    public import std.typetuple;
-    alias AliasSeq = TypeTuple;
-}
+public import std.meta;
 
-package: /+@safe:+/
+package: @safe:
 
 alias Unused = const(void*);
 template OutIs(T)

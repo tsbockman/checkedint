@@ -9,7 +9,7 @@ module checkedint.throws;
 
 import future.traits0, std.typecons;
 
-@safe: /+pragma(inline, true):+/
+@safe: pragma(inline, true):
 
 static import checkedint.flags;
 public import checkedint.flags :

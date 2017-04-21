@@ -10,15 +10,9 @@ import checkedint, checkedint.flags, checkedint.traits;
 alias IFP = IntFlagPolicy;
 
 import std.algorithm, std.stdio;
-static if (__VERSION__ >= 2068)
-{
-    version(GNU) { static assert(false); }
-    import std.meta : AliasSeq;
-}
-else
-    import std.typetuple : AliasSeq = TypeTuple;
+import std.meta : AliasSeq;
 
-/+@safe:+/
+@safe:
 
 void benchMacro()
 {
@@ -91,7 +85,7 @@ template SafeFold(N)
 }
 
 // Unsafe high-speed shims:
-private /+pragma(inline, true)+/
+private pragma(inline, true)
 {
     auto mulPow2(N, M)(const N left, const M exp)
     {

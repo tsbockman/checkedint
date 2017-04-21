@@ -15,13 +15,7 @@ conflict with some from `std.traits`.
 module checkedint.traits;
 import checkedint.asserts : SmartInt;
 
-static if (__VERSION__ >= 2068)
-{
-    version(GNU) { static assert(false); }
-    import std.meta : AliasSeq;
-}
-else
-    import std.typetuple : AliasSeq = TypeTuple;
+import std.meta : AliasSeq;
 
 // checkedint.flags //////////////////////////////////////
 static import checkedint.flags;

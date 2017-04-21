@@ -110,18 +110,8 @@ Authors: Thomas Stuart Bockman
 module checkedint;
 import checkedint.flags;
 
-import future.bitop, core.checkedint, std.algorithm, std.format, future.traits0, std.typecons;
+import future.bitop, core.checkedint, std.algorithm, std.format, std.meta, future.traits0, std.typecons;
 static import std.math;
-static if (__VERSION__ >= 2068)
-{
-    version(GNU) { static assert(false); }
-    import std.meta;
-}
-else
-{
-    import std.typetuple;
-    private alias AliasSeq = TypeTuple;
-}
 
 /+pragma(inline, true)
 {+/
@@ -169,7 +159,7 @@ else
             }
 
             /// Get a view of this `SmartInt` that allows bitwise operations.
-            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() /+return+/ inout pure @safe nothrow @nogc
+            @property ref inout(SmartInt!(N, policy, Yes.bitOps)) bits() return inout pure @safe nothrow @nogc
             {
                 return this;
             }
@@ -185,49 +175,33 @@ else
         }
         else
         {
-            @property ref inout(N) bscal() /+return+/ inout pure @safe nothrow @nogc
+            @property ref inout(N) bscal() return inout pure @safe nothrow @nogc
             {
                 return bits.bscal;
             }
             SmartInt!(N, policy, Yes.bitOps) bits;
         }
 
-        static if (__VERSION__ >= 2067)
+        /// The most negative possible value of this `SmartInt` type.
+        enum SmartInt!(N, policy, bitOps) min = typeof(this)(trueMin!N);
+        ///
+        unittest
         {
-            version(GNU) { static assert(false); }
+            import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
 
-            /// The most negative possible value of this `SmartInt` type.
-            enum SmartInt!(N, policy, bitOps) min = typeof(this)(trueMin!N);
-            ///
-            unittest
-            {
-                import checkedint.throws : SmartInt; // use IntFlagPolicy.throws
-
-                assert(SmartInt!(int).min == int.min);
-                assert(SmartInt!(uint).min == uint.min);
-            }
-
-            /// The most positive possible value of this `SmartInt` type.
-            enum SmartInt!(N, policy, bitOps) max = typeof(this)(trueMax!N);
-            ///
-            unittest
-            {
-                import checkedint.throws : SmartInt; // use IntFlagPolicy.throws;
-
-                assert(SmartInt!(int).max == int.max);
-                assert(SmartInt!(uint).max == uint.max);
-            }
+            assert(SmartInt!(int).min == int.min);
+            assert(SmartInt!(uint).min == uint.min);
         }
-        else
+
+        /// The most positive possible value of this `SmartInt` type.
+        enum SmartInt!(N, policy, bitOps) max = typeof(this)(trueMax!N);
+        ///
+        unittest
         {
-            static @property auto min() pure @safe nothrow @nogc
-            {
-                return typeof(this)(trueMin!N);
-            }
-            static @property auto max() pure @safe nothrow @nogc
-            {
-                return typeof(this)(trueMax!N);
-            }
+            import checkedint.throws : SmartInt; // use IntFlagPolicy.throws;
+
+            assert(SmartInt!(int).max == int.max);
+            assert(SmartInt!(uint).max == uint.max);
         }
 
         // Construction, assignment, and casting /////////////////////////////////////////////////
@@ -459,7 +433,7 @@ else
             return typeof(return)(smartOp!(policy).unary!op(bscal));
         }
         /// ditto
-        ref typeof(this) opUnary(string op)() /+return+/ @safe
+        ref typeof(this) opUnary(string op)() return @safe
             if (op.among!("++", "--"))
         {
             smartOp!(policy).unary!op(bscal);
@@ -540,7 +514,7 @@ else
             return SmartInt!(typeof(wret), mixPolicy, mixBitOps)(wret);
         }
         /// ditto
-        ref typeof(this) opOpAssign(string op, M)(const M right) /+return+/ @safe
+        ref typeof(this) opOpAssign(string op, M)(const M right) return @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
@@ -985,7 +959,7 @@ else
             }
         }
         /// ditto
-        /+ref+/ N unary(string op, N)(/+return+/ ref N num) @safe
+        ref N unary(string op, N)(return ref N num) @safe
             if (isIntegral!N && op.among!("++", "--"))
         {
             static if (op == "++")
@@ -1385,7 +1359,7 @@ else
             return binaryImpl!(op, NumFromScal!N, NumFromScal!M)(left, right);
         }
         /// ditto
-        /+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right) @safe
+        ref N binary(string op, N, M)(return ref N left, const M right) @safe
             if (isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
         {
             static assert(op != "^^=",
@@ -1721,7 +1695,7 @@ else
             }
 
             /// Get a view of this `SafeInt` that allows bitwise operations.
-            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() /+return+/ inout pure @safe nothrow @nogc
+            @property ref inout(SafeInt!(N, policy, Yes.bitOps)) bits() return inout pure @safe nothrow @nogc
             {
                 return this;
             }
@@ -1737,49 +1711,33 @@ else
         }
         else
         {
-            @property ref inout(N) bscal() /+return+/ inout pure @safe nothrow @nogc
+            @property ref inout(N) bscal() return inout pure @safe nothrow @nogc
             {
                 return bits.bscal;
             }
             SafeInt!(N, policy, Yes.bitOps) bits;
         }
 
-        static if (__VERSION__ >= 2067)
+        /// The most negative possible value of this `SafeInt` type.
+        enum SafeInt!(N, policy, bitOps) min = typeof(this)(trueMin!N);
+        ///
+        unittest
         {
-            version(GNU) { static assert(false); }
+            import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
 
-            /// The most negative possible value of this `SafeInt` type.
-            enum SafeInt!(N, policy, bitOps) min = typeof(this)(trueMin!N);
-            ///
-            unittest
-            {
-                import checkedint.throws : SafeInt; // use IntFlagPolicy.throws
-
-                assert(SafeInt!(int).min == int.min);
-                assert(SafeInt!(uint).min == uint.min);
-            }
-
-            /// The most positive possible value of this `SafeInt` type.
-            enum SafeInt!(N, policy, bitOps) max = typeof(this)(trueMax!N);
-            ///
-            unittest
-            {
-                import checkedint.throws : SafeInt; // use IntFlagPolicy.throws;
-
-                assert(SafeInt!(int).max == int.max);
-                assert(SafeInt!(uint).max == uint.max);
-            }
+            assert(SafeInt!(int).min == int.min);
+            assert(SafeInt!(uint).min == uint.min);
         }
-        else
+
+        /// The most positive possible value of this `SafeInt` type.
+        enum SafeInt!(N, policy, bitOps) max = typeof(this)(trueMax!N);
+        ///
+        unittest
         {
-            static @property auto min() pure @safe nothrow @nogc
-            {
-                return typeof(this)(trueMin!N);
-            }
-            static @property auto max() pure @safe nothrow @nogc
-            {
-                return typeof(this)(trueMax!N);
-            }
+            import checkedint.throws : SafeInt; // use IntFlagPolicy.throws;
+
+            assert(SafeInt!(int).max == int.max);
+            assert(SafeInt!(uint).max == uint.max);
         }
 
         // Construction, assignment, and casting /////////////////////////////////////////////////
@@ -1807,7 +1765,7 @@ else
             this.bscal = that.bscal;
         }
         /// ditto
-        ref typeof(this) opAssign(M)(const M that) /+return+/ pure @safe nothrow @nogc
+        ref typeof(this) opAssign(M)(const M that) return pure @safe nothrow @nogc
             if (isCheckedInt!M || isScalarType!M)
         {
             checkImplicit!M();
@@ -2023,7 +1981,7 @@ else
             return typeof(return)(safeOp!(policy).unary!op(bscal));
         }
         /// ditto
-        ref typeof(this) opUnary(string op)() /+return+/ @safe
+        ref typeof(this) opUnary(string op)() return @safe
             if (op.among!("++", "--"))
         {
             safeOp!(policy).unary!op(bscal);
@@ -2098,7 +2056,7 @@ else
             return typeof(return)(safeOp!(.max(policy, intFlagPolicyOf!M)).binary!op(this.bscal, right.bscal));
         }
         /// ditto
-        ref typeof(this) opOpAssign(string op, M)(const M right) /+return+/ @safe
+        ref typeof(this) opOpAssign(string op, M)(const M right) return @safe
             if (isCheckedInt!M || isFixedPoint!M)
         {
             static assert((bitOps && hasBitOps!M) || !op.among!("<<", ">>", ">>>", "&", "|", "^"),
@@ -2394,7 +2352,7 @@ else
                 return mixin(op ~ "num");
         }
         /// ditto
-        /+ref+/ N unary(string op, N)(/+return+/ ref N num) @safe
+        ref N unary(string op, N)(return ref N num) @safe
             if ((isIntegral!N) && op.among!("++", "--"))
         {
             static if (op == "++")
@@ -2644,7 +2602,7 @@ else
             return binaryImpl!op(left, right);
         }
         /// ditto
-        /+ref+/ N binary(string op, N, M)(/+return+/ ref N left, const M right) @safe
+        ref N binary(string op, N, M)(return ref N left, const M right) @safe
             if (isIntegral!N && isFixedPoint!M && (op[$ - 1] == '='))
         {
             static assert(op != "^^=",
@@ -2983,7 +2941,7 @@ else
 
         Useful in generic code that handles both basic types, and `checkedint` types.
         **/
-      /+ref inout(N) bscal(N)(return ref inout(N) num) @safe
+        ref inout(N) bscal(N)(return ref inout(N) num) @safe
             if (isScalarType!N)
         {
             return num;
@@ -2994,7 +2952,7 @@ else
         {
             return num.bscal;
         }
-        /// ditto +/
+        /// ditto
         N bscal(N)(const N num) @safe
             if (isScalarType!N)
         {
@@ -3023,7 +2981,7 @@ else
 
         Useful in generic code that handles both basic types and `checkedint` types.
         **/
-      /+ref inout(N) bits(N)(return ref inout(N) num) @safe
+        ref inout(N) bits(N)(return ref inout(N) num) @safe
             if (isFixedPoint!N)
         {
             return num;
@@ -3034,7 +2992,7 @@ else
         {
             return num.bits;
         }
-        /// ditto +/
+        /// ditto
         N bits(N)(const N num) @safe
             if (isFixedPoint!N)
         {
@@ -3235,8 +3193,8 @@ private
             alias NumFromScal = ubyte;
     }
 
-    /+pragma(inline, true)
-    {+/
+    pragma(inline, true)
+    {
         int bsfImpl(IntFlagPolicy policy, N)(const N num) @safe
             if (isFixedPoint!N)
         {
@@ -3417,7 +3375,7 @@ private
 
             return ret;
         }
-    /+}+/
+    }
 
     struct PowOut(B)
     {
@@ -3430,7 +3388,7 @@ private
         if ((is(B == int) || is(B == uint) || is(B == long) || is(B == ulong)) &&
             (is(E == long) || is(E == ulong)))
     {
-        static if (__VERSION__ >= 2068) pragma(inline, false);
+        pragma(inline, false);
         PowOut!B ret;
 
         static if (isSigned!B)

@@ -10,13 +10,7 @@ Authors: Thomas Stuart Bockman
 module checkedint.tests.values;
 
 import std.math, future.traits0;
-static if (__VERSION__ >= 2068)
-{
-    version(GNU) { static assert(false); }
-    import std.meta : AliasSeq;
-}
-else
-    import std.typetuple : AliasSeq = TypeTuple;
+import std.meta : AliasSeq;
 
 pure: nothrow: @nogc: @safe:
 

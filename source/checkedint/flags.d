@@ -166,21 +166,21 @@ template raise(IntFlagPolicy policy)
     }
     else static if (policy == IntFlagPolicy.sticky)
     {
+    pragma(inline, true):
         void raise(IntFlags flags) @safe nothrow @nogc
         {
-          /+pragma(inline, true);+/
             IntFlags.local |= flags;
         }
         void raise(IntFlag flag) @safe nothrow @nogc
         {
-          /+pragma(inline, true);+/
             IntFlags.local |= flag;
         }
     }
     else static if (policy == IntFlagPolicy.none)
     {
-        void raise(IntFlags flags) pure @safe nothrow @nogc { /+pragma(inline, true);+/ }
-        void raise(IntFlag flag) pure @safe nothrow @nogc { /+pragma(inline, true);+/ }
+    pragma(inline, true):
+        void raise(IntFlags flags) pure @safe nothrow @nogc { }
+        void raise(IntFlag flag) pure @safe nothrow @nogc { }
     } else
         static assert(false);
 }
@@ -255,7 +255,7 @@ unittest
 /// Represents a single cause of failure for an integer math operation.
 struct IntFlag
 {
-/+pragma(inline, true):+/
+pragma(inline, true):
 private:
     uint index;
     this(uint index) pure @safe nothrow @nogc
@@ -275,53 +275,18 @@ private:
         "{divide by zero}"
     ];
 public:
-    static if (__VERSION__ >= 2067)
-    {
-        version(GNU) { static assert(false); }
-
-        /// Overflow occured.
-        enum IntFlag over    = 1;
-        /// Overflow occured because a value was too large.
-        enum IntFlag posOver = 2;
-        /// Overflow occured because a value was too negative.
-        enum IntFlag negOver = 3;
-        /// The result is imaginary, and as such not representable by an integral type.
-        enum IntFlag imag    = 4;
-        /// The result of the operation is undefined mathematically, by the API, or both.
-        enum IntFlag undef   = 5;
-        /// A division by zero was attempted.
-        enum IntFlag div0    = 6;
-    }
-    else
-    {
-        static @property pure @safe nothrow @nogc
-        {
-            auto over()
-            {
-                return IntFlag(1);
-            }
-            auto posOver()
-            {
-                return IntFlag(2);
-            }
-            auto negOver()
-            {
-                return IntFlag(3);
-            }
-            auto imag()
-            {
-                return IntFlag(4);
-            }
-            auto undef()
-            {
-                return IntFlag(5);
-            }
-            auto div0()
-            {
-                return IntFlag(6);
-            }
-        }
-    }
+    /// Overflow occured.
+    enum IntFlag over    = 1;
+    /// Overflow occured because a value was too large.
+    enum IntFlag posOver = 2;
+    /// Overflow occured because a value was too negative.
+    enum IntFlag negOver = 3;
+    /// The result is imaginary, and as such not representable by an integral type.
+    enum IntFlag imag    = 4;
+    /// The result of the operation is undefined mathematically, by the API, or both.
+    enum IntFlag undef   = 5;
+    /// A division by zero was attempted.
+    enum IntFlag div0    = 6;
 
     /// `false` if this `IntFlag` is set to one of the error signals listed above. Otherwise `true`.
     @property bool isNull() const pure @safe nothrow @nogc
@@ -422,7 +387,7 @@ public:
     {
         bits = that.bits;
     }
-    ref IntFlags opAssign(IntFlags that) /+return+/ pure @safe nothrow @nogc
+    ref IntFlags opAssign(IntFlags that) return pure @safe nothrow @nogc
     {
         bits = that.bits;
         return this;
@@ -467,7 +432,7 @@ public:
         return ret.opOpAssign!op(that);
     }
     /// ditto
-    ref IntFlags opOpAssign(string op)(IntFlags that) /+return+/ pure @safe nothrow @nogc
+    ref IntFlags opOpAssign(string op)(IntFlags that) return pure @safe nothrow @nogc
         if (op.among!("&", "|", "-"))
     {
         static if (op == "&")
@@ -524,7 +489,7 @@ public:
         return IntFlag(bsr(bits | 1));
     }
     /// Clear the first set `IntFlag`. This is equivalent to `flags -= flags.front`.
-    ref IntFlags popFront() /+return+/ pure @safe nothrow @nogc
+    ref IntFlags popFront() return pure @safe nothrow @nogc
     {
         // bsr() is undefined for 0.
         bits = bits & ~(1u << bsr(bits | 1));
@@ -595,7 +560,7 @@ scope(exit)
         assert(log == ["{negative overflow}", "{positive overflow}"]);
     }
 
-/+pragma(inline):+/
+pragma(inline):
     /// Get a string representation of the list of set flags.
     string toString() const pure @safe
     {
