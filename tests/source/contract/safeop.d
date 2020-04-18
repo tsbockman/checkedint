@@ -93,7 +93,7 @@ void abs(N = void)()
         }
         alias R = CallType!(stdm.abs, N);
 
-        static if (isIntegral!R)
+        static if (real(R.max) >= real(N.max))
             fuzz!(sc, Unqual, OutIs!R, control, N)();
         else
             forbid!(sc, N)();
@@ -118,7 +118,7 @@ void ilogb(N = void)()
         {
             return n != 0? stdm.ilogb(n) : real.nan;
         }
-        alias R = CallType!(stdm.ilogb, IntFromChar!N);
+        alias R = CallType!(stdm.ilogb, Promoted!N);
 
         fuzz!(sc, Unqual, OutIs!R, control, N)();
     }
@@ -149,7 +149,7 @@ void unary(string op = null, N = void)()
         }
         alias R = OpType!(op, N);
 
-        static if ((op != "-" || isSigned!N) && isIntegral!R)
+        static if ((op != "-" || isSigned!R) && isIntegral!R)
             fuzz!(sc, Unqual, OutIs!R, control, N)();
         else
             forbid!(sc, N)();

@@ -17,7 +17,7 @@ public import std.meta;
 
 package: @safe:
 
-alias Unused = const(void*);
+alias Unused = typeof(null);
 template OutIs(T)
 {
     enum OutIs(N, M, PR) = is(PR == T);
@@ -34,10 +34,10 @@ private template TypeFmt(T)
         enum TypeFmt = "%s";
 }
 
-void forbid(string subjectCall, N, M = void*)()
+void forbid(string subjectCall, N, M = Unused)()
 {
     N n;
-    static if (! is(M == void*))
+    static if (! is(M == Unused))
         M m = 1; // Don't try to divide by zero.
 
     static if (__traits(compiles, mixin(subjectCall)))
@@ -45,15 +45,15 @@ void forbid(string subjectCall, N, M = void*)()
         writeln();
         writeln(subjectCall);
         writeln("\t" ~ N.stringof ~ " n;");
-        static if (! is(M == void*))
+        static if (! is(M == Unused))
             writeln("\t" ~ M.stringof ~ " m;");
         writeln("\tFAILS: forbidden");
     }
 }
 
-void fuzz(alias subjectCall, alias SubjectIn, alias isValidOut, alias control, N, M = void*)()
+void fuzz(alias subjectCall, alias SubjectIn, alias isValidOut, alias control, N, M = Unused)()
 {
-    enum isBin = !is(M == void*);
+    enum isBin = !is(M == Unused);
 
     static if (is(typeof(subjectCall) == string))
     {

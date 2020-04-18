@@ -23,10 +23,10 @@ alias
     ScalarTypes = AliasSeq!(FixedTypes, FloatingTypes);
 
 struct TestValues(N)
-    if (is(N == void*))
+    if (is(N == typeof(null)))
 {
     bool empty = false;
-    void* front() const
+    typeof(null) front() const
     {
         return null;
     }

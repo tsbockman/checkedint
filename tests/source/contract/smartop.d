@@ -144,9 +144,19 @@ void unary(string op = null, N = void)()
         enum sc = "smartOp.unary!\"" ~ op ~ "\"(n)";
 
         static assert(real.mant_dig >= precision!N);
-        auto control(Select!(op == "~", N, real) n, Unused m = null)
+        static if (op == "~")
         {
-            return mixin(op ~ "n");
+            auto control(const N n, Unused m = null)
+            {
+                return cast(N)~cast(Promoted!N)n;
+            }
+        }
+        else
+        {
+            auto control(real n, Unused m = null)
+            {
+                return mixin(op ~ "n");
+            }
         }
         enum isVO(N, M, PR) = (PR.sizeof >= N.sizeof) && (isSigned!PR || !op.among!("-", "+"));
 

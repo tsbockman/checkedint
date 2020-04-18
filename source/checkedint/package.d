@@ -1972,7 +1972,7 @@ static import std.math;
 
         // Unary /////////////////////////////////////////////////
         /// ditto
-        typeof(this) opUnary(string op)() const @safe
+        SafeInt!(OpType!(op, N), policy, bitOps) opUnary(string op)() const @safe
             if (op.among!("-", "+", "~"))
         {
             static assert(bitOps || (op != "~"),
@@ -1989,7 +1989,7 @@ static import std.math;
         }
 
         /// ditto
-        typeof(this) abs() const @safe
+        SafeInt!(CallType!(std.math.abs, N), policy, bitOps) abs() const @safe
         {
             return typeof(return)(safeOp!(policy).abs(bscal));
         }
@@ -2321,16 +2321,17 @@ static import std.math;
 
         `++` and `--` are checked for overflow at runtime, and will raise `IntFlag.posOver` or `IntFlag.negOver` if needed.
         **/
-        N unary(string op, N)(const N num) @safe
-            if ((isIntegral!N) && op.among!("-", "+", "~"))
+        OpType!(op, N) unary(string op, N)(const N num) @safe
+            if ((isFixedPoint!N && isIntegral!(OpType!(op, N))) && op.among!("-", "+", "~"))
         {
-            static assert(isSigned!N || op != "-",
+            static assert(isSigned!(typeof(return)) || op != "-",
                 "The standard unary - operation for " ~ N.stringof ~
                 " is unsafe. Use an explicit cast to a signed type, or switch to smartOp/SmartInt."
             );
 
-            static if (op == "-")
+            static if (op == "-" && typeof(return).max <= N.max)
             {
+                static assert(is(typeof(return) == N));
                 static if (is(N == int) || is(N == long))
                 {
                     bool over = false;
@@ -2339,20 +2340,20 @@ static import std.math;
                 else
                 {
                     const over = (num <= trueMin!N);
-                    const ret = cast(N)-cast(Promoted!N)num;
+                    const ret = -cast(Promoted!N)num;
                 }
 
                 if (over)
                     IntFlag.posOver.raise!policy();
-
-                return ret;
             }
             else
-                return cast(N)mixin(op ~ "cast(Promoted!N)num");
+                const ret = mixin(op ~ "cast(Promoted!N)num");
+
+            return cast(typeof(return))ret;
         }
         /// ditto
         ref N unary(string op, N)(return ref N num) @safe
-            if ((isIntegral!N) && op.among!("++", "--"))
+            if (isIntegral!N && op.among!("++", "--"))
         {
             static if (op == "++")
             {
@@ -2399,15 +2400,37 @@ static import std.math;
 
         `IntFlag.posOver` is raised if `N` is signed and `num == N.min`.
         **/
-        N abs(N)(const N num) @safe
-            if (isIntegral!N || isBoolean!N)
+        CallType!(std.math.abs, N) abs(N)(const N num) @safe
+            if (isFixedPoint!N)
         {
-            static if (isSigned!N)
+            enum bool canOverflow = (typeof(return).max < cast(Unsigned!(Promoted!N))N.min);
+            static assert(!canOverflow || is(typeof(return) == N));
+
+            auto ret = cast(Promoted!N)num;
+            static if (canOverflow && (is(N == int) || is(N == long)))
             {
-                if (num < 0)
-                    return unary!"-"(num);
+                bool over = false;
+                if (ret < 0)
+                    ret = negs(ret, over);
             }
-            return num;
+            else
+            {
+                static if (canOverflow)
+                    const over = (ret <= trueMin!N);
+
+                static if (isSigned!N)
+                {
+                    if (ret < 0)
+                        ret = -ret;
+                }
+            }
+
+            static if (canOverflow)
+            {
+                if (over)
+                    IntFlag.posOver.raise!policy();
+            }
+            return cast(typeof(return))ret;
         }
         ///
         unittest
