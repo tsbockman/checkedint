@@ -661,7 +661,7 @@ static import std.math;
         SmartInt!uint mc;
 
         mc = mb - ma;
-        assert(IntFlags.local == IntFlag.negOver);
+        assert(IntFlags.local == IntFlag.over);
 
         // With standard integers, this would crash the program with an unrecoverable FPE...
         mc = ma / mb;
@@ -669,7 +669,7 @@ static import std.math;
         assert(IntFlags.local & IntFlag.div0);
 
         // Each flag will remain set until cleared:
-        assert(IntFlags.local.clear() == (IntFlag.negOver | IntFlag.div0));
+        assert(IntFlags.local.clear() == (IntFlag.over | IntFlag.div0));
         assert(!IntFlags.local);
     }
 
@@ -2203,7 +2203,7 @@ static import std.math;
         SafeInt!uint sc;
 
         sc = sb - sa;
-        assert(IntFlags.local == IntFlag.negOver);
+        assert(IntFlags.local == IntFlag.over);
 
         // With standard integers, this would crash the program with an unrecoverable FPE...
         sc = sa / sb;
@@ -2211,7 +2211,7 @@ static import std.math;
         assert(IntFlags.local & IntFlag.div0);
 
         // Each flag will remain set until cleared:
-        assert(IntFlags.local.clear() == (IntFlag.negOver | IntFlag.div0));
+        assert(IntFlags.local.clear() == (IntFlag.over | IntFlag.div0));
         assert(!IntFlags.local);
     }
 
