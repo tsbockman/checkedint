@@ -110,7 +110,9 @@ Authors: Thomas Stuart Bockman
 module checkedint;
 import checkedint.flags;
 
-import future.bitop, core.checkedint, std.algorithm, std.format, std.meta, future.traits0, std.typecons;
+static assert(__VERSION__ >= 2071);
+
+import core.bitop, core.checkedint, std.algorithm, std.format, std.meta, future.traits0, std.typecons;
 static import std.math;
 
 /+pragma(inline, true)
@@ -451,8 +453,7 @@ static import std.math;
         {
             static assert(bitOps, "Bitwise operations are disabled.");
 
-            import future.bitop : stdPC = popcnt;
-            return typeof(return)(stdPC(bscal));
+            return typeof(return)(core.bitop.popcnt(bscal));
         }
 
         /// See $(LINK2 ./package.html#smartOp, `smartOp`).
@@ -794,8 +795,7 @@ static import std.math;
 
                 static if (isFloatingPoint!N || isFloatingPoint!M)
                 {
-                    import future.math : stdCmp = cmp;
-                    return stdCmp(left, right);
+                    return std.math.cmp(left, right);
                 }
                 else
                 {
@@ -834,7 +834,7 @@ static import std.math;
                     return num;
                 else
                     return cast(typeof(return))(num < 0?
-                        -num : // -num doesn't need to be checked for overflow
+                        -cast(Promoted!N)num : // -num doesn't need to be checked for overflow
                          num);
             }
             /// ditto
@@ -917,13 +917,13 @@ static import std.math;
         N unary(string op, N)(const N num) pure @safe nothrow @nogc
             if (isIntegral!N && op == "~")
         {
-            return ~num;
+            return cast(N)~cast(Promoted!N)num;
         }
         /// ditto
         IntFromChar!N unary(string op, N)(const N num) pure @safe nothrow @nogc
             if (isSomeChar!N && op == "~")
         {
-            return ~num;
+            return cast(N)~cast(Promoted!N)num;
         }
         /// ditto
         Signed!(Promoted!N) unary(string op, N)(const N num) @safe 
@@ -1235,7 +1235,7 @@ static import std.math;
 
                                 if (wR > cast(UR)trueMin!R)
                                     flag = IntFlag.negOver;
-                                ret = -cast(R)wR;
+                                ret = cast(R)-wR;
                             }
                             else
                             {
@@ -1258,7 +1258,7 @@ static import std.math;
             {
                 R ret = void;
                 static if (isSigned!M)
-                    const wG = cast(UM)((right < 0)? -right : right);
+                    const wG = cast(UM)((right < 0)? -cast(Promoted!M)right : right);
                 else
                     const wG = right;
 
@@ -1298,9 +1298,9 @@ static import std.math;
                     const wL = cast(UN)left;
                 else
                     alias wL = left;
-                const absG = negG?
-                    -cast(UM)right :
-                     cast(UM)right;
+                const absG = cast(UM) (negG?
+                    -cast(Promoted!M)right :
+                     right);
 
                 enum maxSh = precision!UN - 1;
                 if (absG <= maxSh)
@@ -1999,8 +1999,7 @@ static import std.math;
         {
             static assert(bitOps, "Bitwise operations are disabled.");
 
-            import future.bitop : stdPC = popcnt;
-            return typeof(return)(stdPC(bscal));
+            return typeof(return)(core.bitop.popcnt(bscal));
         }
 
         /// See $(LINK2 ./package.html#safeOp, `safeOp`).
@@ -2340,7 +2339,7 @@ static import std.math;
                 else
                 {
                     const over = (num <= trueMin!N);
-                    const N ret = -num;
+                    const ret = cast(N)-cast(Promoted!N)num;
                 }
 
                 if (over)
@@ -2349,7 +2348,7 @@ static import std.math;
                 return ret;
             }
             else
-                return mixin(op ~ "num");
+                return cast(N)mixin(op ~ "cast(Promoted!N)num");
         }
         /// ditto
         ref N unary(string op, N)(return ref N num) @safe
@@ -2466,7 +2465,7 @@ static import std.math;
             if (isFixedPoint!N)
         {
             static if (isSigned!N)
-                const absN = cast(Unsigned!N) (num < 0? -num : num);
+                const absN = cast(Unsigned!N) (num < 0? -cast(Promoted!N)num : num);
             else
                 alias absN = num;
 
@@ -2550,7 +2549,7 @@ static import std.math;
             {
                 enum isPromSafe = !isSigned!N || isSigned!R || (op == ">>>");
 
-                enum invalidSh = ~cast(M)(8 * P.sizeof - 1);
+                enum invalidSh = ~cast(Promoted!M)(8 * P.sizeof - 1);
                 if (right & invalidSh)
                     IntFlag.undef.raise!policy();
 
@@ -2987,8 +2986,14 @@ static import std.math;
             return num;
         }
         /// ditto
-        ref inout(N) bits(N)(return ref inout(N) num) @safe
-            if (isCheckedInt!N)
+        ref inout(SmartInt!(BasicScalar!N, N.policy, Yes.bitOps)) bits(N)(return ref inout(N) num) @safe
+            if (isSmartInt!N)
+        {
+            return num.bits;
+        }
+        /// ditto
+        ref inout(SafeInt!(BasicScalar!N, N.policy, Yes.bitOps)) bits(N)(return ref inout(N) num) @safe
+            if (isSafeInt!N)
         {
             return num.bits;
         }
@@ -3177,7 +3182,7 @@ private
         if (isScalarType!N)
     {
         static if (is(Unqual!N == dchar))
-            enum N trueMax = ~cast(N)0;
+            enum N trueMax = cast(N)~cast(Promoted!N)0;
         else
             enum N trueMax = N.max;
     }
@@ -3326,7 +3331,7 @@ private
                 const rc = cast(R)left;
                 const negE = exp < 0;
                 const absE = cast(Unsigned!M)(negE?
-                    -exp :
+                    -cast(Promoted!M)exp :
                      exp);
                 const bigSh = (absE > maxSh);
 
@@ -3362,13 +3367,13 @@ private
             }
             else
             {
-                if (exp & ~maxSh)
+                if (exp & ~cast(Promoted!M)maxSh)
                     ret = (exp < 0)? 0 : left;
                 else
                 {
-                    const mask = ~(~cast(N)0 << exp);
+                    const mask = ~(~cast(Promoted!N)0 << exp);
                     ret = cast(R)(left < 0?
-                        -(-left & mask) :
+                        -(-cast(Promoted!N)left & mask) :
                          left & mask);
                 }
             }

@@ -51,7 +51,7 @@ Authors: Thomas Stuart Bockman
 **/
 module checkedint.flags;
 
-import future.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/;
+import core.bitop, std.algorithm, std.array, std.format, std.range/+.primitives+/;
 
 /// The module description, $(LINK2 ./_flags.html, above), explains the different policies.
 enum IntFlagPolicy
@@ -501,7 +501,7 @@ public:
         return this;
     }
     /// Get the number of raised flags.
-    @property uint length() const pure @safe nothrow @nogc
+    @property size_t length() const pure @safe nothrow @nogc
     {
         return popcnt(bits);
     }

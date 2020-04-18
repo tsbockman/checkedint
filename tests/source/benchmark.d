@@ -11,6 +11,13 @@ alias IFP = IntFlagPolicy;
 
 import std.algorithm, std.stdio;
 import std.meta : AliasSeq;
+static if(__VERSION__ >= 2075)
+    import std.datetime.stopwatch : benchmark, Duration;
+else
+{
+    import std.conv : to;
+    import std.datetime : benchmark, Duration;
+}
 
 @safe:
 
@@ -24,9 +31,6 @@ ulong checkSum;
 bool invalid;
 void benchMacro(string testStr)()
 {
-    import std.conv : to;
-    import std.datetime : benchmark, Duration;
-
     mixin("alias test = " ~ testStr ~ ";");
     writeln();
     write("Running "); write(testStr); writeln("() benchmark... ");
@@ -58,7 +62,7 @@ void benchMacro(string testStr)()
             auto best = Duration.max;
             foreach (i; 0 .. trials)
             {
-                const r = to!Duration(benchmark!(test!N)(laps)[0]) / laps;
+                const r = mixin(((__VERSION__ < 2075)? "to!Duration" : "") ~ "(benchmark!(test!N)(laps)[0]) / laps");
                 if (r < best)
                     best = r;
             }
@@ -67,7 +71,7 @@ void benchMacro(string testStr)()
                 write("!CHECKSUM ");
             if (invalid)
                 write("!INVALID ");
-            writeln(to!Duration(best));
+            writeln(best);
         }
     }
 

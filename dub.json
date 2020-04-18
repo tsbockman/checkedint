@@ -5,6 +5,10 @@
   "authors": ["Thomas Stuart Bockman"],
   "license": "BSL-1.0",
 
+  "toolchainRequirements": {
+    "frontend": ">=2.071"
+  },
+
   "targetType": "library",
   "buildOptions": ["ignoreUnknownPragmas"],
   "subPackages": [

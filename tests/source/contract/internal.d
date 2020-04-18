@@ -12,7 +12,7 @@ public import checkedint.tests.values;
 import checkedint.sticky;
 
 public import std.algorithm, std.format, std.stdio, future.traits0;
-public static import stdm = future.math;
+public static import stdm = std.math;
 public import std.meta;
 
 package: @safe:

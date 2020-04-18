@@ -14,6 +14,7 @@ import future.traits0, std.typecons;
 static import checkedint.flags;
 public import checkedint.flags :
     IntFlagPolicy,
+    intFlagPolicyOf,
     IntFlag,
     IntFlags,
     CheckedIntException;
@@ -56,5 +57,4 @@ public import checkedint :
     isSmartInt,
     isCheckedInt,
     hasBitOps,
-    intFlagPolicyOf,
     BasicScalar;

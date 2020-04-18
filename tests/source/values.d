@@ -57,44 +57,54 @@ public:
     }
 }
 
-private enum ulong[] naturals = function()
-{
-    ulong[34 + 3*(64 - 5) - 2] nats;
-
-    size_t n = 0;
-    while (n <= 33)
-    {
-        nats[n] = n;
-        ++n;
-    }
-
-    int sh = 6;
-    while (sh < 64)
-    {
-        nats[n++] = (1uL << sh) -1;
-        nats[n++] = (1uL << sh);
-        nats[n++] = (1uL << sh) + 1;
-        ++sh;
-    }
-    nats[n] = ulong.max;
-
-    return nats;
-}();
 struct TestValues(N)
-    if (isIntegral!N || isSomeChar!N)
+    if ((isIntegral!N || isSomeChar!N) && isUnqual!N)
 {
 private:
-    enum maxIdx = function()
+    static if (is(N == ulong))
     {
-        // Test dchar values greater than dchar.max, also:
-        enum ulong trueNmax = isSomeChar!N? ~cast(N)0 : N.max;
+        static immutable N[] naturals = function()
+        {
+            ulong[34 + 3*(64 - 5) - 2] nats;
 
-        auto x = cast(ptrdiff_t)(naturals.length - 1);
-        while (naturals[x] > trueNmax)
-            --x;
-        return x;
-    }();
-    enum minIdx = isSigned!N? -(maxIdx + 1) : 0;
+            size_t n = 0;
+            while (n <= 33)
+            {
+                nats[n] = n;
+                ++n;
+            }
+
+            int sh = 6;
+            while (sh < 64)
+            {
+                nats[n++] = (1uL << sh) -1;
+                nats[n++] = (1uL << sh);
+                nats[n++] = (1uL << sh) + 1;
+                ++sh;
+            }
+            nats[n] = ulong.max;
+
+            return nats;
+        }();
+
+        enum ptrdiff_t maxIdx = naturals.length - 1;
+    }
+    else
+    {
+        alias naturals = TestValues!(ulong).naturals;
+
+        enum ptrdiff_t maxIdx = function()
+        {
+            // Test dchar values greater than dchar.max, also:
+            enum ulong trueNmax = isSomeChar!N? ~0uL : N.max;
+
+            auto x = cast(ptrdiff_t)(naturals.length - 1);
+            while (naturals[x] > trueNmax)
+                --x;
+            return x;
+        }();
+    }
+    enum ptrdiff_t minIdx = isSigned!N? -(maxIdx + 1) : 0;
 
     ptrdiff_t index = minIdx;
 
@@ -108,7 +118,7 @@ public:
         static if (isSigned!N)
         {
             if (index < 0)
-                return -cast(N)naturals[-index];
+                return cast(N)-cast(Promoted!N)naturals[-index];
         }
 
         return cast(N)naturals[index];
@@ -119,105 +129,123 @@ public:
     }
 }
 
-private enum real[] normal_exps = [
-    real.min_exp < double.min_exp? pow(2.0L, real.min_exp - 1) : 0.0,
-    real.min_exp < double.min_exp? pow(2.0L, real.min_exp) : 0.0,
+private enum real ctPow2(int exponent) = mixin("0x1.0p" ~ exponent.stringof ~ "L");
 
-    pow(2.0L, double.min_exp - 1),
-    pow(2.0L, double.min_exp),
-
-    pow(2.0L, -722),
-
-    pow(2.0L, float.min_exp - 1),
-    pow(2.0L, float.min_exp),
-
-    pow(2.0L, -13),
-    pow(2.0L, -12),
-
-    pow(2.0L, -4),
-    pow(2.0L, -3),
-    pow(2.0L, -2),
-    pow(2.0L, -1),
-
-    1uL << 0,
-    1uL << 1,
-    1uL << 2,
-    1uL << 3,
-    1uL << 4,
-
-    // byte
-    (byte.max >> 1) + 1,
-    // ubyte
-    (ubyte.max >> 1) + 1,
-    1uL << 8,
-    1uL << 10,
-    1uL << 11,
-    1uL << 12,
-    1uL << 13,
-    // short
-    (short.max >> 1) + 1,
-    // ushort
-    (ushort.max >> 1) + 1,
-    1uL << 16,
-    1uL << 23,
-    1uL << 24,
-    1uL << 25,
-    // int
-    (int.max >> 1) + 1,
-    // uint
-    (uint.max >> 1) + 1,
-    1uL << 32,
-    1uL << 52,
-    1uL << 53,
-    1uL << 54,
-    1uL << 61,
-    // long
-    (long.max >> 1) + 1,
-    // ulong
-    (ulong.max >> 1) + 1,
-    pow(2.0L, 64),
-
-    pow(2.0L, 104),
-    pow(2.0L, 105),
-    pow(2.0L, 106),
-    pow(2.0L, 111),
-    pow(2.0L, 112),
-    pow(2.0L, 113),
-    pow(2.0L, 125),
-
-    // cent
-    pow(2.0L, float.max_exp - 2),
-    // ucent
-    pow(2.0L, float.max_exp - 1),
-    pow(2.0L, float.max_exp),
-    pow(2.0L, 437),
-    pow(2.0L, double.max_exp - 2),
-    pow(2.0L, double.max_exp - 1),
-    pow(2.0L, double.max_exp),
-    real.max_exp > double.max_exp? pow(2.0L, real.max_exp - 2) : real.infinity,
-    real.max_exp > double.max_exp? pow(2.0L, real.max_exp - 1) : real.infinity
-];
 struct TestValues(N)
-    if (isFloatingPoint!N)
+    if (isFloatingPoint!N && isUnqual!N)
 {
 private:
-    enum minExpIdx = function()
+    static if (is(N == real))
     {
-        ptrdiff_t expX = 0;
-        while (!(normal_exps[expX] >= N.min_normal))
-            ++expX;
-        return expX;
-    }();
-    enum maxExpIdx = function()
-    {
-        ptrdiff_t expX = normal_exps.length - 1;
-        while (!(normal_exps[expX] <= N.max))
-            --expX;
-        return expX;
-    }();
-    enum expCount = (maxExpIdx - minExpIdx) + 1;
+        enum real[] normal_exps_small = [
+            ctPow2!(real.min_exp - 1),
+            ctPow2!(real.min_exp)
+        ];
+        enum real[] normal_exps_core = [
+            ctPow2!(double.min_exp - 1),
+            ctPow2!(double.min_exp),
 
-    enum N[] normal_mants = [
+            ctPow2!(-722),
+
+            ctPow2!(float.min_exp - 1),
+            ctPow2!(float.min_exp),
+
+            ctPow2!(-13),
+            ctPow2!(-12),
+
+            ctPow2!(-4),
+            ctPow2!(-3),
+            ctPow2!(-2),
+            ctPow2!(-1),
+
+            1uL << 0,
+            1uL << 1,
+            1uL << 2,
+            1uL << 3,
+            1uL << 4,
+
+            // byte
+            (byte.max >> 1) + 1,
+            // ubyte
+            (ubyte.max >> 1) + 1,
+            1uL << 8,
+            1uL << 10,
+            1uL << 11,
+            1uL << 12,
+            1uL << 13,
+            // short
+            (short.max >> 1) + 1,
+            // ushort
+            (ushort.max >> 1) + 1,
+            1uL << 16,
+            1uL << 23,
+            1uL << 24,
+            1uL << 25,
+            // int
+            (int.max >> 1) + 1,
+            // uint
+            (uint.max >> 1) + 1,
+            1uL << 32,
+            1uL << 52,
+            1uL << 53,
+            1uL << 54,
+            1uL << 61,
+            // long
+            (long.max >> 1) + 1,
+            // ulong
+            (ulong.max >> 1) + 1,
+            ctPow2!(64),
+
+            ctPow2!(104),
+            ctPow2!(105),
+            ctPow2!(106),
+            ctPow2!(111),
+            ctPow2!(112),
+            ctPow2!(113),
+            ctPow2!(125),
+
+            // cent
+            ctPow2!(float.max_exp - 2),
+            // ucent
+            ctPow2!(float.max_exp - 1),
+            ctPow2!(float.max_exp),
+            ctPow2!(437),
+            ctPow2!(double.max_exp - 2),
+            ctPow2!(double.max_exp - 1)
+        ];
+        enum real[] normal_exps_large = [
+            ctPow2!(double.max_exp),
+            ctPow2!(real.max_exp - 2),
+            ctPow2!(real.max_exp - 1)
+        ];
+
+        static if (is(real == double))
+            static immutable real[] normal_exps = normal_exps_core;
+        else
+            static immutable real[] normal_exps = normal_exps_small ~ normal_exps_core ~ normal_exps_large;
+    }
+    else
+    {
+        static immutable N[] normal_exps = function()
+        {
+            const normal_exps = TestValues!(real).normal_exps;
+
+            ptrdiff_t minExpIdx = 0;
+            while (!(normal_exps[minExpIdx] >= N.min_normal))
+                ++minExpIdx;
+
+            ptrdiff_t maxExpIdx = normal_exps.length - 1;
+            while (!(normal_exps[maxExpIdx] <= N.max))
+                --maxExpIdx;
+
+            auto ret = new N[(maxExpIdx - minExpIdx) + 1];
+            foreach(x; minExpIdx .. maxExpIdx + 1)
+                ret[x - minExpIdx] = cast(N)normal_exps[x];
+            return ret.idup;
+        }();
+    }
+
+    static immutable N[] normal_mants = [
         1.0L,
         1.0L + N.epsilon,
         LN2 * 2.0L,
@@ -227,7 +255,7 @@ private:
         2.0L - (N.epsilon * 2.0L),
         2.0L - N.epsilon
     ];
-    enum ptrdiff_t maxIdx = (expCount * normal_mants.length) + 2;
+    enum ptrdiff_t maxIdx = (normal_exps.length * normal_mants.length) + 2;
 
     auto index = -maxIdx;
     N _front = -N.infinity;
@@ -253,7 +281,7 @@ public:
         else if (absIdx < maxIdx)
         {
             const mant = normal_mants[(absIdx - 2) % normal_mants.length];
-            const expC = normal_exps[minExpIdx + (absIdx - 2) / normal_mants.length];
+            const expC = normal_exps[(absIdx - 2) / normal_mants.length];
             _front = mant * expC;
         }
         else

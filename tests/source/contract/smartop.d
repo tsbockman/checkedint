@@ -200,7 +200,7 @@ void binary(string op = null, N = void, M = void)()
                 {
                     const shL = (op == "<<") ^ (m < 0);
                     enum int maxSh = (8 * N.sizeof) - 1;
-                    const um = cast(UM)stdm.abs(m);
+                    const um = cast(UM)stdm.abs(cast(Promoted!M)m);
 
                     static if (op == ">>>")
                         auto wret = cast(UN)n;
@@ -350,19 +350,7 @@ void pow(N = void, M = void)()
         static assert(real.mant_dig >= max(precision!N, precision!M));
         real control(const real n, const real m)
         {
-            static if (__VERSION__ >= 2070)
-            {
-                version(GNU) { static assert(false); }
-                return stdm.trunc(stdm.pow(n, m));
-            }
-            else
-            {
-                // DMD issue #14786
-                if (n == -1 && stdm.fabs(m) <= ulong.max)
-                    return (cast(ulong)m & 0x1)? -1 : 1;
-                else
-                    return stdm.trunc(stdm.pow(n, m));
-            }
+            return stdm.trunc(stdm.pow(n, m));
         }
         enum isVO(N, M, PR) = isIntegral!PR && (PR.sizeof >= N.sizeof) && (isSigned!PR == isSigned!N);
 

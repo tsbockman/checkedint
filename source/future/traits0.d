@@ -35,10 +35,13 @@ template IntFromChar(N)
 {
     alias IntFromChar = Unqual!N;
 }
-template Promoted(N)
-    if (isScalarType!N)
+static if(__VERSION__ < 2073)
 {
-    alias Promoted = CopyTypeQualifiers!(N, typeof(N.init + N.init));
+    template Promoted(N)
+        if (isScalarType!N)
+    {
+        alias Promoted = CopyTypeQualifiers!(N, typeof(N.init + N.init));
+    }
 }
 
 alias CallType(alias callable, ArgTypes...) = typeof(function()
@@ -61,7 +64,7 @@ alias OpType(T, string op, V) = typeof(function()
 template precision(N)
     if (isScalarType!N)
 {
-    import future.bitop : bsr;
+    import core.bitop : bsr;
     static if (isFloatingPoint!N)
         enum int precision = N.mant_dig;
     else static if (isSomeChar!N)
